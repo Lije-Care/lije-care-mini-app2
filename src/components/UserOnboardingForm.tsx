@@ -45,6 +45,18 @@ const UserOnboardingForm = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const phoneFromBot = urlParams.get("phone");
+
+    if (phoneFromBot) {
+      setFormData((prev) => ({
+        ...prev,
+        phone: "+" + phoneFromBot,
+      }));
+    }
+  }, []);
+
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -52,11 +64,11 @@ const UserOnboardingForm = () => {
       newErrors.firstName = lang === "en" ? "Name is required" : "ስም ያስፈልጋል";
 
     // ✅ Accept +2519... OR +2517... (Ethio Telecom & Safaricom)
-    if (!/^\+251(9|7)\d{8}$/.test(formData.phone))
-      newErrors.phone =
-        lang === "en"
-          ? "Use format +2519XXXXXXXX or +2517XXXXXXXX"
-          : "በመልክ +2519XXXXXXXX ወይም +2517XXXXXXXX ያስገቡ";
+    // if (!/^\+251(9|7)\d{8}$/.test(formData.phone))
+    //   newErrors.phone =
+    //     lang === "en"
+    //       ? "Use format +2519XXXXXXXX or +2517XXXXXXXX"
+    //       : "በመልክ +2519XXXXXXXX ወይም +2517XXXXXXXX ያስገቡ";
 
     // ✅ Password validation: at least 6 characters + strong pattern
     if (formData.password.length < 6) {
@@ -167,13 +179,12 @@ const UserOnboardingForm = () => {
                 id="phone"
                 name="phone"
                 type="tel"
-                placeholder={t("phonePlaceholder")}
-                className={`w-full px-4 py-2 rounded-lg border text-white ${
-                  errors.phone ? "border-red-500" : "border-gray-300"
-                }`}
+                disabled={!!formData.phone}
+                className="w-full px-4 py-2 rounded-lg border text-gray-400 bg-gray-700"
                 value={formData.phone}
-                onChange={handleChange}
+                readOnly
               />
+
               {errors.phone && (
                 <p className="text-sm text-red-500 mt-1">{errors.phone}</p>
               )}
