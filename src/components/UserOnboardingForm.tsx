@@ -106,9 +106,12 @@ const UserOnboardingForm = () => {
     setSubmitError("");
 
     try {
-      await api.post("users/create", formData);
+      // Don't send telegramId - it causes "no user found" error
+      // telegramId can be linked later after account creation
+      const { telegramId, ...signupData } = formData;
+      await api.post("users/create", signupData);
       localStorage.setItem("onboarding_complete", "true");
-      navigate("/");
+      navigate("/signin");
     } catch (err: any) {
       setSubmitError(err?.response?.data?.message || "Something went wrong.");
     } finally {
@@ -179,10 +182,10 @@ const UserOnboardingForm = () => {
                 id="phone"
                 name="phone"
                 type="tel"
-                disabled={!!formData.phone}
-                className="w-full px-4 py-2 rounded-lg border text-gray-400 bg-gray-700"
+                placeholder={t("phonePlaceholder")}
+                className="w-full px-4 py-2 rounded-lg border text-white bg-gray-700"
                 value={formData.phone}
-                readOnly
+                onChange={handleChange}
               />
 
               {errors.phone && (

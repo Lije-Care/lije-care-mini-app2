@@ -1,16 +1,25 @@
 import { useState, ChangeEvent, FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/redux/store";
-import { Button, Headline, Spinner } from "@telegram-apps/telegram-ui";
-import { FaEdit } from "react-icons/fa";
+import { Button, Input } from "@/components/ui";
 import { updateParent } from "@/redux/slices/itemSlice";
 import type { ParentInfo } from "@/types";
-
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 
-const ParentProfile = () => {
+interface ParentProfileProps {
+  onClose?: () => void;
+}
+
+const EditIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+);
+
+const ParentProfile = (_props: ParentProfileProps) => {
   const { t } = useTranslation();
-
   const dispatch = useDispatch<AppDispatch>();
   const parentState = useSelector((state: RootState) => state.parent);
   const parent = parentState?.parent as unknown as ParentInfo;
@@ -47,94 +56,161 @@ const ParentProfile = () => {
           userID: telegramUser?.id ?? "",
         })
       );
+      toast.success(t("Profile updated successfully!"));
+      setIsEditing(false);
+    } catch (error) {
+      toast.error(t("Failed to update profile"));
     } finally {
       setLoading(false);
-      setIsEditing(false);
     }
   };
 
+  const profileFields = [
+    { name: "firstName", label: t("First Name"), icon: "👤" },
+    { name: "lastName", label: t("Last Name"), icon: "👤" },
+    { name: "phone", label: t("Phone Number"), icon: "📱" },
+    { name: "address", label: t("Address"), icon: "📍" },
+    { name: "city", label: t("City"), icon: "🏙️" },
+    { name: "telegram_username", label: t("Telegram Username"), icon: "✈️" },
+    { name: "email", label: t("Email"), icon: "📧" },
+  ];
+
+  if (isEditing) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label={t("First Name")}
+            name="firstName"
+            placeholder={t("Enter first name")}
+            value={formData.firstName}
+            onChange={handleChange}
+          />
+          <Input
+            label={t("Last Name")}
+            name="lastName"
+            placeholder={t("Enter last name")}
+            value={formData.lastName}
+            onChange={handleChange}
+          />
+        </div>
+
+        <Input
+          label={t("Phone Number")}
+          name="phone"
+          type="tel"
+          placeholder={t("Enter phone number")}
+          value={formData.phone}
+          onChange={handleChange}
+        />
+
+        <Input
+          label={t("Email")}
+          name="email"
+          type="email"
+          placeholder={t("Enter email")}
+          value={formData.email}
+          onChange={handleChange}
+        />
+
+        <Input
+          label={t("Address")}
+          name="address"
+          placeholder={t("Enter address")}
+          value={formData.address}
+          onChange={handleChange}
+        />
+
+        <Input
+          label={t("City")}
+          name="city"
+          placeholder={t("Enter city")}
+          value={formData.city}
+          onChange={handleChange}
+        />
+
+        <Input
+          label={t("Telegram Username")}
+          name="telegram_username"
+          placeholder={t("Enter Telegram username")}
+          value={formData.telegram_username}
+          onChange={handleChange}
+        />
+
+        <div className="flex gap-3 pt-4">
+          <Button
+            type="button"
+            variant="secondary"
+            color="slate"
+            fullWidth
+            size="lg"
+            onClick={() => setIsEditing(false)}
+          >
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="submit"
+            color="sky"
+            fullWidth
+            size="lg"
+            loading={loading}
+            disabled={loading}
+          >
+            {t("Save")}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
   return (
-    <div className="flex justify-center items-center p-4 bg-[#0B364F]">
-      <div className="shadow-lg rounded-lg p-6 w-full max-w-md relative">
+    <div className="space-y-4">
+      {/* Profile Header */}
+      <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
+        <div className="w-16 h-16 bg-sky-100 rounded-2xl flex items-center justify-center">
+          <span className="text-3xl">👤</span>
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-bold text-slate-800">
+            {parent?.firstName || t("Parent")} {parent?.lastName || ""}
+          </h3>
+          <p className="text-slate-500 text-sm">{parent?.phone || t("No phone")}</p>
+        </div>
         <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="absolute top-4 right-4 text-[#0B8FAC] hover:text-gray-900"
+          onClick={() => setIsEditing(true)}
+          className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-100 transition-colors"
         >
-          <FaEdit size={20} />
+          <EditIcon />
         </button>
-
-        <Headline style={{ textAlign: "center", color: "white" }}>
-          {t("Parent Profile")}
-        </Headline>
-
-        {isEditing ? (
-          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-            {[
-              { name: "firstName", label: t("First Name") },
-              { name: "lastName", label: t("Last Name") },
-              { name: "phone", label: t("Phone Number") },
-              { name: "address", label: t("Address") },
-              { name: "city", label: t("City") },
-              { name: "telegram_username", label: t("Telegram Username") },
-              { name: "email", label: t("Email") },
-            ].map(({ name, label }) => (
-              <div key={name} className="flex flex-col">
-                <label
-                  htmlFor={name}
-                  className="text-sm font-medium text-gray-300 mb-1"
-                >
-                  {label}
-                </label>
-                <input
-                  id={name}
-                  name={name}
-                  type="text"
-                  value={(formData as any)[name]}
-                  onChange={handleChange}
-                  className="border border-gray-300 text-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 w-full"
-                  placeholder={`${t("Enter")} ${label.toLowerCase()}`}
-                />
-              </div>
-            ))}
-
-            <div className="flex flex-col sm:flex-row gap-2 mt-4">
-              <Button type="submit" className="w-full sm:w-1/2">
-                {loading ? <Spinner size="s" /> : t("Save")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="w-full sm:w-1/2"
-              >
-                {t("Cancel")}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div className="grid grid-cols-2 gap-y-3 text-white mt-4">
-            <span className="font-medium">{t("Parent Name")}:</span>
-            <span>
-              {parent?.firstName} {parent?.lastName}
-            </span>
-            <span className="font-medium">{t("Mobile No")}:</span>
-            <span>{parent?.phone || t("N/A")}</span>
-            <span className="font-medium">{t("Address")}:</span>
-            <span>{parent?.address || t("N/A")}</span>
-            <span className="font-medium">{t("City")}:</span>
-            <span>{parent?.city || t("N/A")}</span>
-            <span className="font-medium">{t("Telegram Username")}:</span>
-            <span>{parent?.telegram_username || t("N/A")}</span>
-            <span className="font-medium">{t("Email")}:</span>
-            <span>{parent?.email || t("N/A")}</span>
-          </div>
-        )}
-
-        {loading && !isEditing && (
-          <div className="flex justify-center items-center h-16">
-            <Spinner size="l" />
-          </div>
-        )}
       </div>
+
+      {/* Profile Fields */}
+      <div className="space-y-3">
+        {profileFields.map((field) => (
+          <div
+            key={field.name}
+            className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"
+          >
+            <span className="text-xl">{field.icon}</span>
+            <div className="flex-1">
+              <p className="text-xs text-slate-500 font-medium">{field.label}</p>
+              <p className="text-slate-800 font-semibold">
+                {(formData as any)[field.name] || t("Not set")}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        color="sky"
+        fullWidth
+        size="lg"
+        onClick={() => setIsEditing(true)}
+        leftIcon={<EditIcon />}
+      >
+        {t("Edit Profile")}
+      </Button>
     </div>
   );
 };

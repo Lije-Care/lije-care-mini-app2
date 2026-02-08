@@ -1,35 +1,51 @@
 import { useState, useEffect } from "react";
-import { Button, Modal } from "@telegram-apps/telegram-ui";
+import { Button, Input } from "@/components/ui";
+import { BottomSheet } from "@/components/ui";
 import toast from "react-hot-toast";
 import api from "@/api/axios";
-
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 declare global {
   interface Window {
     Telegram?: any;
   }
 }
-import { useNavigate } from "react-router-dom";
-// remove url from here
 
-const AccountSettings = () => {
+interface AccountSettingsProps {
+  onClose?: () => void;
+}
+
+const LogOutIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+);
+
+const KeyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18"/>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+  </svg>
+);
+
+const AccountSettings = (_props: AccountSettingsProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showForgot, setShowForgot] = useState(false);
-  const [showReset, setShowReset] = useState(false);
   const [showChange, setShowChange] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
-  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
-  const [passwordChangeSuccessMessage, setPasswordChangeSuccessMessage] =
-    useState<string | null>();
-
-  const [resetData, setResetData] = useState({
-    otp: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [loading, setLoading] = useState(false);
 
   const [changeData, setChangeData] = useState({
     oldPassword: "",
@@ -37,99 +53,16 @@ const AccountSettings = () => {
     confirmPassword: "",
   });
 
-  const [resetToken, setResetToken] = useState("");
-  const [userPhone, setUserPhone] = useState("");
-  const [telegramId, setTelegramId] = useState("");
   const [userId, setUserId] = useState("");
 
   useEffect(() => {
     const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-    setUserPhone(localUser?.phone ?? "");
     setUserId(localUser?.id ?? "");
-
-    const tgUserId = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user
-      ?.id;
-    setTelegramId(tgUserId ? String(tgUserId) : "");
   }, []);
 
-  const handleChangeReset = (e: any) => {
-    const { name, value } = e.target;
-    setResetData((prev) => ({ ...prev, [name]: value }));
-    setResetSuccess(null); // Clear success message on input change
-  };
-
-  const handleChangePasswordChange = (e: any) => {
-    const { name, value } = e.target;
-    setChangeData((prev) => ({ ...prev, [name]: value }));
-    setChangeError(null); // Clear error on input change
-  };
-
-  const handleForgotPassword = async () => {
-    if (!userPhone) {
-      toast.error(
-        t(
-          "Missing phone number. Please ensure your account has a valid phone number."
-        )
-      );
-      return;
-    }
-
-    try {
-      const res = await api.post("/auth/forget-password", {
-        phone: userPhone,
-        telegramId: telegramId,
-      });
-
-      if (res.status === 201) {
-        toast.success(t("OTP sent to your Telegram bot!"));
-        setResetToken(res.data?.token ?? "");
-        setShowForgot(false);
-        setShowReset(true);
-      } else {
-        toast.error(t("Unexpected response from server. Please try again."));
-      }
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          t("Failed to send OTP. Please check your connection.")
-      );
-    }
-  };
-
-  const handleResetPassword = async () => {
-    const { otp, password, confirmPassword } = resetData;
-
-    if (!otp) {
-      toast.error(t("Please enter the OTP sent to your Telegram."));
-      return;
-    }
-
-    if (!password || !confirmPassword) {
-      toast.error(t("Please fill in both password fields."));
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error(t("New password and confirm password don't match."));
-      return;
-    }
-
-    try {
-      const res = await api.post(`auth/reset-password`, {
-        token: resetToken,
-        otp,
-        password,
-      });
-
-      setResetSuccess(res.data?.message || t("Password reset successfully!"));
-      setResetData({ otp: "", password: "", confirmPassword: "" });
-      setResetToken("");
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          t("Failed to reset password. Please try again.")
-      );
-    }
+  const handleChangePasswordChange = (field: string, value: string) => {
+    setChangeData((prev) => ({ ...prev, [field]: value }));
+    setChangeError(null);
   };
 
   const handleChangePassword = async () => {
@@ -137,52 +70,54 @@ const AccountSettings = () => {
 
     if (!oldPassword || !newPassword || !confirmPassword) {
       setChangeError(t("Please fill in all password fields."));
-      toast.error(t("Please fill in all password fields."));
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setChangeError(t("Password must be at least 6 characters."));
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setChangeError(t("New password and confirm password don't match."));
-      toast.error(t("New password and confirm password don't match."));
       return;
     }
 
     try {
+      setLoading(true);
       const res = await api.post(`/auth/change-password`, {
         oldPassword,
         newPassword,
       });
 
       if (res.status === 200 || res.status === 201) {
-        setPasswordChangeSuccessMessage(
-          "You have Change password Successfully"
-        );
-
+        toast.success(t("Password changed successfully!"));
         setShowChange(false);
-        setChangeData({
-          oldPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
+        setChangeData({ oldPassword: "", newPassword: "", confirmPassword: "" });
         setChangeError(null);
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message;
       if (errorMessage?.includes("old password")) {
-        setChangeError(t("The old password is incorrect. Please try again."));
-        toast.error(t("The old password is incorrect. Please try again."));
+        setChangeError(t("The old password is incorrect."));
       } else {
-        setChangeError(
-          errorMessage || t("Failed to change password. Please try again.")
-        );
-        toast.error(
-          errorMessage || t("Failed to change password. Please try again.")
-        );
+        setChangeError(errorMessage || t("Failed to change password."));
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    try {
+      window.Telegram?.WebApp?.close();
+    } catch (e) {}
+    navigate("/signin");
+  };
+
   const handleDeleteAccount = async () => {
     if (!userId) {
       toast.error(t("User ID not found. Please log in again."));
@@ -198,170 +133,160 @@ const AccountSettings = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("access_token");
         navigate("/signin");
-      } else {
-        toast.error(t("Unexpected response from server. Please try again."));
       }
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          t("Failed to delete account. Please try again.")
-      );
+      toast.error(error?.response?.data?.message || t("Failed to delete account."));
     }
   };
 
+  const settingsOptions = [
+    {
+      icon: <LogOutIcon />,
+      label: t("Log out"),
+      description: t("Sign out of your account"),
+      onClick: handleLogout,
+      color: "slate",
+      danger: false,
+    },
+    {
+      icon: <KeyIcon />,
+      label: t("Change Password"),
+      description: t("Update your password"),
+      onClick: () => setShowChange(true),
+      color: "sky",
+      danger: false,
+    },
+    {
+      icon: <TrashIcon />,
+      label: t("Delete Account"),
+      description: t("Permanently delete your account"),
+      onClick: () => setIsDeleting(true),
+      color: "rose",
+      danger: true,
+    },
+  ];
+
   return (
-    <div className="p-4 w-full max-w-md mx-auto text-sm bg-[#0B364F]">
-      <h2 className="text-lg font-bold mb-4 text-center">
-        {t("Account Settings")}
-      </h2>
-      <p className=" py-1 text-sm font-semibold text-green-400">
-        {passwordChangeSuccessMessage}
-      </p>
-
-      <Button
-        className="w-full mb-3"
-        onClick={() => {
-          localStorage.removeItem("user");
-          localStorage.removeItem("access_token");
-          window.Telegram.WebApp.close();
-          navigate("/signin");
-        }}
-      >
-        {t("Log out")}
-      </Button>
-
-      <Button className="w-full mb-3" onClick={() => setShowChange(true)}>
-        🔐 {t("Change Password")}
-      </Button>
-
-      <Button
-        className="w-full bg-red-600 text-white"
-        onClick={() => setIsDeleting(true)}
-      >
-        {t("Delete Account")}
-      </Button>
-
-      {/* Forgot Password Modal */}
-      <Modal open={showForgot} onOpenChange={setShowForgot}>
-        <div className="p-4">
-          <h3 className="text-md font-semibold mb-3 text-center">
-            {t("Send OTP to Telegram")}
-          </h3>
-          <div className="mb-4 text-sm text-gray-600">
-            {t("We'll send an OTP to your Telegram using")}:
-            <ul className="mt-2 list-disc pl-5 text-xs">
-              <li>
-                <strong>{t("Phone")}:</strong> {userPhone}
-              </li>
-              <li>
-                <strong>{t("Telegram ID")}:</strong> {telegramId}
-              </li>
-            </ul>
+    <div className="space-y-3">
+      {settingsOptions.map((option) => (
+        <button
+          key={option.label}
+          onClick={option.onClick}
+          className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
+            option.danger
+              ? "border-rose-100 bg-rose-50 hover:border-rose-200"
+              : "border-slate-100 bg-slate-50 hover:border-slate-200"
+          }`}
+        >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            option.danger
+              ? "bg-rose-100 text-rose-600"
+              : option.color === "sky"
+              ? "bg-sky-100 text-sky-600"
+              : "bg-slate-200 text-slate-600"
+          }`}>
+            {option.icon}
           </div>
-          <Button className="w-full" onClick={handleForgotPassword}>
-            📤 {t("Send OTP")}
-          </Button>
-        </div>
-      </Modal>
+          <div className="flex-1">
+            <h3 className={`font-bold ${option.danger ? "text-rose-600" : "text-slate-800"}`}>
+              {option.label}
+            </h3>
+            <p className="text-sm text-slate-500">{option.description}</p>
+          </div>
+        </button>
+      ))}
 
-      {/* Reset Password Modal */}
-      <Modal open={showReset} onOpenChange={setShowReset}>
-        <div className="p-4">
-          <h3 className="text-md font-semibold mb-3 text-center">
-            {t("Reset Password Title")}
-          </h3>
-
-          {resetSuccess && (
-            <div className="mb-2 text-green-600 text-sm">{resetSuccess}</div>
-          )}
-
-          <input
-            name="otp"
-            placeholder={t("Enter OTP")}
-            value={resetData.otp}
-            onChange={handleChangeReset}
-            className="w-full mb-2 px-3 py-2 border rounded-md"
-          />
-          <input
-            name="password"
-            type="password"
-            placeholder={t("New Password")}
-            value={resetData.password}
-            onChange={handleChangeReset}
-            className="w-full mb-2 px-3 py-2 border rounded-md"
-          />
-          <input
-            name="confirmPassword"
-            type="password"
-            placeholder={t("Confirm Password")}
-            value={resetData.confirmPassword}
-            onChange={handleChangeReset}
-            className="w-full mb-4 px-3 py-2 border rounded-md"
-          />
-          <Button className="w-full " onClick={handleResetPassword}>
-            ✅ {t("Confirm Reset")}
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Change Password Modal */}
-      <Modal open={showChange} onOpenChange={setShowChange}>
-        <div className="p-4 bg-[#0B364F] text-white">
-          <h3 className="text-md font-semibold mb-3 text-center">
-            {t("Change Password")}
-          </h3>
-
+      {/* Change Password Sheet */}
+      <BottomSheet
+        isOpen={showChange}
+        onClose={() => setShowChange(false)}
+        title={t("Change Password")}
+      >
+        <div className="space-y-4">
           {changeError && (
-            <div className="mb-2 text-red-600 text-sm">{changeError}</div>
+            <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
+              <p className="text-rose-600 text-sm font-medium">{changeError}</p>
+            </div>
           )}
 
-          <input
-            name="oldPassword"
+          <Input
+            label={t("Current Password")}
             type="password"
-            placeholder={t("Old Password")}
+            placeholder={t("Enter current password")}
             value={changeData.oldPassword}
-            onChange={handleChangePasswordChange}
-            className="w-full mb-2 px-3 py-2 border rounded-md"
+            onChange={(e) => handleChangePasswordChange("oldPassword", e.target.value)}
           />
-          <input
-            name="newPassword"
-            type="password"
-            placeholder={t("New Password")}
-            value={changeData.newPassword}
-            onChange={handleChangePasswordChange}
-            className="w-full mb-2 px-3 py-2 border rounded-md"
-          />
-          <input
-            name="confirmPassword"
-            type="password"
-            placeholder={t("Confirm New Password")}
-            value={changeData.confirmPassword}
-            onChange={handleChangePasswordChange}
-            className="w-full mb-4 px-3 py-2 border rounded-md"
-          />
-          <Button className="w-full" onClick={handleChangePassword}>
-            🔐 {t("Change Password")}
-          </Button>
-        </div>
-      </Modal>
 
-      {/* Delete Account Modal */}
-      <Modal open={isDeleting} onOpenChange={setIsDeleting}>
-        <div className="p-4 text-center">
-          <p className="mb-4 text-red-600 font-semibold">
-            {t("Delete Warning")}
-          </p>
+          <Input
+            label={t("New Password")}
+            type="password"
+            placeholder={t("Enter new password")}
+            value={changeData.newPassword}
+            onChange={(e) => handleChangePasswordChange("newPassword", e.target.value)}
+          />
+
+          <Input
+            label={t("Confirm New Password")}
+            type="password"
+            placeholder={t("Confirm new password")}
+            value={changeData.confirmPassword}
+            onChange={(e) => handleChangePasswordChange("confirmPassword", e.target.value)}
+          />
+
           <Button
-            className="w-full bg-red-600 text-white mb-2"
-            onClick={handleDeleteAccount}
+            color="sky"
+            fullWidth
+            size="lg"
+            onClick={handleChangePassword}
+            loading={loading}
+            disabled={loading}
           >
-            {t("Yes, Delete My Account")}
-          </Button>
-          <Button className="w-full" onClick={() => setIsDeleting(false)}>
-            {t("Cancel")}
+            {t("Update Password")}
           </Button>
         </div>
-      </Modal>
+      </BottomSheet>
+
+      {/* Delete Account Confirmation Sheet */}
+      <BottomSheet
+        isOpen={isDeleting}
+        onClose={() => setIsDeleting(false)}
+        title={t("Delete Account")}
+      >
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto">
+            <span className="text-3xl">⚠️</span>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              {t("Are you sure?")}
+            </h3>
+            <p className="text-slate-500 text-sm">
+              {t("This action cannot be undone. All your data will be permanently deleted.")}
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <Button
+              color="coral"
+              fullWidth
+              size="lg"
+              onClick={handleDeleteAccount}
+            >
+              {t("Yes, Delete My Account")}
+            </Button>
+            <Button
+              variant="secondary"
+              color="slate"
+              fullWidth
+              size="lg"
+              onClick={() => setIsDeleting(false)}
+            >
+              {t("Cancel")}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 };

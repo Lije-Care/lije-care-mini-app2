@@ -1,4 +1,4 @@
-import { useLaunchParams, miniApp, useSignal } from "@telegram-apps/sdk-react";
+import { useLaunchParams } from "@telegram-apps/sdk-react";
 import { AppRoot } from "@telegram-apps/telegram-ui";
 import {
   Navigate,
@@ -9,22 +9,17 @@ import {
 } from "react-router-dom";
 
 import { routes } from "@/navigation/routes.tsx";
-import BottomNav from "./Templates/BottomNav";
-import ConsultationTab from "@/pages/ConsultationBookingPage";
+import { Header, BottomNav } from "@/components/layout";
+import ProtectedRoute from "./ProtectedRoute";
 
+// Existing pages (keeping for compatibility)
 import MealComponent from "@/pages/meal/MealPlan";
-
 import MealPlanSummary from "@/pages/meal/MealPlanSummary";
 import EditMealPlan from "@/pages/meal/EditMealPLan";
 import VideoCall from "@/pages/Consultation/VideoCall";
 import MealDetails from "@/pages/meal/MealView";
-// import ArticleSlider from '@/pages/knowledgebase/ArticleSlider';
 import ArticlesPage from "@/pages/knowledgebase/ArticleSlider";
 import ArticleDetail from "@/pages/knowledgebase/ArticleDetail";
-import { useDispatch } from "react-redux";
-import { useEffect } from "react";
-import { AppDispatch } from "@/redux/store";
-import ProtectedRoute from "./ProtectedRoute";
 import AddChildPage from "./AddChildPage";
 import DoctorDetailPage from "@/pages/DoctorDetailPage";
 import MyAppointments from "@/pages/MyAppointments";
@@ -36,26 +31,44 @@ import PaymentStatus from "./PaymentStatus";
 import BookingCheckout from "./booking/BookingCheckout";
 import PackageList from "./booking/PackageList";
 import BookingSuccess from "./booking/BookingSuccess";
+import ConsultationTab from "@/pages/ConsultationBookingPage";
 
-const Layout = ({ children }: { children: any }) => {
-  const location = useLocation(); // Hook to get current path
+// New pages
+import AssessmentView from "@/pages/assessment/AssessmentView";
+import MealsView from "@/pages/meals/MealsView";
 
-  // Define paths where navbar should be hidden
-  const hideNavbarPaths = ["/signin", "/onboarding"];
+import { useState } from "react";
 
-  const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
+// Paths where navbar and header should be hidden
+const HIDE_NAVBAR_PATHS = ["/signin", "/onboarding", "/signup", "/video-call", "/chat"];
+const HIDE_HEADER_PATHS = ["/signin", "/onboarding", "/signup", "/video-call", "/chat"];
+
+const Layout = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  const [, setSelectedChildId] = useState<string | null>(
+    localStorage.getItem("favorite_child_id")
+  );
+
+  const shouldHideNavbar = HIDE_NAVBAR_PATHS.some(path =>
+    location.pathname.startsWith(path) || location.pathname === path
+  );
+
+  const shouldHideHeader = HIDE_HEADER_PATHS.some(path =>
+    location.pathname.startsWith(path) || location.pathname === path
+  );
+
+  const handleChildChange = (childId: string) => {
+    setSelectedChildId(childId);
+  };
 
   return (
-    <div>
-      <div
-        className=" bg-gray-800"
-        style={{
-          marginTop: "0px",
-          paddingBottom: shouldHideNavbar ? "0px" : "60px",
-        }}
-      >
+    <div className="min-h-screen bg-slate-50 flex flex-col max-w-md mx-auto relative shadow-2xl overflow-hidden font-['Quicksand']">
+      {!shouldHideHeader && <Header onChildChange={handleChildChange} />}
+
+      <main className="flex-1 overflow-y-auto hide-scrollbar">
         {children}
-      </div>
+      </main>
+
       {!shouldHideNavbar && <BottomNav />}
     </div>
   );
@@ -63,36 +76,19 @@ const Layout = ({ children }: { children: any }) => {
 
 export function App() {
   const lp = useLaunchParams();
-  const isDark = useSignal(miniApp.isDark);
-  const telegramUser = JSON.parse(localStorage.getItem("user") || "{}");
-  JSON.parse(localStorage.getItem("user") || "{}");
-  const dispatch = useDispatch<AppDispatch>();
-  const storedUser = localStorage.getItem("user");
-  // let val = JSON.parse(storedUser || '{}');
-
-  useEffect(() => {
-    if (storedUser) {
-    }
-  }, [telegramUser, dispatch]);
 
   return (
     <AppRoot
-      appearance={isDark ? "dark" : "light"}
+      appearance="light"
       platform={["macos", "ios"].includes(lp.platform) ? "ios" : "base"}
     >
       <HashRouter>
         <Layout>
           <Routes>
             {routes.map(({ path, Component, protected: isProtected }) => {
-              const isChildProtected = ![
-                "/signin",
-                "/signup",
-                "/add-child",
-              ].includes(path);
-              console.log(isChildProtected, "isChildProtected", path);
               const wrapped = isProtected ? (
                 <ProtectedRoute>
-                  {isChildProtected ? <Component /> : <Component />}
+                  <Component />
                 </ProtectedRoute>
               ) : (
                 <Component />
@@ -101,6 +97,25 @@ export function App() {
               return <Route key={path} path={path} element={wrapped} />;
             })}
 
+            {/* New Routes */}
+            <Route
+              path="/assessment"
+              element={
+                <ProtectedRoute>
+                  <AssessmentView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/meals"
+              element={
+                <ProtectedRoute>
+                  <MealsView />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Existing Routes */}
             <Route path="/add-child" element={<AddChildPage />} />
             <Route
               path="/meal/:id"
@@ -110,7 +125,6 @@ export function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/my-appointments"
               element={
@@ -151,8 +165,6 @@ export function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* <Route path="/chat/:doctorId" element={<ChatScreen />} /> */}
             <Route
               path="/chat/:doctorId"
               element={
@@ -185,8 +197,6 @@ export function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* Payment routes */}
             <Route
               path="/payment-one"
               element={
@@ -203,7 +213,6 @@ export function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/articles"
               element={
@@ -220,7 +229,6 @@ export function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/notifications"
               element={

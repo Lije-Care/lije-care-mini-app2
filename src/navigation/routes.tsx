@@ -1,63 +1,48 @@
 import type { ComponentType, JSX } from "react";
-import { IndexPage } from "@/pages/IndexPage/IndexPage";
+
+// Existing pages
 import { BookDoctorsPage } from "@/pages/BookDoctorsPage.tsx";
 import SigninPage from "@/pages/auth/SigninPage";
 import SignUpPage from "@/pages/auth/SignUpPage";
-
 import ProfileScreen from "@/pages/Profile";
-import ProductList from "@/pages/ecommerce/products/ProductList";
 import PaymentScreen from "@/components/Templates/PaymentScreen";
 import PaymentSuccessScreen from "@/pages/PaymentSuccessScreen";
-import DoctorsConsultationPage from "@/pages/DoctorsConsultationPage";
 import MealPlanPage from "@/pages/meal/MealPlanPage";
 import ConsultationBookingPage from "@/pages/ConsultationBookingPage";
 import ChildProfilePage from "@/pages/ChildProfilePage";
 import ChildrenListPage from "@/pages/ChildrenListPage";
-import UserOnboardingForm from "@/components/UserOnboardingForm";
 import ProductDetailPage from "@/pages/ecommerce/products/ProductDetailPage";
 import CheckoutPage from "@/pages/ecommerce/checkout/CheckoutPage";
+
+// New pages with new design
+import HomeDashboard from "@/pages/home/HomeDashboard";
+import AssessmentView from "@/pages/assessment/AssessmentView";
+import MealsView from "@/pages/meals/MealsView";
+import ShopView from "@/pages/shop/ShopView";
+import CallCenterView from "@/pages/Consultation/CallCenterView";
+import Onboarding from "@/pages/onboarding";
 
 interface Route {
   path: string;
   Component: ComponentType;
-  protected?: boolean; // <-- new field
+  protected?: boolean;
   title?: string;
   icon?: JSX.Element;
 }
 
 export const routes: Route[] = [
-  { path: "/", Component: IndexPage, protected: true },
-  { path: "/onboarding", Component: UserOnboardingForm, protected: false },
-  {
-    path: "/book",
-    Component: BookDoctorsPage,
-    title: "Booking Page",
-    protected: true,
-  },
-  {
-    path: "/payment",
-    Component: PaymentScreen,
-    title: "payment page",
-    protected: true,
-  },
-  {
-    path: "/checkout",
-    Component: PaymentSuccessScreen,
-    title: "payment page",
-    protected: true,
-  },
-  { path: "/signin", Component: SigninPage, title: "SignIn" },
-  { path: "/signup", Component: SignUpPage, title: "SignUp" },
-  {
-    path: "/profile",
-    Component: ProfileScreen,
-    title: "Profile",
-    protected: true,
-  },
+  // New design routes (primary navigation)
+  { path: "/", Component: HomeDashboard, protected: true },
+  { path: "/onboarding", Component: Onboarding, protected: false },
+  { path: "/assessment", Component: AssessmentView, protected: true },
+  { path: "/meals", Component: MealsView, protected: true },
+  { path: "/consultation", Component: CallCenterView, protected: true },
+
+  // E-commerce routes (using new ShopView design)
   {
     path: "/ecommerce",
-    Component: ProductList,
-    title: "Products",
+    Component: ShopView,
+    title: "Shop",
     protected: true,
   },
   {
@@ -67,21 +52,21 @@ export const routes: Route[] = [
     protected: true,
   },
   {
-    path: "/consultation",
-    Component: DoctorsConsultationPage,
-    title: "Doctor Consultation",
+    path: "/checkout/page",
+    Component: CheckoutPage,
+    title: "Checkout",
     protected: true,
   },
+
+  // Auth routes
+  { path: "/signin", Component: SigninPage, title: "SignIn" },
+  { path: "/signup", Component: SignUpPage, title: "SignUp" },
+
+  // Profile & Children routes
   {
-    path: "/consultation/:doctorId",
-    Component: ConsultationBookingPage,
-    title: "Book Consultation",
-    protected: true,
-  },
-  {
-    path: "/meal-plans",
-    Component: MealPlanPage,
-    title: "Meal Plans",
+    path: "/profile",
+    Component: ProfileScreen,
+    title: "Profile",
     protected: true,
   },
   {
@@ -96,17 +81,36 @@ export const routes: Route[] = [
     title: "Child Profile",
     protected: true,
   },
+
+  // Legacy routes (keeping for backward compatibility)
   {
-    path: "/product-detail/2",
-    Component: ProductDetailPage,
-    title: "Product Detail",
+    path: "/book",
+    Component: BookDoctorsPage,
+    title: "Booking Page",
     protected: true,
   },
-
   {
-    path: "/checkout/page",
-    Component: CheckoutPage,
-    title: "checkout",
+    path: "/payment",
+    Component: PaymentScreen,
+    title: "Payment Page",
+    protected: true,
+  },
+  {
+    path: "/checkout",
+    Component: PaymentSuccessScreen,
+    title: "Payment Page",
+    protected: true,
+  },
+  {
+    path: "/meal-plans",
+    Component: MealPlanPage,
+    title: "Meal Plans",
+    protected: true,
+  },
+  {
+    path: "/consultation/:doctorId",
+    Component: ConsultationBookingPage,
+    title: "Book Consultation",
     protected: true,
   },
 ];

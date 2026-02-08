@@ -1,71 +1,64 @@
-import {
-  Button,
-  Headline,
-  Input,
-  Text,
-  Modal,
-} from "@telegram-apps/telegram-ui";
 import { useState, useEffect } from "react";
-import "./sign-in-page.css";
-import { Page } from "@/components/Page";
-import api from "@/api/axios";
 import { useNavigate } from "react-router-dom";
+import { Button, Input } from "@/components/ui";
+import { BottomSheet } from "@/components/ui";
+import api from "@/api/axios";
 import toast from "react-hot-toast";
+
+// Icons
+const EyeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
 
 export const SignInPage = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
+  // Forgot password states
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [forgotPhone, setForgotPhone] = useState("");
   const [forgotPhoneError, setForgotPhoneError] = useState("");
-
-  const [forgotPhone, setForgotPhone] = useState(""); // ✅ Separate phone field
   const [telegramId, setTelegramId] = useState("");
-  // console.log({ telegramId });
   const [resetToken, setResetToken] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  // console.log({ successMessage });
-  const [errorMessage, setErrorMessage] = useState("");
-  const [otpMessage, setOtpMessage] = useState("");
-  const [passwordLengthErrorMessage, setPasswordLengthErrorMessage] =
-    useState("");
   const [resetData, setResetData] = useState({
     otp: "",
     password: "",
     confirmPassword: "",
   });
+  const [otpError, setOtpError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const tgUserId = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user
-      ?.id;
+    const tgUserId = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     if (tgUserId) setTelegramId(tgUserId.toString());
   }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const phoneFromBot = urlParams.get("phone");
-
     if (phoneFromBot) {
       setPhone("+" + phoneFromBot);
     }
   }, []);
 
-  // ✅ Accept both Ethio Telecom (+2519...) and Safaricom (+2517...) numbers
-  // const validatePhone = (value: string) => /^\+251(9|7)\d{8}$/.test(value);
-
   const signin = async () => {
     setError("");
-
-    // if (!validatePhone(phone)) {
-    //   setError("Phone must start with +2519|7 and be 12 digits.");
-    //   return;
-    // }
 
     if (!password || password.length < 6) {
       setError("Password must be at least 6 characters long.");
@@ -75,14 +68,12 @@ export const SignInPage = () => {
     try {
       setLoading(true);
       const response = await api.post("/auth/signin", { phone, password });
-
       const { access_token, refresh_token, data } = response.data;
-      // console.log({ data });
 
       if (data.role !== "PARENT") {
-        setError("Only parent are allowed to sign in.");
-        toast.error("Only parent are allowed to sign in.");
-        return; // ⛔ stop here, don’t save tokens
+        setError("Only parents are allowed to sign in.");
+        toast.error("Only parents are allowed to sign in.");
+        return;
       }
 
       localStorage.setItem("access_token", access_token);
@@ -103,13 +94,6 @@ export const SignInPage = () => {
       return;
     }
 
-    // if (!validatePhone(forgotPhone)) {
-    //   setForgotPhoneError(
-    //     "Enter a valid phone number starting with +2519 or +2517"
-    //   );
-    //   return;
-    // }
-
     try {
       const res = await api.post("/auth/forget-password", {
         phone: forgotPhone,
@@ -117,60 +101,39 @@ export const SignInPage = () => {
       });
 
       if (res.status === 200 || res.status === 201) {
-        setSuccessMessage("Success!, OTP sent to your Telegram bot.");
         toast.success("OTP sent to your Telegram bot.");
         setResetToken(res.data?.token || "");
         setShowForgotModal(false);
         setShowResetModal(true);
         setForgotPhoneError("");
-        if (resetData.otp != res.data.otp) {
-          setOtpMessage("Please enter valid OPT!");
-        }
       }
     } catch (error: any) {
-      setErrorMessage("Error! Something went wrong.");
       toast.error(error?.response?.data?.message || "Failed to send OTP.");
+      setForgotPhoneError(error?.response?.data?.message || "Failed to send OTP.");
     }
-  };
-
-  const handleResetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setResetData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleResetPassword = async () => {
     const { otp, password, confirmPassword } = resetData;
 
-    // Reset previous messages
-    setPasswordLengthErrorMessage("");
-    setOtpMessage("");
-    setErrorMessage("");
-    setSuccessMessage("");
+    setOtpError("");
+    setPasswordError("");
 
-    // 1️⃣ Check OTP
-    // const expectedOtpFromServer = localStorage.getItem("expectedOtp") || "";
     if (!otp) {
-      setOtpMessage("Please enter the OTP.");
-      return;
-    }
-    if (otp !== resetData.otp) {
-      setOtpMessage("Incorrect OTP. Please try again.");
+      setOtpError("Please enter the OTP.");
       return;
     }
 
-    // 2️⃣ Check password length
     if (password.length < 6) {
-      setPasswordLengthErrorMessage("Password must be at least 6 characters.");
+      setPasswordError("Password must be at least 6 characters.");
       return;
     }
 
-    // 3️⃣ Check password match
     if (password !== confirmPassword) {
-      setPasswordLengthErrorMessage("Passwords do not match.");
+      setPasswordError("Passwords do not match.");
       return;
     }
 
-    // ✅ All validations passed
     try {
       const res = await api.post("/auth/reset-password", {
         token: resetToken,
@@ -178,280 +141,199 @@ export const SignInPage = () => {
         password,
       });
 
-      setSuccessMessage(res.data?.message || "Password reset successfully.");
       toast.success(res.data?.message || "Password reset successfully.");
-
       setResetData({ otp: "", password: "", confirmPassword: "" });
       setResetToken("");
       setShowResetModal(false);
     } catch (error: any) {
-      setErrorMessage(error?.response?.data?.message || "Reset failed.");
       toast.error(error?.response?.data?.message || "Reset failed.");
+      setPasswordError(error?.response?.data?.message || "Reset failed.");
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      signin();
     }
   };
 
   return (
-    <Page back={true}>
-      <div
-        className=" bg-gray-800"
-        style={{
-          padding: "10px",
+    <div className="min-h-screen bg-white font-['Quicksand']">
+      <div className="flex flex-col items-center justify-center min-h-screen px-8">
+        {/* Logo */}
+        <div className="w-24 h-24 mb-8 bg-sky-100 rounded-3xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-sky-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-200">
+            <span className="text-white font-black text-2xl">LC</span>
+          </div>
+        </div>
 
-          height: "100vh",
-          margin: "auto",
-        }}
-      >
-        <div style={{ padding: "15px", borderRadius: "20px" }}>
-          <Headline className=" text-white flex justify-center items-center font-bold text-xl my-5 mx-2.5 py-4">
-            Sign In
-          </Headline>
+        <h1 className="text-3xl font-bold text-slate-800 text-center mb-2">Welcome Back</h1>
+        <p className="text-slate-500 text-center mb-8">
+          Sign in to continue caring for your little one.
+        </p>
 
-          <div
-            className="p-2 mb-4 mt-3 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400"
-            role="alert"
-          >
-            <span className="font-medium">If you delete your account, </span>
-            please go to the Bot, click /start, and then sign up again.
+        {/* Info Banner */}
+        <div className="w-full max-w-sm bg-sky-50 border border-sky-100 rounded-2xl p-4 mb-6">
+          <p className="text-sm text-sky-700">
+            <span className="font-bold">Tip:</span> If you deleted your account, please go to the Bot, click /start, and sign up again.
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="w-full max-w-sm space-y-4" onKeyPress={handleKeyPress}>
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="+251912345678"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+
+          <div className="relative">
+            <Input
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              rightElement={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              }
+            />
           </div>
 
-          <div className=" bg-gray-800">
-            {/* Phone */}
-            <div className="mt-10 bg-gray-800">
-              <label
-                htmlFor="phone"
-                className="text-white block font-medium mb-1"
-              >
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="+2519XXXXXXXX"
-                className="w-full px-4 text-white py-2 rounded-lg border border-gray-300 focus:outline-none bg-gray-700"
-                value={phone}
-                disabled={!!phone} // 👈 disables if phone exists
-                readOnly
-              />
+          {error && (
+            <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
+              <p className="text-rose-600 text-sm font-medium">{error}</p>
             </div>
+          )}
 
-            {/* Password Field with Eye Icon */}
-            <div className="mt-4 relative">
-              <label
-                htmlFor="password"
-                className="text-white block font-medium mb-1"
-              >
-                Password
-              </label>
-
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"} // 👁 toggle visibility
-                placeholder="******"
-                className="w-full px-4 text-white py-2 rounded-lg border border-gray-300 focus:outline-none pr-10"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-
-              {/* 👁 Eye Icon */}
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-9 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              >
-                {showPassword ? (
-                  // 👁‍🗨 Eye-off icon (password visible)
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mt-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-.573.05-1.134.146-1.68M6.708 6.707a9.956 9.956 0 016.588-2.707c5.523 0 10 4.477 10 10 0 1.85-.502 3.58-1.383 5.072M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 3l18 18"
-                    />
-                  </svg>
-                ) : (
-                  // 👁 Eye icon (password hidden)
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mt-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-
-            {error && (
-              <Text style={{ color: "red", marginTop: "10px" }}>{error}</Text>
-            )}
-
-            <Text
-              className="forgot-password"
-              style={{ marginTop: "10px", cursor: "pointer" }}
+          <div className="flex justify-end">
+            <button
               onClick={() => setShowForgotModal(true)}
+              className="text-sky-500 font-semibold text-sm hover:text-sky-600 transition-colors"
             >
               Forgot Password?
-            </Text>
+            </button>
+          </div>
 
-            <Text
-              onClick={() => navigate("/onboarding")}
-              className="forgot-password"
-              style={{ marginTop: "10px", cursor: "pointer" }}
-            >
-              Don’t have an account? Sign up
-            </Text>
+          <Button
+            type="button"
+            color="sky"
+            fullWidth
+            size="lg"
+            onClick={signin}
+            loading={loading}
+            disabled={loading}
+          >
+            Sign In
+          </Button>
 
-            <Button
-              size="l"
-              stretched
-              className="signin-button"
-              style={{ marginTop: "40px" }}
-              onClick={signin}
-              color="primary"
-              disabled={loading}
-              loading={loading}
-            >
-              Sign In
-            </Button>
+          <div className="text-center pt-4">
+            <p className="text-slate-500 text-sm">
+              Don't have an account?{" "}
+              <button
+                onClick={() => navigate("/onboarding")}
+                className="text-sky-500 font-bold hover:text-sky-600 transition-colors"
+              >
+                Sign Up
+              </button>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      {/* Forgot Password Modal */}
-      <Modal
-        open={showForgotModal}
-        onOpenChange={setShowForgotModal}
-        className=" bg-white"
+      {/* Forgot Password Bottom Sheet */}
+      <BottomSheet
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        title="Forgot Password"
       >
-        <div className="p-4 bg-gray-800">
-          <Headline
-            style={{ marginBottom: "12px" }}
-            className=" text-white font-black text-base"
-          >
-            📩 Forgot Password
-          </Headline>
-
-          <div
-            className="p-2 mb-4 mt-3 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400"
-            role="alert"
-          >
-            <span className="font-medium px-0.5">
-              Forgot password works only on your phone.
-            </span>
-            Please open the Telegram mini app, enter your phone number, and
-            you’ll receive an OTP in your <span className="font-bold">bot</span>
-            .
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+            <p className="text-sm text-amber-700">
+              <span className="font-bold">Note:</span> Enter your phone number and you'll receive an OTP in your Telegram bot.
+            </p>
           </div>
 
-          <div className="mb-1">
-            <input
-              placeholder="+251912345678"
-              value={forgotPhone}
-              className={`w-full px-4 py-2  text-white rounded-lg border focus:outline-none ${
-                forgotPhoneError ? "border-red-500" : "border-gray-300"
-              }`}
-              onChange={(e) => {
-                setForgotPhone(e.target.value);
-                setForgotPhoneError(""); // clear error on change
-              }}
-            />
-            {forgotPhoneError && (
-              <p className="text-red-500 text-sm mt-1">{forgotPhoneError}</p>
-            )}
-          </div>
-          <p className="text-red-500"> {errorMessage}</p>
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="+251912345678"
+            value={forgotPhone}
+            onChange={(e) => {
+              setForgotPhone(e.target.value);
+              setForgotPhoneError("");
+            }}
+            error={forgotPhoneError}
+          />
+
           <Button
+            color="sky"
+            fullWidth
+            size="lg"
             onClick={handleForgotPassword}
-            stretched
-            style={{ marginTop: "16px" }}
           >
             Send OTP
           </Button>
         </div>
-      </Modal>
+      </BottomSheet>
 
-      {/* Reset Password Modal */}
-      <Modal open={showResetModal} onOpenChange={setShowResetModal}>
-        <div className="p-4 bg-gray-800">
-          <p className="text-green-500 py-2 ml-3">{successMessage}</p>
-          <Headline
-            style={{ marginBottom: "12px" }}
-            className="text-white font-black text-base"
-          >
-            🔐 Reset Password
-          </Headline>
-
-          <Input
-            name="otp"
-            placeholder="Enter OTP"
-            className="text-white"
-            value={resetData.otp}
-            onChange={handleResetChange}
-          />
-          {otpMessage && (
-            <p className="text-red-500 text-sm  ml-5 -mt-1">{otpMessage}</p>
-          )}
-
-          <Input
-            name="password"
-            type="password"
-            placeholder="New Password"
-            value={resetData.password}
-            onChange={handleResetChange}
-            className="mb-2 text-white"
-          />
-          <Input
-            name="confirmPassword"
-            type="password"
-            placeholder="Confirm Password"
-            value={resetData.confirmPassword}
-            onChange={handleResetChange}
-            className="mb-2 text-white"
-          />
-          {passwordLengthErrorMessage && (
-            <p className="text-red-500 text-sm mb-2">
-              {passwordLengthErrorMessage}
+      {/* Reset Password Bottom Sheet */}
+      <BottomSheet
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        title="Reset Password"
+      >
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+            <p className="text-sm text-emerald-700">
+              OTP sent successfully! Check your Telegram bot.
             </p>
-          )}
+          </div>
 
-          {errorMessage && (
-            <p className="text-red-500 text-sm mb-2">{errorMessage}</p>
-          )}
+          <Input
+            label="OTP Code"
+            placeholder="Enter the OTP"
+            value={resetData.otp}
+            onChange={(e) => setResetData({ ...resetData, otp: e.target.value })}
+            error={otpError}
+          />
 
-          <Button onClick={handleResetPassword} stretched>
-            Confirm Reset
+          <Input
+            label="New Password"
+            type="password"
+            placeholder="Enter new password"
+            value={resetData.password}
+            onChange={(e) => setResetData({ ...resetData, password: e.target.value })}
+          />
+
+          <Input
+            label="Confirm Password"
+            type="password"
+            placeholder="Confirm new password"
+            value={resetData.confirmPassword}
+            onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+            error={passwordError}
+          />
+
+          <Button
+            color="sky"
+            fullWidth
+            size="lg"
+            onClick={handleResetPassword}
+          >
+            Reset Password
           </Button>
         </div>
-      </Modal>
-    </Page>
+      </BottomSheet>
+    </div>
   );
 };
 
