@@ -16,7 +16,9 @@ const ShopView: React.FC = () => {
 
   // Get cart and products from Redux store
   const cart = useSelector((state: RootState) => state.cart);
-  const { products, loading } = useSelector((state: RootState) => state.products);
+  const productsState = useSelector((state: RootState) => state.products);
+  const products = Array.isArray(productsState?.products) ? productsState.products : [];
+  const loading = productsState?.loading || false;
   const cartItemCount = cart?.items?.length || 0;
 
   useEffect(() => {

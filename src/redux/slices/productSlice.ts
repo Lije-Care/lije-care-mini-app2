@@ -31,7 +31,8 @@ export const fetchProducts = createAsyncThunk<
 >("products/fetchAll", async (_, thunkAPI) => {
   try {
     const response = await api.get("/ecommerce");
-    return response.data;
+    // Backend returns { data, total, page, limit }, extract the products array
+    return response.data.data || response.data;
   } catch (error: any) {
     return thunkAPI.rejectWithValue(
       error.response?.data?.message || "Failed to fetch products"
