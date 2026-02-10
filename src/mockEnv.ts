@@ -58,7 +58,7 @@ if (import.meta.env.DEV) {
         },
         initData: parseInitData(initDataRaw),
         initDataRaw,
-        version: '8',
+        version: '7.0',
         platform: 'tdesktop',
       }
     }
