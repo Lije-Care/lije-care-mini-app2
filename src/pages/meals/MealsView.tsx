@@ -204,6 +204,20 @@ const MealsView: React.FC = () => {
                     style={{ width: `${Math.min((currentCals / calorieTarget) * 100, 100)}%` }}
                   />
                 </div>
+                <div className="flex justify-between mt-6 px-2">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Vol</p>
+                    <p className="text-sm font-bold">{selectedMealsForSlot.reduce((sum, m) => sum + parseInt(m.volume) || 0, 0)}ml</p>
+                  </div>
+                  <div className="text-center border-x border-slate-800 px-8">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Prot</p>
+                    <p className="text-sm font-bold">{Math.round(currentCals * 0.04)}g</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Iron</p>
+                    <p className="text-sm font-bold">{currentCals > 0 ? 'High' : '--'}</p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4">

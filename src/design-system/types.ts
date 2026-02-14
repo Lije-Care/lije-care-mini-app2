@@ -55,6 +55,21 @@ export interface AssessmentData {
   };
 }
 
+export type DevAnswer = 'unanswered' | 'yes' | 'no' | 'addressed';
+
+export interface AssessmentHistoryPoint {
+  date: string;
+  score: number;
+}
+
+export interface DetailedAssessment extends AssessmentData {
+  history?: AssessmentHistoryPoint[];
+  subCategory?: string;
+  answer?: DevAnswer;
+  lastUpdated?: string;
+  isExpired?: boolean;
+}
+
 export interface AssessmentPrompt {
   id: string;
   question: string;

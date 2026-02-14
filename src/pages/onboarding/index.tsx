@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhoneStep from './PhoneStep';
 import OTPStep from './OTPStep';
+import TermsStep from './TermsStep';
 import ProfileStep from './ProfileStep';
 import type { Gender } from '@/design-system/types';
 
-type OnboardingStep = 'phone' | 'otp' | 'profile';
+type OnboardingStep = 'phone' | 'otp' | 'terms' | 'profile';
 
 interface ChildData {
   name: string;
@@ -27,7 +28,11 @@ const Onboarding: React.FC = () => {
 
   const handleOTPVerified = () => {
     // TODO: Call API to verify OTP
-    // For now, just move to next step
+    // For now, just move to terms step
+    setStep('terms');
+  };
+
+  const handleTermsAccepted = () => {
     setStep('profile');
   };
 
@@ -74,6 +79,12 @@ const Onboarding: React.FC = () => {
           onNext={handleOTPVerified}
           onResend={handleResendOTP}
           onBack={() => setStep('phone')}
+        />
+      )}
+      {step === 'terms' && (
+        <TermsStep
+          onNext={handleTermsAccepted}
+          onBack={() => setStep('otp')}
         />
       )}
       {step === 'profile' && (
