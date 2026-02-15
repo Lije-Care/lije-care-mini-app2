@@ -111,7 +111,7 @@ const UserOnboardingForm = () => {
       const { telegramId, ...signupData } = formData;
       await api.post("users/create", signupData);
       localStorage.setItem("onboarding_complete", "true");
-      navigate("/signin");
+      navigate("/");
     } catch (err: any) {
       setSubmitError(err?.response?.data?.message || "Something went wrong.");
     } finally {
@@ -234,7 +234,7 @@ const UserOnboardingForm = () => {
             </button>
             <div className="flex justify-end">
               <Text
-                onClick={() => navigate("/signin")}
+                onClick={() => navigate("/")}
                 className="forgot-password text-3xl font-bold"
                 style={{
                   marginTop: "10px",

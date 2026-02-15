@@ -11,6 +11,7 @@ import {
 import { routes } from "@/navigation/routes.tsx";
 import { Header, BottomNav } from "@/components/layout";
 import ProtectedRoute from "./ProtectedRoute";
+import AuthGate from "./AuthGate";
 
 // Existing pages (keeping for compatibility)
 import MealComponent from "@/pages/meal/MealPlan";
@@ -36,12 +37,13 @@ import ConsultationTab from "@/pages/ConsultationBookingPage";
 // New pages
 import AssessmentView from "@/pages/assessment/AssessmentView";
 import MealsView from "@/pages/meals/MealsView";
+import Onboarding from "@/pages/onboarding";
 
 import { useState } from "react";
 
 // Paths where navbar and header should be hidden
-const HIDE_NAVBAR_PATHS = ["/signin", "/onboarding", "/signup", "/video-call", "/chat"];
-const HIDE_HEADER_PATHS = ["/signin", "/onboarding", "/signup", "/video-call", "/chat"];
+const HIDE_NAVBAR_PATHS = ["/onboarding", "/video-call", "/chat"];
+const HIDE_HEADER_PATHS = ["/onboarding", "/video-call", "/chat"];
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -85,180 +87,228 @@ export function App() {
       <HashRouter>
         <Layout>
           <Routes>
-            {routes.map(({ path, Component, protected: isProtected }) => {
-              const wrapped = isProtected ? (
-                <ProtectedRoute>
-                  <Component />
-                </ProtectedRoute>
-              ) : (
-                <Component />
-              );
+            {/* Onboarding route - outside AuthGate */}
+            <Route path="/onboarding" element={<Onboarding />} />
 
-              return <Route key={path} path={path} element={wrapped} />;
-            })}
+            {/* All other routes - wrapped with AuthGate */}
+            {routes
+              .filter(({ path }) => path !== '/onboarding')
+              .map(({ path, Component, protected: isProtected }) => {
+                const wrapped = isProtected ? (
+                  <AuthGate>
+                    <ProtectedRoute>
+                      <Component />
+                    </ProtectedRoute>
+                  </AuthGate>
+                ) : (
+                  <Component />
+                );
+
+                return <Route key={path} path={path} element={wrapped} />;
+              })}
 
             {/* New Routes */}
             <Route
               path="/assessment"
               element={
-                <ProtectedRoute>
-                  <AssessmentView />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <AssessmentView />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/meals"
               element={
-                <ProtectedRoute>
-                  <MealsView />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <MealsView />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
 
             {/* Existing Routes */}
-            <Route path="/add-child" element={<AddChildPage />} />
+            <Route path="/add-child" element={<AuthGate><AddChildPage /></AuthGate>} />
             <Route
               path="/meal/:id"
               element={
-                <ProtectedRoute>
-                  <MealComponent />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <MealComponent />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/my-appointments"
               element={
-                <ProtectedRoute>
-                  <MyAppointments />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <MyAppointments />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/mealplansummary"
               element={
-                <ProtectedRoute>
-                  <MealPlanSummary />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <MealPlanSummary />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/mealplansummary/:id"
               element={
-                <ProtectedRoute>
-                  <ChildMealPlanSummery />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <ChildMealPlanSummery />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/meal-plans/edit/:id"
               element={
-                <ProtectedRoute>
-                  <EditMealPlan />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <EditMealPlan />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/detail/:id"
               element={
-                <ProtectedRoute>
-                  <MealDetails />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <MealDetails />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/chat/:doctorId"
               element={
-                <ProtectedRoute>
-                  <ChatScreen />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <ChatScreen />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/consultat"
               element={
-                <ProtectedRoute>
-                  <ConsultationTab />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <ConsultationTab />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/video-call"
               element={
-                <ProtectedRoute>
-                  <VideoCall />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <VideoCall />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/consultat/:doctorId"
               element={
-                <ProtectedRoute>
-                  <DoctorDetailPage />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <DoctorDetailPage />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/payment-one"
               element={
-                <ProtectedRoute>
-                  <PaymentForm />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <PaymentForm />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/payment-status-one"
               element={
-                <ProtectedRoute>
-                  <PaymentStatus />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <PaymentStatus />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/articles"
               element={
-                <ProtectedRoute>
-                  <ArticlesPage />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <ArticlesPage />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/articles/:id"
               element={
-                <ProtectedRoute>
-                  <ArticleDetail />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <ArticleDetail />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/notifications"
               element={
-                <ProtectedRoute>
-                  <NotificationsPage />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <NotificationsPage />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/package/list"
               element={
-                <ProtectedRoute>
-                  <PackageList />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <PackageList />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/booking/checkout"
               element={
-                <ProtectedRoute>
-                  <BookingCheckout />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <BookingCheckout />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
             <Route
               path="/booking/success"
               element={
-                <ProtectedRoute>
-                  <BookingSuccess />
-                </ProtectedRoute>
+                <AuthGate>
+                  <ProtectedRoute>
+                    <BookingSuccess />
+                  </ProtectedRoute>
+                </AuthGate>
               }
             />
 

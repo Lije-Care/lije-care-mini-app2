@@ -2,8 +2,6 @@ import type { ComponentType, JSX } from "react";
 
 // Existing pages
 import { BookDoctorsPage } from "@/pages/BookDoctorsPage.tsx";
-import SigninPage from "@/pages/auth/SigninPage";
-import SignUpPage from "@/pages/auth/SignUpPage";
 import ProfileScreen from "@/pages/Profile";
 import PaymentScreen from "@/components/Templates/PaymentScreen";
 import PaymentSuccessScreen from "@/pages/PaymentSuccessScreen";
@@ -57,10 +55,6 @@ export const routes: Route[] = [
     title: "Checkout",
     protected: true,
   },
-
-  // Auth routes
-  { path: "/signin", Component: SigninPage, title: "SignIn" },
-  { path: "/signup", Component: SignUpPage, title: "SignUp" },
 
   // Profile & Children routes
   {

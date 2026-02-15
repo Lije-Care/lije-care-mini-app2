@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PhoneStep from './PhoneStep';
-import OTPStep from './OTPStep';
 import TermsStep from './TermsStep';
 import ProfileStep from './ProfileStep';
 import type { Gender } from '@/design-system/types';
 
-type OnboardingStep = 'phone' | 'otp' | 'terms' | 'profile';
+type OnboardingStep = 'terms' | 'profile';
 
 interface ChildData {
   name: string;
@@ -15,30 +13,11 @@ interface ChildData {
 }
 
 const Onboarding: React.FC = () => {
-  const [step, setStep] = useState<OnboardingStep>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<OnboardingStep>('terms');
   const navigate = useNavigate();
-
-  const handlePhoneSubmit = (phoneNumber: string) => {
-    setPhone(phoneNumber);
-    // TODO: Call API to send OTP
-    // For now, just move to next step
-    setStep('otp');
-  };
-
-  const handleOTPVerified = () => {
-    // TODO: Call API to verify OTP
-    // For now, just move to terms step
-    setStep('terms');
-  };
 
   const handleTermsAccepted = () => {
     setStep('profile');
-  };
-
-  const handleResendOTP = () => {
-    // TODO: Call API to resend OTP
-    console.log('Resending OTP to', phone);
   };
 
   const handleProfileComplete = async (childData: ChildData) => {
@@ -57,6 +36,7 @@ const Onboarding: React.FC = () => {
 
       // Store favorite child
       localStorage.setItem('favorite_child_id', newChild.id);
+      localStorage.setItem('has_children', 'true');
 
       // Navigate to home
       navigate('/');
@@ -72,19 +52,10 @@ const Onboarding: React.FC = () => {
 
   return (
     <div className="min-h-screen font-['Quicksand']">
-      {step === 'phone' && <PhoneStep onNext={handlePhoneSubmit} />}
-      {step === 'otp' && (
-        <OTPStep
-          phone={phone}
-          onNext={handleOTPVerified}
-          onResend={handleResendOTP}
-          onBack={() => setStep('phone')}
-        />
-      )}
       {step === 'terms' && (
         <TermsStep
           onNext={handleTermsAccepted}
-          onBack={() => setStep('otp')}
+          onBack={() => navigate('/')}
         />
       )}
       {step === 'profile' && (

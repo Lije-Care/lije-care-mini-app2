@@ -115,7 +115,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
     try {
       window.Telegram?.WebApp?.close();
     } catch (e) {}
-    navigate("/signin");
+    navigate("/");
   };
 
   const handleDeleteAccount = async () => {
@@ -132,7 +132,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
         setIsDeleting(false);
         localStorage.removeItem("user");
         localStorage.removeItem("access_token");
-        navigate("/signin");
+        navigate("/");
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || t("Failed to delete account."));
