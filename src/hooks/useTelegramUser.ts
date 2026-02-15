@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
+import { initData } from '@telegram-apps/sdk-react';
 import { AxiosError } from 'axios';
 import api from '@/api/axios';
-import { BackendUser, TelegramUser } from '@/types';
+import { BackendUser } from '@/types';
 
 const useTelegramUser = () => {
   const [user, setUser] = useState<BackendUser | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
-      const telegramUser = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user as TelegramUser | undefined;
+      const telegramUser = initData.user();
 
       if (!telegramUser?.id) {
         console.warn('No Telegram user found.');

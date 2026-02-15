@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { initData } from '@telegram-apps/sdk-react';
 import api from '@/api/axios';
 
 type AuthStatus = 'loading' | 'authenticated' | 'needs_onboarding' | 'error';
@@ -20,8 +21,8 @@ const useTelegramAuth = () => {
         return;
       }
 
-      // Get Telegram user ID
-      const telegramUser = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user;
+      // Get Telegram user ID from SDK signal
+      const telegramUser = initData.user();
       if (!telegramUser?.id) {
         setStatus('error');
         return;
