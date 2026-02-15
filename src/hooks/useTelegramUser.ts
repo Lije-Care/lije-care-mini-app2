@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { initData } from '@telegram-apps/sdk-react';
+import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
 import { AxiosError } from 'axios';
 import api from '@/api/axios';
 import { BackendUser } from '@/types';
@@ -9,7 +9,7 @@ const useTelegramUser = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const telegramUser = initData.user();
+      const telegramUser = retrieveLaunchParams().initData?.user;
 
       if (!telegramUser?.id) {
         console.warn('No Telegram user found.');
