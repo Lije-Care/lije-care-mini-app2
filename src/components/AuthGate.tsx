@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { requestContact } from '@telegram-apps/sdk-react';
 import useTelegramAuth from '@/hooks/useTelegramAuth';
 import api from '@/api/axios';
+import logo from '@/assets/logo.png';
 
 type RegistrationStep = 'welcome' | 'registering' | 'done';
 
@@ -43,10 +44,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <img
-            src="/lije-logo.png"
+            src={logo}
             alt="Lije Care"
             className="w-24 h-24 mx-auto mb-4"
           />
@@ -58,7 +59,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
 
   if (status === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 p-6">
         <div className="text-center">
           <p className="text-gray-700 font-['Quicksand'] text-lg mb-2">
             Unable to authenticate
@@ -75,10 +76,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     // Welcome & phone share step
     if (regStep === 'welcome') {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 p-6">
           <div className="text-center max-w-sm">
             <img
-              src="/lije-logo.png"
+              src={logo}
               alt="Lije Care"
               className="w-24 h-24 mx-auto mb-6"
             />
@@ -107,10 +108,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     // Registering step
     if (regStep === 'registering') {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50">
           <div className="text-center">
             <img
-              src="/lije-logo.png"
+              src={logo}
               alt="Lije Care"
               className="w-24 h-24 mx-auto mb-4"
             />
@@ -123,10 +124,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     // Done step
     if (regStep === 'done') {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 p-6">
           <div className="text-center max-w-sm">
             <img
-              src="/lije-logo.png"
+              src={logo}
               alt="Lije Care"
               className="w-24 h-24 mx-auto mb-6"
             />
