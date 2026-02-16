@@ -27,7 +27,8 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
       const existingToken = localStorage.getItem('access_token');
       if (existingToken) {
         const hasChildren = localStorage.getItem('has_children');
-        if (hasChildren === 'false') {
+        const onboardingCompleted = localStorage.getItem('onboarding_completed');
+        if (hasChildren === 'false' && onboardingCompleted !== 'true') {
           setStatus('needs_onboarding');
         } else {
           setStatus('authenticated');

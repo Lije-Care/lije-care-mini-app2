@@ -37,6 +37,7 @@ const Onboarding: React.FC = () => {
       // Store favorite child
       localStorage.setItem('favorite_child_id', newChild.id);
       localStorage.setItem('has_children', 'true');
+      localStorage.setItem('onboarding_completed', 'true');
 
       // Navigate to home
       navigate('/');
@@ -46,7 +47,8 @@ const Onboarding: React.FC = () => {
   };
 
   const handleSkipProfile = () => {
-    // Navigate to home without creating child profile
+    // Mark onboarding as done so AuthGate doesn't loop back
+    localStorage.setItem('onboarding_completed', 'true');
     navigate('/');
   };
 
@@ -55,7 +57,6 @@ const Onboarding: React.FC = () => {
       {step === 'terms' && (
         <TermsStep
           onNext={handleTermsAccepted}
-          onBack={() => navigate('/')}
         />
       )}
       {step === 'profile' && (

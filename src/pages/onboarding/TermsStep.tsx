@@ -2,19 +2,11 @@ import React from 'react';
 
 interface TermsStepProps {
   onNext: () => void;
-  onBack: () => void;
 }
 
-const TermsStep: React.FC<TermsStepProps> = ({ onNext, onBack }) => {
+const TermsStep: React.FC<TermsStepProps> = ({ onNext }) => {
   return (
     <div className="flex flex-col h-screen bg-white text-slate-800 p-8 animate-in slide-in-from-right duration-500">
-      <button
-        onClick={onBack}
-        className="self-start mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-      >
-        &larr; Back
-      </button>
-
       <h2 className="text-2xl font-black mb-2 text-slate-900">Terms of Agreement</h2>
       <p className="text-slate-500 text-sm mb-6">Please read carefully before continuing.</p>
 
