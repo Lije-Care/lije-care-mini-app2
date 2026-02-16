@@ -176,7 +176,7 @@ const AssessmentView: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-[10px] text-slate-300 font-black uppercase mb-4">No data recorded</div>
+                  <div className="text-[10px] text-slate-300 font-black uppercase mb-4">Not Assessed</div>
                 )}
 
                 <div className="mt-4">
@@ -225,7 +225,7 @@ const AssessmentView: React.FC = () => {
                     <div>
                       <h5 className="font-bold leading-tight mb-4">{q.title}</h5>
                       <p className="text-[10px] font-black uppercase opacity-60">
-                        Status: {q.answer === 'addressed' ? 'Addressed with Doctor' : q.answer}
+                        Status: {q.answer === 'addressed' ? 'Addressed with Doctor' : q.answer === 'unanswered' ? 'Not Assessed' : q.answer}
                       </p>
                     </div>
 
