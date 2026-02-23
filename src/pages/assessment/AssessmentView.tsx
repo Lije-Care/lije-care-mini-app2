@@ -1,9 +1,67 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
-import { PlusIcon, BellIcon } from '@/design-system/icons';
+import { PlusIcon, BellIcon, InfoIcon } from '@/design-system/icons';
 import { BottomSheet } from '@/components/ui';
 import type { AssessmentStatus, DetailedAssessment, DevAnswer, AssessmentHistoryPoint } from '@/design-system/types';
+
+interface MeasurementField {
+  label: string;
+  key: string;
+  help: string;
+}
+
+const MEASUREMENT_GUIDES: Record<string, { title: string; items: string[]; tip: string }> = {
+  'a1': {
+    title: 'How to Measure Weight for Height',
+    items: [
+      'Use a calibrated scale on a flat, hard surface',
+      'Remove shoes and heavy clothing',
+      'Stand the child upright with arms at their sides',
+      'Record weight to the nearest 0.1 kg',
+      'Measure height using a stadiometer or wall chart',
+      'Compare using a WHO growth chart for age and sex',
+    ],
+    tip: 'Measure at the same time of day for consistency.',
+  },
+  'a1-2': {
+    title: 'How to Measure Height for Age',
+    items: [
+      'Use a stadiometer or flat measuring tape on a wall',
+      'Remove shoes, hair accessories, and hats',
+      'Stand the child with heels, back, and head against the wall',
+      'Keep eyes level (Frankfurt plane) and press a flat object on top of the head',
+      'Record height to the nearest 0.1 cm',
+      'Plot on a WHO height-for-age growth chart',
+    ],
+    tip: 'For children under 2, measure length lying down instead.',
+  },
+  'a1-3': {
+    title: 'How to Use the MUAC Tape',
+    items: [
+      'Find the midpoint of the child\'s left upper arm (between shoulder and elbow)',
+      'Wrap the MUAC tape around the midpoint snugly but not tight',
+      'Read the measurement where the tape meets the window/arrow',
+      'Green (\u226513.5 cm) = well nourished',
+      'Yellow (12.5\u201313.4 cm) = moderate malnutrition risk',
+      'Red (<12.5 cm) = severe malnutrition \u2014 seek care immediately',
+    ],
+    tip: 'The MUAC tape is most reliable for children aged 6 months to 5 years.',
+  },
+};
+
+const MEASUREMENT_FIELDS: Record<string, MeasurementField[]> = {
+  'a1': [
+    { label: 'Weight (kg)', key: 'weight', help: 'Use a calibrated scale. Remove shoes and heavy clothing.' },
+    { label: 'Height (cm)', key: 'height', help: 'Use a stadiometer or wall chart. Stand upright.' },
+  ],
+  'a1-2': [
+    { label: 'Height (cm)', key: 'height', help: 'Use a stadiometer or wall chart. Stand with heels against wall.' },
+  ],
+  'a1-3': [
+    { label: 'MUAC (cm)', key: 'muac', help: 'Measure at midpoint of left upper arm. Tape should be snug but not tight.' },
+  ],
+};
 
 const INITIAL_ASSESSMENTS: DetailedAssessment[] = [
   // Anthropometric
@@ -51,6 +109,10 @@ const AssessmentView: React.FC = () => {
   const [selectedAssessment, setSelectedAssessment] = useState<DetailedAssessment | null>(null);
   const [notificationType, setNotificationType] = useState<'anthropometric' | 'developmental' | null>(null);
   const [recommendationModal, setRecommendationModal] = useState<DetailedAssessment | null>(null);
+  const [helpAssessment, setHelpAssessment] = useState<string | null>(null);
+  const [isAddingData, setIsAddingData] = useState<string | null>(null);
+  const [activeHelp, setActiveHelp] = useState<string | null>(null);
+  const [measurementValues, setMeasurementValues] = useState<Record<string, string>>({});
 
   useSelector((state: RootState) => state.children);
 
@@ -91,6 +153,23 @@ const AssessmentView: React.FC = () => {
       case 'risk': return '#F59E0B';
       default: return '#E2E8F0';
     }
+  };
+
+  const handleOpenMeasurementEntry = (assessmentId: string) => {
+    const fields = MEASUREMENT_FIELDS[assessmentId];
+    if (fields) {
+      const initialValues: Record<string, string> = {};
+      fields.forEach((f) => { initialValues[f.key] = ''; });
+      setMeasurementValues(initialValues);
+      setIsAddingData(assessmentId);
+    }
+  };
+
+  const handleSaveMeasurement = () => {
+    // TODO: dispatch to API / Redux to save measurement data
+    console.log('Saving measurements for', isAddingData, measurementValues);
+    setIsAddingData(null);
+    setMeasurementValues({});
   };
 
   const expiredAnthro = assessments.filter(a => a.category === 'Anthropometric' && a.isExpired);
@@ -159,9 +238,15 @@ const AssessmentView: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setSelectedAssessment(item)}
-                className="flex-shrink-0 w-64 bg-white rounded-[2rem] p-6 border border-slate-50 shadow-sm snap-center text-left transition-all active:scale-95"
+                className="flex-shrink-0 w-64 bg-white rounded-[2rem] p-6 border border-slate-50 shadow-sm snap-center text-left transition-all active:scale-95 relative"
               >
-                <h4 className="font-bold text-slate-800 leading-tight mb-4 min-h-[40px]">{item.title}</h4>
+                <div
+                  onClick={(e) => { e.stopPropagation(); setHelpAssessment(item.id); }}
+                  className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-50 text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-colors"
+                >
+                  <InfoIcon size={16} />
+                </div>
+                <h4 className="font-bold text-slate-800 leading-tight mb-4 min-h-[40px] pr-8">{item.title}</h4>
                 {item.result ? (
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 relative">
@@ -180,12 +265,12 @@ const AssessmentView: React.FC = () => {
                 )}
 
                 <div className="mt-4">
-                  <div
-                    onClick={(e) => { e.stopPropagation(); }}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleOpenMeasurementEntry(item.id); }}
                     className={`w-full py-3 rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${item.result ? 'bg-slate-100 text-slate-600 shadow-slate-100' : 'bg-sky-500 text-white shadow-sky-100'}`}
                   >
                     <PlusIcon className="w-4 h-4" /> {item.result ? 'Update Data' : 'Add Data'}
-                  </div>
+                  </button>
                 </div>
               </button>
             ))}
@@ -306,7 +391,7 @@ const AssessmentView: React.FC = () => {
                       <p className="text-[10px] text-amber-600 font-black uppercase">Outdated &bull; {a.lastUpdated}</p>
                     </div>
                     <button
-                      onClick={() => { setSelectedAssessment(a); setNotificationType(null); }}
+                      onClick={() => { handleOpenMeasurementEntry(a.id); setNotificationType(null); }}
                       className="px-4 py-2 bg-white rounded-xl text-[10px] font-black text-amber-600 border border-amber-200"
                     >
                       Update
@@ -339,6 +424,96 @@ const AssessmentView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Help Guide Bottom Sheet */}
+      <BottomSheet
+        isOpen={!!helpAssessment}
+        onClose={() => setHelpAssessment(null)}
+        title={helpAssessment ? MEASUREMENT_GUIDES[helpAssessment]?.title : undefined}
+      >
+        {helpAssessment && MEASUREMENT_GUIDES[helpAssessment] && (
+          <div className="px-2">
+            <ol className="space-y-3 mb-6">
+              {MEASUREMENT_GUIDES[helpAssessment].items.map((step, i) => (
+                <li key={i} className="flex gap-3 items-start">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-sky-100 text-sky-600 text-xs font-black flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-slate-700 leading-relaxed pt-1">{step}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
+              <p className="text-sm text-sky-700 italic">
+                <span className="font-bold not-italic">Tip: </span>
+                {MEASUREMENT_GUIDES[helpAssessment].tip}
+              </p>
+            </div>
+            <button
+              onClick={() => setHelpAssessment(null)}
+              className="w-full py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors mt-6 mb-2"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Measurement Entry Bottom Sheet */}
+      <BottomSheet
+        isOpen={!!isAddingData}
+        onClose={() => { setIsAddingData(null); setMeasurementValues({}); }}
+        title={isAddingData ? `${assessments.find(a => a.id === isAddingData)?.title || 'Measurement'} Entry` : undefined}
+      >
+        {isAddingData && MEASUREMENT_FIELDS[isAddingData] && (
+          <div className="px-2 pb-6">
+            <div className="space-y-5">
+              {MEASUREMENT_FIELDS[isAddingData].map((field) => (
+                <div key={field.key}>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold text-slate-600 ml-1">{field.label}</label>
+                    <button
+                      onClick={() => setActiveHelp(activeHelp === field.key ? null : field.key)}
+                      className="p-1 text-slate-400 hover:text-sky-500 transition-colors"
+                    >
+                      <InfoIcon size={16} />
+                    </button>
+                  </div>
+                  {activeHelp === field.key && (
+                    <div className="mb-3 bg-sky-50 rounded-xl p-3 border border-sky-100">
+                      <p className="text-xs text-sky-700">{field.help}</p>
+                    </div>
+                  )}
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                    className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 text-slate-800 font-medium transition-all"
+                    value={measurementValues[field.key] || ''}
+                    onChange={(e) => setMeasurementValues({ ...measurementValues, [field.key]: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => { setIsAddingData(null); setMeasurementValues({}); }}
+                className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveMeasurement}
+                className="flex-1 py-4 bg-sky-500 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 active:scale-95 transition-all"
+              >
+                Save Measurement
+              </button>
+            </div>
+          </div>
+        )}
+      </BottomSheet>
 
       {/* Assessment Detail Bottom Sheet */}
       <BottomSheet
@@ -406,7 +581,10 @@ const AssessmentView: React.FC = () => {
                     No data recorded for "{selectedAssessment.title}".
                   </p>
                 </div>
-                <button className="w-full py-5 bg-sky-500 text-white font-black rounded-3xl shadow-2xl shadow-sky-100 active:scale-95 transition-transform">
+                <button
+                  onClick={() => { setSelectedAssessment(null); handleOpenMeasurementEntry(selectedAssessment.id); }}
+                  className="w-full py-5 bg-sky-500 text-white font-black rounded-3xl shadow-2xl shadow-sky-100 active:scale-95 transition-transform"
+                >
                   Add Measurements
                 </button>
               </div>

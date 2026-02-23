@@ -1,14 +1,20 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BottomSheet } from "@/components/ui";
 import ParentProfile from "@/components/ParentProfile";
-import ChildProfile from "@/components/ChildProfile";
 import AccountSettings from "@/components/AccountSetting";
 import { useTranslation } from "react-i18next";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "@/redux/store";
+import { addChild, updateChild, deleteChildById } from "@/redux/slices/childSlice";
+import { GlobeIcon, LogOutIcon, FacebookIcon, InstagramIcon, TikTokIcon } from "@/design-system/icons";
+import BabyProfileSheet from "./BabyProfileSheet";
+import SwitchBabySheet from "./SwitchBabySheet";
+import AddChildSheet from "./AddChildSheet";
+import AllergenSheet from "./AllergenSheet";
+import type { Child } from "@/redux/slices/childSlice";
+import type { Gender } from "@/design-system/types";
 
-// Icons
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
@@ -42,29 +48,151 @@ const BackIcon = () => (
   </svg>
 );
 
-const GlobeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M2 12h20"/>
-    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-  </svg>
-);
-
 export default function ProfileScreen() {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { t, i18n } = useTranslation();
 
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isAccountSettingOpen, setIsAccountSettingOpen] = useState(false);
-  const [isChildOpen, setIsChildOpen] = useState(false);
+  const [isBabyProfileOpen, setIsBabyProfileOpen] = useState(false);
+  const [isSwitchBabyOpen, setIsSwitchBabyOpen] = useState(false);
+  const [isAddChildOpen, setIsAddChildOpen] = useState(false);
+  const [isAllergenOpen, setIsAllergenOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [activeChildAllergens, setActiveChildAllergens] = useState<string[]>([]);
 
   const parentState = useSelector((state: RootState) => state.parent);
   const parent = parentState?.parent as any;
+  const childrenState = useSelector((state: RootState) => state.children);
+  const children = childrenState?.data || [];
+
+  const [activeChildId, setActiveChildId] = useState<string | null>(
+    localStorage.getItem("favorite_child_id")
+  );
+
+  const activeChild = children.find((c) => c.id === activeChildId) || children[0] || null;
+
+  useEffect(() => {
+    if (activeChild && !activeChildId) {
+      setActiveChildId(activeChild.id);
+      localStorage.setItem("favorite_child_id", activeChild.id);
+    }
+  }, [activeChild, activeChildId]);
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
     localStorage.setItem("user-language", lang);
   };
+
+  const handleSwitchChild = (childId: string) => {
+    setActiveChildId(childId);
+    localStorage.setItem("favorite_child_id", childId);
+    setIsSwitchBabyOpen(false);
+  };
+
+  const handleSaveBabyProfile = async (data: Partial<Child>) => {
+    try {
+      await dispatch(updateChild(data)).unwrap();
+      setIsBabyProfileOpen(false);
+    } catch (error) {
+      console.error("Failed to update child:", error);
+    }
+  };
+
+  const handleDeleteChild = async (childId: string) => {
+    try {
+      await dispatch(deleteChildById(childId)).unwrap();
+      setIsBabyProfileOpen(false);
+      if (activeChildId === childId) {
+        const remaining = children.filter((c) => c.id !== childId);
+        if (remaining.length > 0) {
+          setActiveChildId(remaining[0].id);
+          localStorage.setItem("favorite_child_id", remaining[0].id);
+        } else {
+          setActiveChildId(null);
+          localStorage.removeItem("favorite_child_id");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete child:", error);
+    }
+  };
+
+  const handleAddChild = async (childData: {
+    name: string;
+    gender: Gender;
+    birthDate: string;
+    weight?: number;
+    height?: number;
+    muac?: number;
+    allergens?: string[];
+  }) => {
+    try {
+      const userData = localStorage.getItem("user");
+      const user = userData ? JSON.parse(userData) : null;
+      const parentId = user?.id;
+
+      if (!parentId) return;
+
+      const genderMap: Record<string, "Male" | "Female"> = {
+        boy: "Male",
+        girl: "Female",
+        "prefer-not-to-say": "Male",
+      };
+
+      const result = await dispatch(
+        addChild({
+          name: childData.name,
+          date_of_birth: childData.birthDate,
+          gender: genderMap[childData.gender] || "Male",
+          weight: childData.weight || 0,
+          height: childData.height || 0,
+          muac: childData.muac || 0,
+          parentId,
+        })
+      ).unwrap();
+
+      setActiveChildId(result.id);
+      localStorage.setItem("favorite_child_id", result.id);
+      setIsAddChildOpen(false);
+    } catch (error) {
+      console.error("Failed to add child:", error);
+    }
+  };
+
+  const handleOpenAllergens = () => {
+    setActiveChildAllergens(
+      activeChild?.allergies ? activeChild.allergies.split(",").map((a) => a.trim()) : []
+    );
+    setIsBabyProfileOpen(false);
+    setIsAllergenOpen(true);
+  };
+
+  const handleSaveAllergens = async () => {
+    if (!activeChild) return;
+    try {
+      await dispatch(
+        updateChild({
+          id: activeChild.id,
+          allergies: activeChildAllergens.join(", "),
+        })
+      ).unwrap();
+      setIsAllergenOpen(false);
+    } catch (error) {
+      console.error("Failed to update allergens:", error);
+    }
+  };
+
+  const handleSignOut = () => {
+    localStorage.clear();
+    navigate("/");
+    window.location.reload();
+  };
+
+  const activeChildAvatar = activeChild
+    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(activeChild.name)}`
+    : null;
 
   const profileOptions = [
     {
@@ -76,9 +204,9 @@ export default function ProfileScreen() {
     },
     {
       icon: <ChildIcon />,
-      label: t("Child Profile"),
-      description: t("Manage your children's profiles"),
-      onClick: () => navigate("/children"),
+      label: t("Baby Profile"),
+      description: activeChild ? activeChild.name : t("Manage your children's profiles"),
+      onClick: () => activeChild && setIsBabyProfileOpen(true),
       color: "emerald",
     },
     {
@@ -94,9 +222,8 @@ export default function ProfileScreen() {
     <div className="min-h-screen bg-slate-50 font-['Quicksand']">
       {/* Header */}
       <div className="bg-gradient-to-br from-sky-500 to-sky-600 pt-6 pb-20 px-6 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
 
         <div className="flex items-center gap-4 mb-6 relative z-10">
           <button
@@ -108,10 +235,14 @@ export default function ProfileScreen() {
           <h1 className="text-xl font-bold text-white">{t("Profile")}</h1>
         </div>
 
-        {/* Profile Info */}
+        {/* Profile Info with Active Child */}
         <div className="flex items-center gap-4 relative z-10">
-          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-            <span className="text-4xl">👤</span>
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+            {activeChildAvatar ? (
+              <img src={activeChildAvatar} alt={activeChild?.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-4xl">👤</span>
+            )}
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">
@@ -120,6 +251,24 @@ export default function ProfileScreen() {
             <p className="text-sky-100">{parent?.phone || ""}</p>
           </div>
         </div>
+
+        {/* Baby Actions */}
+        {activeChild && (
+          <div className="flex gap-3 mt-4 relative z-10">
+            <button
+              onClick={() => setIsBabyProfileOpen(true)}
+              className="px-4 py-2 bg-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-colors"
+            >
+              Baby Profile
+            </button>
+            <button
+              onClick={() => setIsSwitchBabyOpen(true)}
+              className="px-4 py-2 bg-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-colors"
+            >
+              Switch Baby
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -153,7 +302,7 @@ export default function ProfileScreen() {
         </div>
 
         {/* Language Switcher */}
-        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-5">
+        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-5 mb-6">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
               <GlobeIcon />
@@ -184,7 +333,76 @@ export default function ProfileScreen() {
             ))}
           </div>
         </div>
+
+        {/* Social Links */}
+        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-5 mb-6">
+          <h3 className="font-bold text-slate-800 mb-4">{t("Follow Us")}</h3>
+          <div className="flex gap-4">
+            {[
+              { icon: <FacebookIcon size={20} />, label: "Facebook", color: "bg-blue-100 text-blue-600" },
+              { icon: <InstagramIcon size={20} />, label: "Instagram", color: "bg-pink-100 text-pink-600" },
+              { icon: <TikTokIcon size={20} />, label: "TikTok", color: "bg-slate-100 text-slate-700" },
+            ].map((social) => (
+              <button
+                key={social.label}
+                className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl ${social.color} transition-all active:scale-95`}
+              >
+                {social.icon}
+                <span className="text-[10px] font-bold uppercase">{social.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sign Out */}
+        <button
+          onClick={() => setShowSignOutConfirm(true)}
+          className="w-full bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-5 flex items-center gap-4 text-left mb-6"
+        >
+          <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600">
+            <LogOutIcon />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-rose-600">{t("Sign Out")}</h3>
+            <p className="text-sm text-slate-500">{t("Sign out of your account")}</p>
+          </div>
+          <div className="text-slate-300">
+            <ChevronRightIcon />
+          </div>
+        </button>
+
+        {/* Version */}
+        <p className="text-center text-slate-400 text-xs font-bold">Lije Care v1.0.0</p>
       </div>
+
+      {/* Sign Out Confirmation */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center">
+            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <LogOutIcon size={32} className="text-rose-500" />
+            </div>
+            <h4 className="text-xl font-black text-slate-800 mb-3">Sign Out?</h4>
+            <p className="text-slate-500 text-sm mb-8">
+              Are you sure you want to sign out of your account?
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={handleSignOut}
+                className="w-full py-4 bg-rose-500 text-white font-bold rounded-2xl active:scale-95 transition-all"
+              >
+                Yes, Sign Out
+              </button>
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="w-full py-3 text-slate-500 font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Sheets */}
       <BottomSheet
@@ -204,11 +422,57 @@ export default function ProfileScreen() {
       </BottomSheet>
 
       <BottomSheet
-        isOpen={isChildOpen}
-        onClose={() => setIsChildOpen(false)}
-        title={t("Child Profile")}
+        isOpen={isBabyProfileOpen}
+        onClose={() => setIsBabyProfileOpen(false)}
+        title="Baby Profile"
       >
-        <ChildProfile />
+        {activeChild && (
+          <BabyProfileSheet
+            child={activeChild}
+            onSave={handleSaveBabyProfile}
+            onDelete={handleDeleteChild}
+            onOpenAllergens={handleOpenAllergens}
+          />
+        )}
+      </BottomSheet>
+
+      <BottomSheet
+        isOpen={isSwitchBabyOpen}
+        onClose={() => setIsSwitchBabyOpen(false)}
+        title="Switch Baby"
+      >
+        <SwitchBabySheet
+          children={children}
+          activeChildId={activeChildId}
+          onSelect={handleSwitchChild}
+          onAddChild={() => {
+            setIsSwitchBabyOpen(false);
+            setIsAddChildOpen(true);
+          }}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        isOpen={isAddChildOpen}
+        onClose={() => setIsAddChildOpen(false)}
+        title="Add Child"
+      >
+        <AddChildSheet
+          onComplete={handleAddChild}
+          onClose={() => setIsAddChildOpen(false)}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        isOpen={isAllergenOpen}
+        onClose={() => setIsAllergenOpen(false)}
+        title="Manage Allergens"
+      >
+        <AllergenSheet
+          allergens={activeChildAllergens}
+          onChange={setActiveChildAllergens}
+          onSave={handleSaveAllergens}
+        />
       </BottomSheet>
     </div>
   );

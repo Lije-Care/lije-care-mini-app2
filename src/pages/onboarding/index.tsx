@@ -1,53 +1,71 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import TermsStep from './TermsStep';
+import ParentProfileStep from './ParentProfileStep';
 import ProfileStep from './ProfileStep';
-import type { Gender } from '@/design-system/types';
+import { addChild } from '@/redux/slices/childSlice';
+import type { AppDispatch } from '@/redux/store';
+import type { ChildProfile, UserProfile } from '@/design-system/types';
 
-type OnboardingStep = 'terms' | 'profile';
-
-interface ChildData {
-  name: string;
-  gender: Gender;
-  birthDate: string;
-}
+type OnboardingStep = 'terms' | 'parentProfile' | 'childProfile';
 
 const Onboarding: React.FC = () => {
   const [step, setStep] = useState<OnboardingStep>('terms');
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
 
   const handleTermsAccepted = () => {
-    setStep('profile');
+    setStep('parentProfile');
   };
 
-  const handleProfileComplete = async (childData: ChildData) => {
+  const handleParentComplete = (data: UserProfile) => {
+    localStorage.setItem('parent_profile', JSON.stringify(data));
+    setStep('childProfile');
+  };
+
+  const handleParentSkip = () => {
+    setStep('childProfile');
+  };
+
+  const handleProfileComplete = async (childData: Omit<ChildProfile, 'id' | 'avatar'>) => {
     try {
-      // TODO: Call API to create child profile
-      // For now, just store in localStorage and navigate
+      const userData = localStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      const parentId = user?.id;
 
-      // Create a mock child object
-      const newChild = {
-        id: `child-${Date.now()}`,
-        name: childData.name || 'My Little One',
-        gender: childData.gender,
-        birthDate: childData.birthDate || new Date().toISOString(),
-        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${childData.name || 'baby'}`,
-      };
+      if (parentId) {
+        const genderMap: Record<string, 'Male' | 'Female'> = {
+          boy: 'Male',
+          girl: 'Female',
+          'prefer-not-to-say': 'Male',
+        };
 
-      // Store favorite child
-      localStorage.setItem('favorite_child_id', newChild.id);
+        await dispatch(
+          addChild({
+            name: childData.name || 'My Little One',
+            date_of_birth: childData.birthDate || new Date().toISOString(),
+            gender: genderMap[childData.gender] || 'Male',
+            weight: childData.weight || 0,
+            height: childData.height || 0,
+            muac: childData.muac || 0,
+            parentId,
+          })
+        ).unwrap();
+      }
+
       localStorage.setItem('has_children', 'true');
       localStorage.setItem('onboarding_completed', 'true');
-
-      // Navigate to home
       navigate('/');
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      // Still navigate even if API fails - profile saved locally
+      localStorage.setItem('onboarding_completed', 'true');
+      navigate('/');
     }
   };
 
   const handleSkipProfile = () => {
-    // Mark onboarding as done so AuthGate doesn't loop back
     localStorage.setItem('onboarding_completed', 'true');
     navigate('/');
   };
@@ -55,11 +73,15 @@ const Onboarding: React.FC = () => {
   return (
     <div className="min-h-screen font-['Quicksand']">
       {step === 'terms' && (
-        <TermsStep
-          onNext={handleTermsAccepted}
+        <TermsStep onNext={handleTermsAccepted} />
+      )}
+      {step === 'parentProfile' && (
+        <ParentProfileStep
+          onComplete={handleParentComplete}
+          onSkip={handleParentSkip}
         />
       )}
-      {step === 'profile' && (
+      {step === 'childProfile' && (
         <ProfileStep
           onComplete={handleProfileComplete}
           onSkip={handleSkipProfile}

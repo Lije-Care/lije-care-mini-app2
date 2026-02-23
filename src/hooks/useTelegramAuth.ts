@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
-import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
-import { AxiosError } from 'axios';
-import api from '@/api/axios';
+import { useEffect, useState } from "react";
+import { retrieveLaunchParams } from "@telegram-apps/sdk-react";
+import { AxiosError } from "axios";
+import api from "@/api/axios";
 
-type AuthStatus = 'loading' | 'authenticated' | 'needs_onboarding' | 'not_registered' | 'error';
+type AuthStatus =
+  | "loading"
+  | "authenticated"
+  | "needs_onboarding"
+  | "not_registered"
+  | "error";
 
 interface TelegramUser {
   id: number;
@@ -18,20 +23,22 @@ interface UseTelegramAuthResult {
 }
 
 const useTelegramAuth = (): UseTelegramAuthResult => {
-  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [status, setStatus] = useState<AuthStatus>("loading");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
 
   useEffect(() => {
     const authenticate = async () => {
       // If already have a token, check if user has children for routing
-      const existingToken = localStorage.getItem('access_token');
+      const existingToken = localStorage.getItem("access_token");
       if (existingToken) {
-        const hasChildren = localStorage.getItem('has_children');
-        const onboardingCompleted = localStorage.getItem('onboarding_completed');
-        if (hasChildren === 'false' && onboardingCompleted !== 'true') {
-          setStatus('needs_onboarding');
+        const hasChildren = localStorage.getItem("has_children");
+        const onboardingCompleted = localStorage.getItem(
+          "onboarding_completed"
+        );
+        if (hasChildren === "false" && onboardingCompleted !== "true") {
+          setStatus("needs_onboarding");
         } else {
-          setStatus('authenticated');
+          setStatus("authenticated");
         }
         return;
       }
@@ -50,41 +57,41 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
           };
         }
       } catch {
-        setStatus('error');
+        setStatus("error");
         return;
       }
 
       if (!tgUser?.id) {
-        setStatus('error');
+        setStatus("error");
         return;
       }
 
       setTelegramUser(tgUser);
 
       try {
-        const { data } = await api.post('/auth/telegram-signin', {
+        const { data } = await api.post("/auth/telegram-signin", {
           telegramId: tgUser.id.toString(),
         });
 
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('user', JSON.stringify(data.data));
-        localStorage.setItem('has_children', String(data.hasChildren));
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("refresh_token", data.refresh_token);
+        localStorage.setItem("user", JSON.stringify(data.data));
+        localStorage.setItem("has_children", String(data.hasChildren));
 
         if (!data.hasChildren) {
-          setStatus('needs_onboarding');
+          setStatus("needs_onboarding");
         } else {
-          setStatus('authenticated');
+          setStatus("authenticated");
         }
       } catch (error) {
         const err = error as AxiosError<{ message: string }>;
         if (
           err?.response?.status === 404 ||
-          err?.response?.data?.message === 'User not found'
+          err?.response?.data?.message === "User not found"
         ) {
-          setStatus('not_registered');
+          setStatus("not_registered");
         } else {
-          setStatus('error');
+          setStatus("error");
         }
       }
     };

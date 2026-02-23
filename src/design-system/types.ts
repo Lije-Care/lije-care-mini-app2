@@ -5,6 +5,10 @@ export enum AppView {
   ONBOARDING_PHONE = 'ONBOARDING_PHONE',
   ONBOARDING_OTP = 'ONBOARDING_OTP',
   ONBOARDING_PROFILE = 'ONBOARDING_PROFILE',
+  TG_PERMISSION = 'TG_PERMISSION',
+  TERMS_AGREEMENT = 'TERMS_AGREEMENT',
+  ONBOARDING_PARENT_PROFILE = 'ONBOARDING_PARENT_PROFILE',
+  PROFILE = 'PROFILE',
   HOME = 'HOME',
   ASSESSMENT = 'ASSESSMENT',
   MEALS = 'MEALS',
@@ -20,7 +24,19 @@ export interface ChildProfile {
   gender: Gender;
   birthDate: string;
   avatar: string;
+  height?: number;
+  weight?: number;
+  muac?: number;
+  allergens?: string[];
 }
+
+export interface UserProfile {
+  name: string;
+  gender: string;
+  birthDate: string;
+}
+
+export type DevSubCategory = 'Language' | 'Cognitive' | 'Social' | 'Physical';
 
 export interface NavItem {
   id: AppView;
