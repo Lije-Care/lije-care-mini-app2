@@ -12,6 +12,8 @@ import { routes } from "@/navigation/routes.tsx";
 import { Header, BottomNav } from "@/components/layout";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthGate from "./AuthGate";
+import { ProfileOverlayProvider } from "@/context/ProfileOverlayContext";
+import ProfileOverlay from "@/components/ProfileOverlay";
 
 // Existing pages (keeping for compatibility)
 import MealComponent from "@/pages/meal/MealPlan";
@@ -39,7 +41,6 @@ import AssessmentView from "@/pages/assessment/AssessmentView";
 import MealsView from "@/pages/meals/MealsView";
 import Onboarding from "@/pages/onboarding";
 
-import { useState } from "react";
 
 // Paths where navbar and header should be hidden
 const HIDE_NAVBAR_PATHS = ["/onboarding", "/video-call", "/chat"];
@@ -47,9 +48,6 @@ const HIDE_HEADER_PATHS = ["/onboarding", "/video-call", "/chat"];
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const [, setSelectedChildId] = useState<string | null>(
-    localStorage.getItem("favorite_child_id")
-  );
 
   const shouldHideNavbar = HIDE_NAVBAR_PATHS.some(path =>
     location.pathname.startsWith(path) || location.pathname === path
@@ -59,20 +57,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     location.pathname.startsWith(path) || location.pathname === path
   );
 
-  const handleChildChange = (childId: string) => {
-    setSelectedChildId(childId);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col max-w-md mx-auto relative shadow-2xl overflow-hidden font-['Quicksand']">
-      {!shouldHideHeader && <Header onChildChange={handleChildChange} />}
+    <ProfileOverlayProvider>
+      <div className="min-h-screen bg-slate-50 flex flex-col max-w-md mx-auto relative shadow-2xl overflow-hidden font-['Quicksand']">
+        {!shouldHideHeader && <Header />}
 
-      <main className="flex-1 overflow-y-auto hide-scrollbar">
-        {children}
-      </main>
+        <main className="flex-1 overflow-y-auto hide-scrollbar">
+          {children}
+        </main>
 
-      {!shouldHideNavbar && <BottomNav />}
-    </div>
+        {!shouldHideNavbar && <BottomNav />}
+
+        <ProfileOverlay />
+      </div>
+    </ProfileOverlayProvider>
   );
 };
 

@@ -1,8 +1,8 @@
 import type { ComponentType, JSX } from "react";
+import { Navigate } from "react-router-dom";
 
 // Existing pages
 import { BookDoctorsPage } from "@/pages/BookDoctorsPage.tsx";
-import ProfileScreen from "@/pages/Profile";
 import PaymentScreen from "@/components/Templates/PaymentScreen";
 import PaymentSuccessScreen from "@/pages/PaymentSuccessScreen";
 import MealPlanPage from "@/pages/meal/MealPlanPage";
@@ -56,12 +56,12 @@ export const routes: Route[] = [
     protected: true,
   },
 
-  // Profile & Children routes
+  // Profile redirects to home (profile is now an overlay)
   {
     path: "/profile",
-    Component: ProfileScreen,
+    Component: () => <Navigate to="/" replace />,
     title: "Profile",
-    protected: true,
+    protected: false,
   },
   {
     path: "/children",
