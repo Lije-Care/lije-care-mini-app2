@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/redux/store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '@/redux/store';
+import { updateChild } from '@/redux/slices/childSlice';
 import { PlusIcon, BellIcon, InfoIcon } from '@/design-system/icons';
 import { BottomSheet } from '@/components/ui';
 import type { AssessmentStatus, DetailedAssessment, DevAnswer, AssessmentHistoryPoint } from '@/design-system/types';
@@ -113,8 +114,13 @@ const AssessmentView: React.FC = () => {
   const [isAddingData, setIsAddingData] = useState<string | null>(null);
   const [activeHelp, setActiveHelp] = useState<string | null>(null);
   const [measurementValues, setMeasurementValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useSelector((state: RootState) => state.children);
+  const dispatch = useDispatch<AppDispatch>();
+  const children = useSelector((state: RootState) => state.children);
+  const favoriteChildId = localStorage.getItem('favorite_child_id');
+  const activeChild = children.data.find(c => c.id === favoriteChildId) || children.data[0];
 
   const toggleAnswer = (id: string, newAnswer: DevAnswer) => {
     setAssessments(prev => prev.map(a => a.id === id ? { ...a, answer: newAnswer } : a));
@@ -165,11 +171,34 @@ const AssessmentView: React.FC = () => {
     }
   };
 
-  const handleSaveMeasurement = () => {
-    // TODO: dispatch to API / Redux to save measurement data
-    console.log('Saving measurements for', isAddingData, measurementValues);
-    setIsAddingData(null);
-    setMeasurementValues({});
+  const handleSaveMeasurement = async () => {
+    if (!activeChild || !isAddingData) return;
+
+    const fields = MEASUREMENT_FIELDS[isAddingData];
+    if (!fields) return;
+
+    const updateData: Record<string, number> = {};
+    for (const field of fields) {
+      const val = parseFloat(measurementValues[field.key]);
+      if (!isNaN(val) && val > 0) {
+        updateData[field.key] = val;
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await dispatch(updateChild({ id: activeChild.id, ...updateData })).unwrap();
+      setIsAddingData(null);
+      setMeasurementValues({});
+    } catch (err: any) {
+      setSaveError(typeof err === 'string' ? err : 'Failed to save measurement');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const expiredAnthro = assessments.filter(a => a.category === 'Anthropometric' && a.isExpired);
@@ -497,18 +526,26 @@ const AssessmentView: React.FC = () => {
               ))}
             </div>
 
+            {saveError && (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                <p className="text-xs text-rose-600 font-medium">{saveError}</p>
+              </div>
+            )}
+
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => { setIsAddingData(null); setMeasurementValues({}); }}
-                className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
+                onClick={() => { setIsAddingData(null); setMeasurementValues({}); setSaveError(null); }}
+                disabled={isSaving}
+                className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveMeasurement}
-                className="flex-1 py-4 bg-sky-500 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 active:scale-95 transition-all"
+                disabled={isSaving}
+                className="flex-1 py-4 bg-sky-500 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 active:scale-95 transition-all disabled:opacity-50"
               >
-                Save Measurement
+                {isSaving ? 'Saving...' : 'Save Measurement'}
               </button>
             </div>
           </div>
