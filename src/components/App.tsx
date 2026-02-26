@@ -50,7 +50,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const isFullyOnboarded =
     !!localStorage.getItem('access_token') &&
-    localStorage.getItem('onboarding_completed') === 'true';
+    (localStorage.getItem('onboarding_completed') === 'true' ||
+     localStorage.getItem('has_children') === 'true');
 
   const shouldHideNavbar =
     !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);

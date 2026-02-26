@@ -38,6 +38,9 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
         if (hasChildren === "false" && onboardingCompleted !== "true") {
           setStatus("needs_onboarding");
         } else {
+          if (hasChildren === "true" && onboardingCompleted !== "true") {
+            localStorage.setItem("onboarding_completed", "true");
+          }
           setStatus("authenticated");
         }
         return;
@@ -81,6 +84,7 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
         if (!data.hasChildren) {
           setStatus("needs_onboarding");
         } else {
+          localStorage.setItem("onboarding_completed", "true");
           setStatus("authenticated");
         }
       } catch (error) {
