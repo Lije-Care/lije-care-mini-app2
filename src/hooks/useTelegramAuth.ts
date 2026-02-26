@@ -22,7 +22,7 @@ interface UseTelegramAuthResult {
   telegramUser: TelegramUser | null;
 }
 
-const useTelegramAuth = (): UseTelegramAuthResult => {
+const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
 
@@ -41,6 +41,7 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
           if (hasChildren === "true" && onboardingCompleted !== "true") {
             localStorage.setItem("onboarding_completed", "true");
           }
+          onAuthChange?.();
           setStatus("authenticated");
         }
         return;
@@ -81,10 +82,13 @@ const useTelegramAuth = (): UseTelegramAuthResult => {
         localStorage.setItem("user", JSON.stringify(data.data));
         localStorage.setItem("has_children", String(data.hasChildren));
 
+        onAuthChange?.();
+
         if (!data.hasChildren) {
           setStatus("needs_onboarding");
         } else {
           localStorage.setItem("onboarding_completed", "true");
+          onAuthChange?.();
           setStatus("authenticated");
         }
       } catch (error) {

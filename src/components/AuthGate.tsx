@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { requestContact } from '@telegram-apps/sdk-react';
 import useTelegramAuth from '@/hooks/useTelegramAuth';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/api/axios';
 import logo from '@/assets/logo.png';
 
 type RegistrationStep = 'welcome' | 'registering' | 'done';
 
 const AuthGate = ({ children }: { children: React.ReactNode }) => {
-  const { status, telegramUser } = useTelegramAuth();
+  const { refreshAuth } = useAuth();
+  const { status, telegramUser } = useTelegramAuth(refreshAuth);
   const [regStep, setRegStep] = useState<RegistrationStep>('welcome');
   const [regError, setRegError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -30,6 +32,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('user', JSON.stringify(data.data));
       localStorage.setItem('has_children', String(data.hasChildren));
+      refreshAuth();
 
       setRegStep('done');
     } catch {

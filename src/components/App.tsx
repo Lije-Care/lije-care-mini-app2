@@ -13,6 +13,7 @@ import { Header, BottomNav } from "@/components/layout";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthGate from "./AuthGate";
 import { ProfileOverlayProvider } from "@/context/ProfileOverlayContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import ProfileOverlay from "@/components/ProfileOverlay";
 
 // Existing pages (keeping for compatibility)
@@ -47,11 +48,7 @@ const MAIN_TAB_PATHS = ['/', '/assessment', '/meals', '/ecommerce', '/consultati
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-
-  const isFullyOnboarded =
-    !!localStorage.getItem('access_token') &&
-    (localStorage.getItem('onboarding_completed') === 'true' ||
-     localStorage.getItem('has_children') === 'true');
+  const { isFullyOnboarded } = useAuth();
 
   const shouldHideNavbar =
     !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);
@@ -85,6 +82,7 @@ export function App() {
       platform={["macos", "ios"].includes(lp.platform) ? "ios" : "base"}
     >
       <HashRouter>
+        <AuthProvider>
         <Layout>
           <Routes>
             {/* Onboarding route - outside AuthGate */}
@@ -315,6 +313,7 @@ export function App() {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>
+        </AuthProvider>
       </HashRouter>
     </AppRoot>
   );

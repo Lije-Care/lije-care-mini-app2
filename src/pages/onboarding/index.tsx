@@ -6,6 +6,7 @@ import ParentProfileStep from './ParentProfileStep';
 import ProfileStep from './ProfileStep';
 import { addChild } from '@/redux/slices/childSlice';
 import type { AppDispatch } from '@/redux/store';
+import { useAuth } from '@/context/AuthContext';
 import type { ChildProfile, UserProfile } from '@/design-system/types';
 
 type OnboardingStep = 'terms' | 'parentProfile' | 'childProfile';
@@ -14,6 +15,7 @@ const Onboarding: React.FC = () => {
   const [step, setStep] = useState<OnboardingStep>('terms');
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { refreshAuth } = useAuth();
 
   const handleTermsAccepted = () => {
     setStep('parentProfile');
@@ -57,17 +59,20 @@ const Onboarding: React.FC = () => {
 
       localStorage.setItem('has_children', 'true');
       localStorage.setItem('onboarding_completed', 'true');
+      refreshAuth();
       navigate('/');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       // Still navigate even if API fails - profile saved locally
       localStorage.setItem('onboarding_completed', 'true');
+      refreshAuth();
       navigate('/');
     }
   };
 
   const handleSkipProfile = () => {
     localStorage.setItem('onboarding_completed', 'true');
+    refreshAuth();
     navigate('/');
   };
 
