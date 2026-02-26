@@ -27,6 +27,7 @@ export interface ChildProfile {
   height?: number;
   weight?: number;
   muac?: number;
+  activityLevel?: 'Active' | 'Moderate' | 'Sedentary';
   allergens?: string[];
 }
 

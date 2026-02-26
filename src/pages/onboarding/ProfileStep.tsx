@@ -25,6 +25,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
     weight: '',
     height: '',
     muac: '',
+    activityLevel: 'Moderate',
   });
 
   const [allergens, setAllergens] = useState<string[]>([]);
@@ -37,6 +38,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
       weight: growth.weight ? parseFloat(growth.weight) : undefined,
       height: growth.height ? parseFloat(growth.height) : undefined,
       muac: growth.muac ? parseFloat(growth.muac) : undefined,
+      activityLevel: growth.activityLevel,
       allergens: allergens.length > 0 ? allergens : undefined,
     });
   };

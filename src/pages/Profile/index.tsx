@@ -149,6 +149,7 @@ export default function ProfileScreen() {
           weight: childData.weight || 0,
           height: childData.height || 0,
           muac: childData.muac || 0,
+          activity_level: "Moderate",
           parentId,
         })
       ).unwrap();

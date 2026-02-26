@@ -15,6 +15,7 @@ interface AddChildSheetProps {
     weight?: number;
     height?: number;
     muac?: number;
+    activityLevel: 'Active' | 'Moderate' | 'Sedentary';
     allergens?: string[];
   }) => void;
   onClose: () => void;
@@ -31,6 +32,7 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
     weight: '',
     height: '',
     muac: '',
+    activityLevel: 'Moderate',
   });
   const [allergens, setAllergens] = useState<string[]>([]);
 
@@ -44,6 +46,7 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
       weight: growth.weight ? parseFloat(growth.weight) : undefined,
       height: growth.height ? parseFloat(growth.height) : undefined,
       muac: growth.muac ? parseFloat(growth.muac) : undefined,
+      activityLevel: growth.activityLevel,
       allergens: allergens.length > 0 ? allergens : undefined,
     });
   };
@@ -163,6 +166,10 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
                 <span className="text-sm text-slate-700 font-bold">{growth.height} cm</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-400 font-bold">Activity Level</span>
+              <span className="text-sm text-slate-700 font-bold">{growth.activityLevel}</span>
+            </div>
             {allergens.length > 0 && (
               <div className="flex justify-between">
                 <span className="text-sm text-slate-400 font-bold">Allergens</span>

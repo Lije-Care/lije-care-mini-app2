@@ -5,6 +5,7 @@ export interface CreateChildDto {
     weight: number;
     height: number;
     muac: number;
+    activity_level: "Active" | "Moderate" | "Sedentary";
     parentId: string;
   }
   

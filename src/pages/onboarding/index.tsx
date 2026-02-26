@@ -49,6 +49,7 @@ const Onboarding: React.FC = () => {
             weight: childData.weight || 0,
             height: childData.height || 0,
             muac: childData.muac || 0,
+            activity_level: childData.activityLevel || 'Moderate',
             parentId,
           })
         ).unwrap();

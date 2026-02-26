@@ -139,6 +139,7 @@ export default function ProfileOverlay() {
     weight?: number;
     height?: number;
     muac?: number;
+    activityLevel: 'Active' | 'Moderate' | 'Sedentary';
     allergens?: string[];
   }) => {
     try {
@@ -161,6 +162,7 @@ export default function ProfileOverlay() {
           weight: childData.weight || 0,
           height: childData.height || 0,
           muac: childData.muac || 0,
+          activity_level: childData.activityLevel,
           parentId,
         })
       ).unwrap();

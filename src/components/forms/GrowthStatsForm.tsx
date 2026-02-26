@@ -4,6 +4,7 @@ export interface GrowthStatsData {
   weight: string;
   height: string;
   muac: string;
+  activityLevel: 'Active' | 'Moderate' | 'Sedentary';
 }
 
 interface GrowthStatsFormProps {
@@ -36,6 +37,28 @@ const GrowthStatsForm: React.FC<GrowthStatsFormProps> = ({ data, onChange }) => 
           />
         </div>
       ))}
+
+      <div>
+        <label className="block text-sm font-bold text-slate-600 mb-2 ml-1">
+          🏃 Activity Level
+        </label>
+        <div className="flex gap-2">
+          {(['Active', 'Moderate', 'Sedentary'] as const).map((level) => (
+            <button
+              key={level}
+              type="button"
+              onClick={() => onChange({ ...data, activityLevel: level })}
+              className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${
+                data.activityLevel === level
+                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
         <p className="text-sky-700 text-sm leading-relaxed">

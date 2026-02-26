@@ -28,6 +28,7 @@ interface FormValues {
   weight: number | string;
   height: number | string;
   muac: number | string;
+  activity_level: "Active" | "Moderate" | "Sedentary";
   dietary_restrictions: string;
   allergies: string;
   medications: string;
@@ -52,6 +53,7 @@ const AddChildPage = () => {
       weight: "",
       height: "",
       muac: 0,
+      activity_level: "Moderate" as const,
       dietary_restrictions: "",
       allergies: "",
       medications: "",
@@ -67,6 +69,7 @@ const AddChildPage = () => {
       weight: parseFloat(data.weight.toString()),
       height: parseFloat(data.height.toString()),
       muac: parseFloat(data.muac.toString()),
+      activity_level: data.activity_level || ("Moderate" as const),
     };
 
     try {
