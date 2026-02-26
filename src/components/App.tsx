@@ -42,20 +42,21 @@ import MealsView from "@/pages/meals/MealsView";
 import Onboarding from "@/pages/onboarding";
 
 
-// Paths where navbar and header should be hidden
-const HIDE_NAVBAR_PATHS = ["/onboarding", "/video-call", "/chat"];
-const HIDE_HEADER_PATHS = ["/onboarding", "/video-call", "/chat"];
+// Main tab destinations — only these show the bottom nav and header
+const MAIN_TAB_PATHS = ['/', '/assessment', '/meals', '/ecommerce', '/consultation'];
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
 
-  const shouldHideNavbar = HIDE_NAVBAR_PATHS.some(path =>
-    location.pathname.startsWith(path) || location.pathname === path
-  );
+  const isFullyOnboarded =
+    !!localStorage.getItem('access_token') &&
+    localStorage.getItem('onboarding_completed') === 'true';
 
-  const shouldHideHeader = HIDE_HEADER_PATHS.some(path =>
-    location.pathname.startsWith(path) || location.pathname === path
-  );
+  const shouldHideNavbar =
+    !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);
+
+  const shouldHideHeader =
+    !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);
 
   return (
     <ProfileOverlayProvider>
