@@ -6,11 +6,14 @@ interface AuthContextType {
 }
 
 function readIsFullyOnboarded(): boolean {
-  return (
-    !!localStorage.getItem("access_token") &&
-    (localStorage.getItem("onboarding_completed") === "true" ||
-      localStorage.getItem("has_children") === "true")
-  );
+  const token = localStorage.getItem("access_token");
+  if (!token) return false;
+
+  const hasChildren = localStorage.getItem("has_children");
+  const onboardingCompleted = localStorage.getItem("onboarding_completed");
+
+  // Keep this in sync with useTelegramAuth existing-token logic.
+  return !(hasChildren === "false" && onboardingCompleted !== "true");
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

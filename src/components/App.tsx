@@ -46,15 +46,22 @@ import Onboarding from "@/pages/onboarding";
 // Main tab destinations — only these show the bottom nav and header
 const MAIN_TAB_PATHS = ['/', '/assessment', '/meals', '/ecommerce', '/consultation'];
 
+const normalizePath = (pathname: string) => {
+  const trimmed = pathname.replace(/\/+$/, '');
+  return trimmed || '/';
+};
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const { isFullyOnboarded } = useAuth();
+  const currentPath = normalizePath(location.pathname);
+  const isMainTabPath = MAIN_TAB_PATHS.includes(currentPath);
 
   const shouldHideNavbar =
-    !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);
+    !isFullyOnboarded || !isMainTabPath;
 
   const shouldHideHeader =
-    !isFullyOnboarded || !MAIN_TAB_PATHS.includes(location.pathname);
+    !isFullyOnboarded || !isMainTabPath;
 
   return (
     <ProfileOverlayProvider>
