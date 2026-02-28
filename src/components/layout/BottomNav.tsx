@@ -39,52 +39,61 @@ const BottomNav: React.FC = () => {
 
   // Default to home if no match found
   const safeActiveIndex = activeIndex >= 0 ? activeIndex : 0;
+  const slotWidth = 100 / NAV_ITEMS.length;
 
   return (
     <div className="fixed bottom-6 left-4 right-4 z-50 max-w-md mx-auto">
-      <div className="relative flex items-center justify-between h-16 px-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-200/50 border border-white/50 overflow-hidden">
+      <div className="relative h-16 px-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-200/50 border border-white/50 overflow-hidden">
         {/* Animated Sliding Pill */}
         <div
-          className="absolute h-12 rounded-xl transition-all duration-300 ease-out"
+          className="absolute inset-y-2 transition-all duration-300 ease-out"
           style={{
-            width: `${100 / NAV_ITEMS.length - 2}%`,
-            left: `${safeActiveIndex * (100 / NAV_ITEMS.length) + 1}%`,
-            backgroundColor: NAV_ITEMS[safeActiveIndex]?.color + '20',
-            border: `1.5px solid ${NAV_ITEMS[safeActiveIndex]?.color}40`,
+            width: `${slotWidth}%`,
+            left: `${safeActiveIndex * slotWidth}%`,
           }}
-        />
+        >
+          <div
+            className="h-full mx-1 rounded-xl"
+            style={{
+              backgroundColor: NAV_ITEMS[safeActiveIndex]?.color + '20',
+              border: `1.5px solid ${NAV_ITEMS[safeActiveIndex]?.color}40`,
+            }}
+          />
+        </div>
 
-        {NAV_ITEMS.map((item, index) => {
-          const isActive = index === safeActiveIndex;
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.path)}
-              className="relative flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-200"
-              style={{
-                color: isActive ? item.color : '#94A3B8',
-                transform: isActive ? 'scale(1.05)' : 'scale(1)',
-              }}
-            >
-              <div
-                className="transition-transform duration-200"
+        <div className="relative flex items-center justify-between h-full">
+          {NAV_ITEMS.map((item, index) => {
+            const isActive = index === safeActiveIndex;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className="relative flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-200"
                 style={{
-                  filter: isActive ? `drop-shadow(0 0 6px ${item.color}40)` : 'none',
+                  color: isActive ? item.color : '#94A3B8',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
                 }}
               >
-                {React.cloneElement(item.icon, {
-                  stroke: isActive ? item.color : '#94A3B8',
-                  strokeWidth: isActive ? 2.5 : 2,
-                } as React.SVGProps<SVGSVGElement>)}
-              </div>
-              <span
-                className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-70'}`}
-              >
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
+                <div
+                  className="transition-transform duration-200"
+                  style={{
+                    filter: isActive ? `drop-shadow(0 0 6px ${item.color}40)` : 'none',
+                  }}
+                >
+                  {React.cloneElement(item.icon, {
+                    stroke: isActive ? item.color : '#94A3B8',
+                    strokeWidth: isActive ? 2.5 : 2,
+                  } as React.SVGProps<SVGSVGElement>)}
+                </div>
+                <span
+                  className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-70'}`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       {/* Safe padding for mobile bottom bars */}
       <div className="h-safe-bottom" />
