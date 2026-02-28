@@ -7,6 +7,7 @@ import notificationReducer from "@/redux/slices/notificationSlice";
 import cartReducer from "./slices/cartSlice";
 import productReducer from "./slices/productSlice";
 import mealReducer from "./slices/mealSlice";
+import developmentalAssessmentReducer from "./slices/developmentalAssessmentSlice";
 
 // Load cart state from localStorage if exists
 const loadCartState = () => {
@@ -64,6 +65,7 @@ export const store = configureStore({
     notificartions: notificationReducer,
     products: productReducer,
     meals: mealReducer,
+    developmentalAssessments: developmentalAssessmentReducer,
   },
   // Inject persisted cart state into preloadedState
   preloadedState: {

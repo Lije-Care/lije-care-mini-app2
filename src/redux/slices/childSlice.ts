@@ -88,10 +88,13 @@ export const updateChild = createAsyncThunk<Child, Partial<Child>>(
   "children/updateChild",
   async (updateChildData, { rejectWithValue }) => {
     try {
-      const response = await api.patch<Child>(
+      const response = await api.patch<{ data: Child; message: string } | Child>(
         `children/${updateChildData.id}`,
         updateChildData
       );
+      if ("data" in response.data) {
+        return response.data.data;
+      }
       return response.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Update failed");
