@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
@@ -24,6 +23,7 @@ import {
 import { useProfileOverlay } from "@/context/ProfileOverlayContext";
 import type { Child } from "@/redux/slices/childSlice";
 import type { Gender } from "@/design-system/types";
+import { signOutAndCloseApp } from "@/utils/logout";
 
 type OverlayMode =
   | "main"
@@ -37,7 +37,6 @@ type OverlayMode =
 
 export default function ProfileOverlay() {
   const { isProfileOpen, closeProfile } = useProfileOverlay();
-  const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { t, i18n } = useTranslation();
 
@@ -198,10 +197,10 @@ export default function ProfileOverlay() {
   };
 
   const handleSignOut = () => {
-    localStorage.clear();
-    closeProfile();
-    navigate("/");
-    window.location.reload();
+    signOutAndCloseApp(() => {
+      closeProfile();
+      window.location.reload();
+    });
   };
 
   // --- Sub-view header ---

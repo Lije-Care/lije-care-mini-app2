@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import api from "@/api/axios";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { signOutAndCloseApp } from "@/utils/logout";
 
 declare global {
   interface Window {
@@ -109,13 +110,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    try {
-      window.Telegram?.WebApp?.close();
-    } catch (e) {}
-    navigate("/");
+    signOutAndCloseApp(() => navigate("/"));
   };
 
   const handleDeleteAccount = async () => {

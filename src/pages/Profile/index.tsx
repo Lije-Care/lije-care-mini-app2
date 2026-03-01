@@ -14,6 +14,7 @@ import AddChildSheet from "./AddChildSheet";
 import AllergenSheet from "./AllergenSheet";
 import type { Child } from "@/redux/slices/childSlice";
 import type { Gender } from "@/design-system/types";
+import { signOutAndCloseApp } from "@/utils/logout";
 
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -186,9 +187,10 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    localStorage.clear();
-    navigate("/");
-    window.location.reload();
+    signOutAndCloseApp(() => {
+      navigate("/");
+      window.location.reload();
+    });
   };
 
   const activeChildAvatar = activeChild
