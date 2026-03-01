@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/redux/store";
 import { Button, Input } from "@/components/ui";
@@ -24,21 +24,29 @@ const ParentProfile = (_props: ParentProfileProps) => {
   const parentState = useSelector((state: RootState) => state.parent);
   const parent = parentState?.parent as unknown as ParentInfo;
 
-  const [formData, setFormData] = useState<ParentInfo>({
-    firstName: parent?.firstName || "",
-    lastName: parent?.lastName || "",
-    phone: parent?.phone || "",
-    address: parent?.address || "",
-    city: parent?.city || "",
-    telegram_username: parent?.telegram_username || "",
-    email: parent?.email || "",
-    avatarUrl: parent?.avatarUrl || "",
+  const buildFormData = (source?: ParentInfo | null): ParentInfo => ({
+    firstName: source?.firstName || "",
+    lastName: source?.lastName || "",
+    phone: source?.phone || "",
+    address: source?.address || "",
+    city: source?.city || "",
+    telegram_username: source?.telegram_username || "",
+    email: source?.email || "",
+    avatarUrl: source?.avatarUrl || "",
   });
+
+  const [formData, setFormData] = useState<ParentInfo>(buildFormData(parent));
 
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const telegramUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+  useEffect(() => {
+    if (!isEditing) {
+      setFormData(buildFormData(parent));
+    }
+  }, [parent, isEditing]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -47,6 +55,12 @@ const ParentProfile = (_props: ParentProfileProps) => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (!telegramUser?.id) {
+      toast.error(t("User ID not found. Please log in again."));
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -55,11 +69,15 @@ const ParentProfile = (_props: ParentProfileProps) => {
           updatedParent: formData,
           userID: telegramUser?.id ?? "",
         })
-      );
+      ).unwrap();
       toast.success(t("Profile updated successfully!"));
       setIsEditing(false);
-    } catch (error) {
-      toast.error(t("Failed to update profile"));
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to update profile");
+      toast.error(message);
     } finally {
       setLoading(false);
     }

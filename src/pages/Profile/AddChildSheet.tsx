@@ -4,6 +4,7 @@ import type { Gender } from '@/design-system/types';
 import ChildBasicsForm, { type ChildBasicsData } from '@/components/forms/ChildBasicsForm';
 import GrowthStatsForm, { type GrowthStatsData } from '@/components/forms/GrowthStatsForm';
 import AllergenSelector from '@/components/forms/AllergenSelector';
+import { useTranslation } from 'react-i18next';
 
 type SubStep = 1 | 2 | 3 | 4;
 
@@ -22,6 +23,7 @@ interface AddChildSheetProps {
 }
 
 const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) => {
+  const { t } = useTranslation();
   const [subStep, setSubStep] = useState<SubStep>(1);
   const [basics, setBasics] = useState<ChildBasicsData>({
     name: '',
@@ -81,7 +83,7 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
               onClick={onClose}
               className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <Button
               color="sky"
@@ -90,7 +92,7 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
               onClick={() => canProceedStep1 && setSubStep(2)}
               disabled={!canProceedStep1}
             >
-              Continue
+              {t("Continue")}
             </Button>
           </div>
         </>
@@ -105,10 +107,10 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
               onClick={() => setSubStep(1)}
               className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
             >
-              Back
+              {t("Back")}
             </button>
             <Button color="sky" fullWidth size="lg" onClick={() => setSubStep(3)}>
-              Continue
+              {t("Continue")}
             </Button>
           </div>
         </>
@@ -123,10 +125,10 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
               onClick={() => setSubStep(2)}
               className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
             >
-              Back
+              {t("Back")}
             </button>
             <Button color="sky" fullWidth size="lg" onClick={() => setSubStep(4)}>
-              Continue
+              {t("Continue")}
             </Button>
           </div>
         </>
@@ -138,44 +140,48 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">🎉</span>
           </div>
-          <h3 className="text-xl font-black text-slate-800 mb-2">Add {basics.name}?</h3>
-          <p className="text-slate-500 text-sm mb-6">Confirm the details below.</p>
+          <h3 className="text-xl font-black text-slate-800 mb-2">
+            {t("Add Child Summary Title", { name: basics.name })}
+          </h3>
+          <p className="text-slate-500 text-sm mb-6">{t("Confirm child details prompt")}</p>
 
           <div className="bg-white rounded-2xl p-5 border border-slate-100 text-left mb-6 space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-slate-400 font-bold">Name</span>
-              <span className="text-sm text-slate-700 font-bold">{basics.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-slate-400 font-bold">Gender</span>
-              <span className="text-sm text-slate-700 font-bold capitalize">{basics.gender}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-slate-400 font-bold">Birth Date</span>
-              <span className="text-sm text-slate-700 font-bold">{basics.birthDate}</span>
-            </div>
-            {growth.weight && (
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-400 font-bold">Weight</span>
-                <span className="text-sm text-slate-700 font-bold">{growth.weight} kg</span>
+                <span className="text-sm text-slate-400 font-bold">{t("Name")}</span>
+                <span className="text-sm text-slate-700 font-bold">{basics.name}</span>
               </div>
-            )}
-            {growth.height && (
               <div className="flex justify-between">
-                <span className="text-sm text-slate-400 font-bold">Height</span>
-                <span className="text-sm text-slate-700 font-bold">{growth.height} cm</span>
+                <span className="text-sm text-slate-400 font-bold">{t("Gender")}</span>
+                <span className="text-sm text-slate-700 font-bold capitalize">
+                  {basics.gender === "girl" ? t("Girl") : t("Boy")}
+                </span>
               </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-sm text-slate-400 font-bold">Activity Level</span>
-              <span className="text-sm text-slate-700 font-bold">{growth.activityLevel}</span>
-            </div>
-            {allergens.length > 0 && (
               <div className="flex justify-between">
-                <span className="text-sm text-slate-400 font-bold">Allergens</span>
-                <span className="text-sm text-rose-600 font-bold">{allergens.join(', ')}</span>
+                <span className="text-sm text-slate-400 font-bold">{t("Date of Birth")}</span>
+                <span className="text-sm text-slate-700 font-bold">{basics.birthDate}</span>
               </div>
-            )}
+              {growth.weight && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-400 font-bold">{t("Weight")}</span>
+                  <span className="text-sm text-slate-700 font-bold">{growth.weight} kg</span>
+                </div>
+              )}
+              {growth.height && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-400 font-bold">{t("Height")}</span>
+                  <span className="text-sm text-slate-700 font-bold">{growth.height} cm</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-400 font-bold">{t("Activity Level")}</span>
+                <span className="text-sm text-slate-700 font-bold">{growth.activityLevel}</span>
+              </div>
+              {allergens.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-400 font-bold">{t("Allergies")}</span>
+                  <span className="text-sm text-rose-600 font-bold">{allergens.join(', ')}</span>
+                </div>
+              )}
           </div>
 
           <div className="flex gap-3">
@@ -183,10 +189,10 @@ const AddChildSheet: React.FC<AddChildSheetProps> = ({ onComplete, onClose }) =>
               onClick={() => setSubStep(3)}
               className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
             >
-              Back
+              {t("Back")}
             </button>
             <Button color="sky" fullWidth size="lg" onClick={handleFinish}>
-              Add Child
+              {t("Add Child")}
             </Button>
           </div>
         </div>

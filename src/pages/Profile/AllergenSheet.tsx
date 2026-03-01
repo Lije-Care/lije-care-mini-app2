@@ -1,5 +1,6 @@
 import React from 'react';
 import AllergenSelector from '@/components/forms/AllergenSelector';
+import { useTranslation } from 'react-i18next';
 
 interface AllergenSheetProps {
   allergens: string[];
@@ -8,6 +9,8 @@ interface AllergenSheetProps {
 }
 
 const AllergenSheet: React.FC<AllergenSheetProps> = ({ allergens, onChange, onSave }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="px-2 pb-6">
       <AllergenSelector selected={allergens} onChange={onChange} />
@@ -15,7 +18,7 @@ const AllergenSheet: React.FC<AllergenSheetProps> = ({ allergens, onChange, onSa
         onClick={onSave}
         className="w-full mt-6 py-4 bg-sky-500 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 active:scale-95 transition-all"
       >
-        Save Allergens
+        {t("Save Allergens")}
       </button>
     </div>
   );

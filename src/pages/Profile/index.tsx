@@ -1,13 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { BottomSheet } from "@/components/ui";
+import toast from "react-hot-toast";
 import ParentProfile from "@/components/ParentProfile";
 import AccountSettings from "@/components/AccountSetting";
 import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import { addChild, updateChild, deleteChildById } from "@/redux/slices/childSlice";
-import { GlobeIcon, LogOutIcon, FacebookIcon, InstagramIcon, TikTokIcon } from "@/design-system/icons";
+import { GlobeIcon, LogOutIcon } from "@/design-system/icons";
 import BabyProfileSheet from "./BabyProfileSheet";
 import SwitchBabySheet from "./SwitchBabySheet";
 import AddChildSheet from "./AddChildSheet";
@@ -95,15 +96,21 @@ export default function ProfileScreen() {
   const handleSaveBabyProfile = async (data: Partial<Child>) => {
     try {
       await dispatch(updateChild(data)).unwrap();
+      toast.success(t("Child profile updated successfully."));
       setIsBabyProfileOpen(false);
-    } catch (error) {
-      console.error("Failed to update child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to update child.");
+      toast.error(message);
     }
   };
 
   const handleDeleteChild = async (childId: string) => {
     try {
       await dispatch(deleteChildById(childId)).unwrap();
+      toast.success(t("Child profile deleted successfully."));
       setIsBabyProfileOpen(false);
       if (activeChildId === childId) {
         const remaining = children.filter((c) => c.id !== childId);
@@ -115,8 +122,12 @@ export default function ProfileScreen() {
           localStorage.removeItem("favorite_child_id");
         }
       }
-    } catch (error) {
-      console.error("Failed to delete child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to delete child.");
+      toast.error(message);
     }
   };
 
@@ -127,6 +138,7 @@ export default function ProfileScreen() {
     weight?: number;
     height?: number;
     muac?: number;
+    activityLevel: 'Active' | 'Moderate' | 'Sedentary';
     allergens?: string[];
   }) => {
     try {
@@ -134,7 +146,10 @@ export default function ProfileScreen() {
       const user = userData ? JSON.parse(userData) : null;
       const parentId = user?.id;
 
-      if (!parentId) return;
+      if (!parentId) {
+        toast.error(t("User ID not found. Please log in again."));
+        return;
+      }
 
       const genderMap: Record<string, "Male" | "Female"> = {
         boy: "Male",
@@ -150,16 +165,21 @@ export default function ProfileScreen() {
           weight: childData.weight || 0,
           height: childData.height || 0,
           muac: childData.muac || 0,
-          activity_level: "Moderate",
+          activity_level: childData.activityLevel,
           parentId,
         })
       ).unwrap();
 
       setActiveChildId(result.id);
       localStorage.setItem("favorite_child_id", result.id);
+      toast.success(t("Child added successfully."));
       setIsAddChildOpen(false);
-    } catch (error) {
-      console.error("Failed to add child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to add child");
+      toast.error(message);
     }
   };
 
@@ -180,9 +200,14 @@ export default function ProfileScreen() {
           allergies: activeChildAllergens.join(", "),
         })
       ).unwrap();
+      toast.success(t("Allergens updated successfully."));
       setIsAllergenOpen(false);
-    } catch (error) {
-      console.error("Failed to update allergens:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to update allergens.");
+      toast.error(message);
     }
   };
 
@@ -249,7 +274,7 @@ export default function ProfileScreen() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">
-              {parent?.firstName || "Parent"} {parent?.lastName || ""}
+              {parent?.firstName || t("Parent")} {parent?.lastName || ""}
             </h2>
             <p className="text-sky-100">{parent?.phone || ""}</p>
           </div>
@@ -262,13 +287,13 @@ export default function ProfileScreen() {
               onClick={() => setIsBabyProfileOpen(true)}
               className="px-4 py-2 bg-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-colors"
             >
-              Baby Profile
+              {t("Baby Profile")}
             </button>
             <button
               onClick={() => setIsSwitchBabyOpen(true)}
               className="px-4 py-2 bg-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-colors"
             >
-              Switch Baby
+              {t("Switch Baby")}
             </button>
           </div>
         )}
@@ -337,26 +362,6 @@ export default function ProfileScreen() {
           </div>
         </div>
 
-        {/* Social Links */}
-        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-5 mb-6">
-          <h3 className="font-bold text-slate-800 mb-4">{t("Follow Us")}</h3>
-          <div className="flex gap-4">
-            {[
-              { icon: <FacebookIcon size={20} />, label: "Facebook", color: "bg-blue-100 text-blue-600" },
-              { icon: <InstagramIcon size={20} />, label: "Instagram", color: "bg-pink-100 text-pink-600" },
-              { icon: <TikTokIcon size={20} />, label: "TikTok", color: "bg-slate-100 text-slate-700" },
-            ].map((social) => (
-              <button
-                key={social.label}
-                className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl ${social.color} transition-all active:scale-95`}
-              >
-                {social.icon}
-                <span className="text-[10px] font-bold uppercase">{social.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Sign Out */}
         <button
           onClick={() => setShowSignOutConfirm(true)}
@@ -385,22 +390,22 @@ export default function ProfileScreen() {
             <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <LogOutIcon size={32} className="text-rose-500" />
             </div>
-            <h4 className="text-xl font-black text-slate-800 mb-3">Sign Out?</h4>
+            <h4 className="text-xl font-black text-slate-800 mb-3">{t("Sign Out")}</h4>
             <p className="text-slate-500 text-sm mb-8">
-              Are you sure you want to sign out of your account?
+              {t("Ready to leave? We will keep your progress safe until you return.")}
             </p>
             <div className="space-y-3">
               <button
                 onClick={handleSignOut}
                 className="w-full py-4 bg-rose-500 text-white font-bold rounded-2xl active:scale-95 transition-all"
               >
-                Yes, Sign Out
+                {t("Sign Out Now")}
               </button>
               <button
                 onClick={() => setShowSignOutConfirm(false)}
                 className="w-full py-3 text-slate-500 font-bold"
               >
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </div>
@@ -427,7 +432,7 @@ export default function ProfileScreen() {
       <BottomSheet
         isOpen={isBabyProfileOpen}
         onClose={() => setIsBabyProfileOpen(false)}
-        title="Baby Profile"
+        title={t("Baby Profile")}
       >
         {activeChild && (
           <BabyProfileSheet
@@ -442,7 +447,7 @@ export default function ProfileScreen() {
       <BottomSheet
         isOpen={isSwitchBabyOpen}
         onClose={() => setIsSwitchBabyOpen(false)}
-        title="Switch Baby"
+        title={t("Switch Baby")}
       >
         <SwitchBabySheet
           children={children}
@@ -458,7 +463,7 @@ export default function ProfileScreen() {
       <BottomSheet
         isOpen={isAddChildOpen}
         onClose={() => setIsAddChildOpen(false)}
-        title="Add Child"
+        title={t("Add Child")}
       >
         <AddChildSheet
           onComplete={handleAddChild}
@@ -469,7 +474,7 @@ export default function ProfileScreen() {
       <BottomSheet
         isOpen={isAllergenOpen}
         onClose={() => setIsAllergenOpen(false)}
-        title="Manage Allergens"
+        title={t("Manage Allergens")}
       >
         <AllergenSheet
           allergens={activeChildAllergens}

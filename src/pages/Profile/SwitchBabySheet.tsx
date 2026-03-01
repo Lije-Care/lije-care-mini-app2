@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Child } from '@/redux/slices/childSlice';
+import { useTranslation } from 'react-i18next';
 
 interface SwitchBabySheetProps {
   children: Child[];
@@ -14,9 +15,11 @@ const SwitchBabySheet: React.FC<SwitchBabySheetProps> = ({
   onSelect,
   onAddChild,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="px-2 pb-6">
-      <p className="text-slate-500 text-sm mb-6">Select the child you'd like to view and manage.</p>
+      <p className="text-slate-500 text-sm mb-6">{t("Select child to manage")}</p>
 
       <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
         {children.map((child) => {
@@ -43,7 +46,7 @@ const SwitchBabySheet: React.FC<SwitchBabySheetProps> = ({
                 {child.name}
               </span>
               {isActive && (
-                <span className="text-[10px] font-bold text-sky-500 uppercase mt-1">Active</span>
+                <span className="text-[10px] font-bold text-sky-500 uppercase mt-1">{t("Active")}</span>
               )}
             </button>
           );
@@ -57,7 +60,7 @@ const SwitchBabySheet: React.FC<SwitchBabySheetProps> = ({
           <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
             <span className="text-3xl">+</span>
           </div>
-          <span className="text-sm font-bold">Add Child</span>
+          <span className="text-sm font-bold">{t("Add Child")}</span>
         </button>
       </div>
     </div>

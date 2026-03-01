@@ -125,9 +125,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
       if (res.status === 200) {
         toast.success(t("Account deleted successfully."));
         setIsDeleting(false);
-        localStorage.removeItem("user");
-        localStorage.removeItem("access_token");
-        navigate("/");
+        signOutAndCloseApp(() => navigate("/"));
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || t("Failed to delete account."));

@@ -4,9 +4,18 @@ import api from "@/api/axios";
 import { ParentInfo } from "@/types";
 
 interface Parent {
-  id: number;
-  name: string;
-  children: Child[];
+  id: number | string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  telegram_username?: string;
+  email?: string;
+  avatarUrl?: string;
+  name?: string;
+  children?: Child[];
+  [key: string]: any;
 }
 
 interface ParentState {
@@ -78,20 +87,30 @@ export const addParent = createAsyncThunk(
   }
 );
 
-export const updateParent = createAsyncThunk(
+export const updateParent = createAsyncThunk<
+  Parent,
+  {
+    updatedParent: ParentInfo;
+    userID: string;
+  },
+  { rejectValue: string }
+>(
   "parent/updateParent",
   async ({
     updatedParent,
     userID,
-  }: {
-    updatedParent: ParentInfo;
-    userID: string;
-  }) => {
-    const response = await api.patch<Parent>(
-      `users/update/${userID}`,
-      updatedParent
-    );
-    return response.data;
+  }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch<{ data: Parent } | Parent>(
+        `users/update/${userID}`,
+        updatedParent
+      );
+      return "data" in response.data ? response.data.data : response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to update parent"
+      );
+    }
   }
 );
 
@@ -128,6 +147,23 @@ const parentSlice = createSlice({
       .addCase(fetchParent.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || "Failed to fetch parent";
+      })
+      .addCase(updateParent.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateParent.fulfilled, (state, action: PayloadAction<Parent>) => {
+        state.loading = false;
+        state.parent = action.payload;
+        state.userDetails = state.userDetails
+          ? { ...state.userDetails, ...action.payload }
+          : action.payload;
+      })
+      .addCase(updateParent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = String(
+          action.payload || action.error.message || "Failed to update parent"
+        );
       });
   },
 });

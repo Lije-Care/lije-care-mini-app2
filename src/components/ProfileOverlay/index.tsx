@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
+import toast from "react-hot-toast";
 import { RootState, AppDispatch } from "@/redux/store";
 import { addChild, updateChild, deleteChildById } from "@/redux/slices/childSlice";
 import ParentProfile from "@/components/ParentProfile";
@@ -15,9 +16,6 @@ import {
   GlobeIcon,
   TrashIcon,
   LogOutIcon,
-  FacebookIcon,
-  InstagramIcon,
-  TikTokIcon,
   ChevronDownIcon,
 } from "@/design-system/icons";
 import { useProfileOverlay } from "@/context/ProfileOverlayContext";
@@ -106,15 +104,21 @@ export default function ProfileOverlay() {
   const handleSaveBabyProfile = async (data: Partial<Child>) => {
     try {
       await dispatch(updateChild(data)).unwrap();
+      toast.success(t("Child profile updated successfully."));
       setMode("main");
-    } catch (error) {
-      console.error("Failed to update child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to update child.");
+      toast.error(message);
     }
   };
 
   const handleDeleteChild = async (childId: string) => {
     try {
       await dispatch(deleteChildById(childId)).unwrap();
+      toast.success(t("Child profile deleted successfully."));
       setMode("main");
       if (activeChildId === childId) {
         const remaining = children.filter((c) => c.id !== childId);
@@ -126,8 +130,12 @@ export default function ProfileOverlay() {
           localStorage.removeItem("favorite_child_id");
         }
       }
-    } catch (error) {
-      console.error("Failed to delete child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to delete child.");
+      toast.error(message);
     }
   };
 
@@ -145,7 +153,10 @@ export default function ProfileOverlay() {
       const userData = localStorage.getItem("user");
       const user = userData ? JSON.parse(userData) : null;
       const parentId = user?.id;
-      if (!parentId) return;
+      if (!parentId) {
+        toast.error(t("User ID not found. Please log in again."));
+        return;
+      }
 
       const genderMap: Record<string, "Male" | "Female"> = {
         boy: "Male",
@@ -168,9 +179,14 @@ export default function ProfileOverlay() {
 
       setActiveChildId(result.id);
       localStorage.setItem("favorite_child_id", result.id);
+      toast.success(t("Child added successfully."));
       setMode("main");
-    } catch (error) {
-      console.error("Failed to add child:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to add child");
+      toast.error(message);
     }
   };
 
@@ -190,9 +206,14 @@ export default function ProfileOverlay() {
           allergies: activeChildAllergens.join(", "),
         })
       ).unwrap();
+      toast.success(t("Allergens updated successfully."));
       setMode("babyProfile");
-    } catch (error) {
-      console.error("Failed to update allergens:", error);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t("Failed to update allergens.");
+      toast.error(message);
     }
   };
 
@@ -304,7 +325,7 @@ export default function ProfileOverlay() {
           </div>
         </section>
 
-        {/* Sign Out + social + version */}
+        {/* Sign Out + version */}
         <section className="flex flex-col items-center gap-8 pt-4 pb-6">
           <button
             onClick={() => setShowSignOutConfirm(true)}
@@ -312,16 +333,9 @@ export default function ProfileOverlay() {
           >
             <LogOutIcon size={20} /> {t("Sign Out")}
           </button>
-          <div className="flex flex-col items-center gap-4 w-full">
-            <div className="flex gap-8 text-slate-300">
-              <FacebookIcon className="hover:text-sky-600 transition-colors cursor-pointer w-6 h-6" />
-              <InstagramIcon className="hover:text-rose-500 transition-colors cursor-pointer w-6 h-6" />
-              <TikTokIcon className="hover:text-slate-900 transition-colors cursor-pointer w-6 h-6" />
-            </div>
-            <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">
-              Version 1.0.0
-            </p>
-          </div>
+          <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">
+            Version 1.0.0
+          </p>
         </section>
       </div>
     </div>
