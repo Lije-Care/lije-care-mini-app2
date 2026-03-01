@@ -43,7 +43,7 @@ const BottomNav: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 left-4 right-4 z-50 max-w-md mx-auto">
-      <div className="relative h-16 px-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-200/50 border border-white/50 overflow-hidden">
+      <div className="relative h-16 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-200/50 border border-white/50 overflow-hidden">
         {/* Animated Sliding Pill */}
         <div
           className="absolute inset-y-2 transition-all duration-300 ease-out"
@@ -53,7 +53,7 @@ const BottomNav: React.FC = () => {
           }}
         >
           <div
-            className="h-full mx-1 rounded-xl"
+            className="h-full mx-2 rounded-xl"
             style={{
               backgroundColor: NAV_ITEMS[safeActiveIndex]?.color + '20',
               border: `1.5px solid ${NAV_ITEMS[safeActiveIndex]?.color}40`,
@@ -61,7 +61,7 @@ const BottomNav: React.FC = () => {
           />
         </div>
 
-        <div className="relative flex items-center justify-between h-full">
+        <div className="relative flex items-center h-full">
           {NAV_ITEMS.map((item, index) => {
             const isActive = index === safeActiveIndex;
             return (

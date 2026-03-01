@@ -47,6 +47,49 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
         return;
       }
 
+      // DEV MODE: Auto-login with Telegram ID from .env
+      const devTelegramId = import.meta.env.VITE_DEV_TELEGRAM_ID;
+      if (import.meta.env.DEV && devTelegramId) {
+        const devUser: TelegramUser = {
+          id: Number(devTelegramId),
+          firstName: "Dev",
+          lastName: "User",
+        };
+        setTelegramUser(devUser);
+
+        try {
+          const { data } = await api.post("/auth/telegram-signin", {
+            telegramId: devTelegramId,
+          });
+
+          localStorage.setItem("access_token", data.access_token);
+          localStorage.setItem("refresh_token", data.refresh_token);
+          localStorage.setItem("user", JSON.stringify(data.data));
+          localStorage.setItem("has_children", String(data.hasChildren));
+
+          onAuthChange?.();
+
+          if (!data.hasChildren) {
+            setStatus("needs_onboarding");
+          } else {
+            localStorage.setItem("onboarding_completed", "true");
+            onAuthChange?.();
+            setStatus("authenticated");
+          }
+        } catch (error) {
+          const err = error as AxiosError<{ message: string }>;
+          if (
+            err?.response?.status === 404 ||
+            err?.response?.data?.message === "User not found"
+          ) {
+            setStatus("not_registered");
+          } else {
+            setStatus("error");
+          }
+        }
+        return;
+      }
+
       // Get Telegram user from launch params (proven to work, unlike initData signal)
       let tgUser: TelegramUser | null = null;
       try {
