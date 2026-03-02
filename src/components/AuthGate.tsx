@@ -5,6 +5,7 @@ import useTelegramAuth from '@/hooks/useTelegramAuth';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/api/axios';
 import logo from '@/assets/logo.png';
+import { normalizePhoneNumber } from '@/utils/phone';
 
 type RegistrationStep = 'welcome' | 'registering' | 'done';
 
@@ -19,12 +20,16 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     try {
       setRegError(null);
       const { contact } = await requestContact();
+      const normalizedPhone = normalizePhoneNumber(contact.phoneNumber);
+      if (!normalizedPhone) {
+        throw new Error('Invalid phone number received from Telegram');
+      }
 
       setRegStep('registering');
 
       const { data } = await api.post('/auth/telegram-register', {
         telegramId: telegramUser!.id.toString(),
-        phone: contact.phoneNumber,
+        phone: normalizedPhone,
         username: telegramUser?.username || '',
       });
 
