@@ -91,7 +91,7 @@ export const addParent = createAsyncThunk(
 export const updateParent = createAsyncThunk<
   Parent,
   {
-    updatedParent: ParentInfo;
+    updatedParent: Partial<ParentInfo>;
     userID: string;
   },
   { rejectValue: string }
@@ -102,21 +102,30 @@ export const updateParent = createAsyncThunk<
     userID,
   }, { rejectWithValue }) => {
     try {
-      const payload: Partial<ParentInfo> = {
-        ...updatedParent,
-        firstName: updatedParent.firstName?.trim() || "",
-        lastName: updatedParent.lastName?.trim() || "",
-        address: updatedParent.address?.trim() || "",
-        city: updatedParent.city?.trim() || "",
-        telegram_username: updatedParent.telegram_username?.trim() || "",
-        avatarUrl: updatedParent.avatarUrl?.trim() || "",
-      };
+      const payload: Partial<ParentInfo> = {};
+
+      if (updatedParent.firstName !== undefined) {
+        payload.firstName = updatedParent.firstName.trim();
+      }
+      if (updatedParent.lastName !== undefined) {
+        payload.lastName = updatedParent.lastName.trim();
+      }
+      if (updatedParent.address !== undefined) {
+        payload.address = updatedParent.address.trim();
+      }
+      if (updatedParent.city !== undefined) {
+        payload.city = updatedParent.city.trim();
+      }
+      if (updatedParent.telegram_username !== undefined) {
+        payload.telegram_username = updatedParent.telegram_username.trim();
+      }
+      if (updatedParent.avatarUrl !== undefined) {
+        payload.avatarUrl = updatedParent.avatarUrl.trim();
+      }
 
       const normalizedPhone = normalizePhoneNumber(updatedParent.phone);
       if (normalizedPhone) {
         payload.phone = normalizedPhone;
-      } else {
-        delete payload.phone;
       }
 
       const response = await api.patch<{ data: Parent } | Parent>(

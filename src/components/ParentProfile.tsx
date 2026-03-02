@@ -31,7 +31,6 @@ const ParentProfile = (_props: ParentProfileProps) => {
     address: source?.address || "",
     city: source?.city || "",
     telegram_username: source?.telegram_username || "",
-    email: source?.email || "",
     avatarUrl: source?.avatarUrl || "",
   });
 
@@ -61,12 +60,36 @@ const ParentProfile = (_props: ParentProfileProps) => {
       return;
     }
 
+    const editableFields: Array<keyof ParentInfo> = [
+      "firstName",
+      "lastName",
+      "phone",
+      "address",
+      "city",
+      "telegram_username",
+      "avatarUrl",
+    ];
+
+    const changedData: Partial<ParentInfo> = {};
+    editableFields.forEach((field) => {
+      const currentValue = (formData[field] || "").toString().trim();
+      const originalValue = (parent?.[field] || "").toString().trim();
+      if (currentValue !== originalValue) {
+        changedData[field] = formData[field];
+      }
+    });
+
+    if (Object.keys(changedData).length === 0) {
+      toast(t("No changes to save."));
+      return;
+    }
+
     setLoading(true);
 
     try {
       await dispatch(
         updateParent({
-          updatedParent: formData,
+          updatedParent: changedData,
           userID: telegramUser?.id ?? "",
         })
       ).unwrap();
@@ -90,7 +113,6 @@ const ParentProfile = (_props: ParentProfileProps) => {
     { name: "address", label: t("Address"), icon: "📍" },
     { name: "city", label: t("City"), icon: "🏙️" },
     { name: "telegram_username", label: t("Telegram Username"), icon: "✈️" },
-    { name: "email", label: t("Email"), icon: "📧" },
   ];
 
   if (isEditing) {
@@ -119,15 +141,6 @@ const ParentProfile = (_props: ParentProfileProps) => {
           type="tel"
           placeholder={t("Enter phone number")}
           value={formData.phone}
-          onChange={handleChange}
-        />
-
-        <Input
-          label={t("Email")}
-          name="email"
-          type="email"
-          placeholder={t("Enter email")}
-          value={formData.email}
           onChange={handleChange}
         />
 
