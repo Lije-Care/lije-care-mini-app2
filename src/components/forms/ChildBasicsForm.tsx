@@ -16,19 +16,13 @@ interface ChildBasicsFormProps {
 const genderOptions: { value: Gender; label: string; emoji: string }[] = [
   { value: 'boy', label: 'Boy', emoji: '👦' },
   { value: 'girl', label: 'Girl', emoji: '👧' },
-  { value: 'prefer-not-to-say', label: 'Other', emoji: '👶' },
 ];
 
 const getGenderStyles = (value: Gender, isSelected: boolean) => {
   if (!isSelected) return 'bg-white border-slate-200 text-slate-600 hover:border-slate-300';
-  switch (value) {
-    case 'boy':
-      return 'bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-200';
-    case 'girl':
-      return 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-200';
-    default:
-      return 'bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-200';
-  }
+  return value === 'boy'
+    ? 'bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-200'
+    : 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-200';
 };
 
 const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => {
@@ -45,7 +39,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
         <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
           Gender
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {genderOptions.map(({ value, label, emoji }) => (
             <button
               key={value}

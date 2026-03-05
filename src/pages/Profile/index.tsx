@@ -154,7 +154,6 @@ export default function ProfileScreen() {
       const genderMap: Record<string, "Male" | "Female"> = {
         boy: "Male",
         girl: "Female",
-        "prefer-not-to-say": "Male",
       };
 
       const result = await dispatch(

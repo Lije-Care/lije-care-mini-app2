@@ -16,7 +16,7 @@ export enum AppView {
   CALL_CENTER = 'CALL_CENTER'
 }
 
-export type Gender = 'boy' | 'girl' | 'prefer-not-to-say';
+export type Gender = 'boy' | 'girl';
 
 export interface ChildProfile {
   id: string;

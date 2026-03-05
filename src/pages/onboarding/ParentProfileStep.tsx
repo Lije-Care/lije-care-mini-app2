@@ -10,7 +10,6 @@ interface ParentProfileStepProps {
 const genderOptions = [
   { value: 'Male', label: 'Male', emoji: '👨' },
   { value: 'Female', label: 'Female', emoji: '👩' },
-  { value: 'Prefer not to say', label: 'Prefer not to say', emoji: '🙂' },
 ];
 
 const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSkip }) => {
@@ -66,7 +65,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
             <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
               Gender
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {genderOptions.map(({ value, label, emoji }) => (
                 <button
                   key={value}

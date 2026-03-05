@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import api from "@/api/axios";
 import { ParentInfo } from "@/types";
-import { normalizePhoneNumber } from "@/utils/phone";
 
 interface Parent {
   id: number | string;
@@ -116,16 +115,8 @@ export const updateParent = createAsyncThunk<
       if (updatedParent.city !== undefined) {
         payload.city = updatedParent.city.trim();
       }
-      if (updatedParent.telegram_username !== undefined) {
-        payload.telegram_username = updatedParent.telegram_username.trim();
-      }
       if (updatedParent.avatarUrl !== undefined) {
         payload.avatarUrl = updatedParent.avatarUrl.trim();
-      }
-
-      const normalizedPhone = normalizePhoneNumber(updatedParent.phone);
-      if (normalizedPhone) {
-        payload.phone = normalizedPhone;
       }
 
       const response = await api.patch<{ data: Parent } | Parent>(

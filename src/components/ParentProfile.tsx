@@ -63,10 +63,8 @@ const ParentProfile = (_props: ParentProfileProps) => {
     const editableFields: Array<keyof ParentInfo> = [
       "firstName",
       "lastName",
-      "phone",
       "address",
       "city",
-      "telegram_username",
       "avatarUrl",
     ];
 
@@ -136,15 +134,6 @@ const ParentProfile = (_props: ParentProfileProps) => {
         </div>
 
         <Input
-          label={t("Phone Number")}
-          name="phone"
-          type="tel"
-          placeholder={t("Enter phone number")}
-          value={formData.phone}
-          onChange={handleChange}
-        />
-
-        <Input
           label={t("Address")}
           name="address"
           placeholder={t("Enter address")}
@@ -157,14 +146,6 @@ const ParentProfile = (_props: ParentProfileProps) => {
           name="city"
           placeholder={t("Enter city")}
           value={formData.city}
-          onChange={handleChange}
-        />
-
-        <Input
-          label={t("Telegram Username")}
-          name="telegram_username"
-          placeholder={t("Enter Telegram username")}
-          value={formData.telegram_username}
           onChange={handleChange}
         />
 

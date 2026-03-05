@@ -40,7 +40,6 @@ const Onboarding: React.FC = () => {
         const genderMap: Record<string, 'Male' | 'Female'> = {
           boy: 'Male',
           girl: 'Female',
-          'prefer-not-to-say': 'Male',
         };
 
         await dispatch(
