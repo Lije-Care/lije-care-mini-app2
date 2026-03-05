@@ -9,6 +9,12 @@ import {
 import { PlusIcon, BellIcon, InfoIcon } from '@/design-system/icons';
 import { BottomSheet } from '@/components/ui';
 import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
+import {
+  DEVELOPMENTAL_SUBCATEGORY_LABELS,
+  DEVELOPMENTAL_SUBCATEGORY_ORDER,
+  getAgeInMonthsFromDob,
+  getDevelopmentalAssessmentsForAge,
+} from '@/data/developmentalMilestones';
 
 interface MeasurementField {
   label: string;
@@ -92,25 +98,6 @@ const ANTHROPOMETRIC_ASSESSMENTS: DetailedAssessment[] = [
   { id: 'a1-3', title: 'MUAC Tape Test', category: 'Anthropometric', type: 'measurement' },
 ];
 
-const BASE_DEVELOPMENTAL_ASSESSMENTS: DetailedAssessment[] = [
-  { id: 'dev-l1', title: 'Responds to name', category: 'Developmental', subCategory: 'Language', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-l2', title: 'Uses 5-10 words', category: 'Developmental', subCategory: 'Language', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-l3', title: 'Points to objects', category: 'Developmental', subCategory: 'Language', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-l4', title: 'Follows simple commands', category: 'Developmental', subCategory: 'Language', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-c1', title: 'Finds hidden objects', category: 'Developmental', subCategory: 'Cognitive', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-c2', title: 'Sorts by color/shape', category: 'Developmental', subCategory: 'Cognitive', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-c3', title: 'Pretend play', category: 'Developmental', subCategory: 'Cognitive', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-s1', title: 'Plays near other kids', category: 'Developmental', subCategory: 'Social', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-s2', title: 'Shows affection', category: 'Developmental', subCategory: 'Social', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-s3', title: 'Separation anxiety', category: 'Developmental', subCategory: 'Social', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-p1', title: 'Runs easily', category: 'Developmental', subCategory: 'Physical', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-p2', title: 'Climbs furniture', category: 'Developmental', subCategory: 'Physical', type: 'subjective', answer: 'unanswered' },
-  { id: 'dev-p3', title: 'Stacks 4 blocks', category: 'Developmental', subCategory: 'Physical', type: 'subjective', answer: 'unanswered' },
-];
-
-const createInitialDevelopmentalAssessments = () =>
-  BASE_DEVELOPMENTAL_ASSESSMENTS.map((item) => ({ ...item }));
-
 const formatRelativeTime = (isoDate?: string) => {
   if (!isoDate) return 'Never updated';
 
@@ -146,7 +133,7 @@ const getAnswerColor = (answer?: DevAnswer) => {
 
 const AssessmentView: React.FC = () => {
   const [developmentalAssessments, setDevelopmentalAssessments] = useState<DetailedAssessment[]>(
-    createInitialDevelopmentalAssessments()
+    []
   );
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
   const [notificationType, setNotificationType] = useState<'anthropometric' | 'developmental' | null>(null);
@@ -169,22 +156,30 @@ const AssessmentView: React.FC = () => {
   const activeChild =
     childrenState.data.find((child) => child.id === favoriteChildId) || childrenState.data[0];
 
-  useEffect(() => {
-    setDevelopmentalAssessments(createInitialDevelopmentalAssessments());
+  const childAgeInMonths = useMemo(
+    () => getAgeInMonthsFromDob(activeChild?.date_of_birth),
+    [activeChild?.date_of_birth]
+  );
 
+  const baseDevelopmentalAssessments = useMemo(
+    () => getDevelopmentalAssessmentsForAge(childAgeInMonths),
+    [childAgeInMonths]
+  );
+
+  useEffect(() => {
     if (activeChild?.id) {
       dispatch(fetchDevelopmentalAssessments(activeChild.id));
     }
   }, [dispatch, activeChild?.id]);
 
   useEffect(() => {
-    setDevelopmentalAssessments((prev) =>
-      prev.map((item) => ({
+    setDevelopmentalAssessments(
+      baseDevelopmentalAssessments.map((item) => ({
         ...item,
         answer: developmentalState.byQuestionId[item.id] ?? 'unanswered',
       }))
     );
-  }, [developmentalState.byQuestionId]);
+  }, [baseDevelopmentalAssessments, developmentalState.byQuestionId]);
 
   const anthropometricCards = useMemo(() => {
     const childUpdatedAt = activeChild?.updatedAt;
@@ -430,16 +425,23 @@ const AssessmentView: React.FC = () => {
             </button>
           </div>
 
-          {['Language', 'Cognitive', 'Social', 'Physical'].map((subCategory) => (
-            <div key={subCategory} className="mb-10">
-              <h4 className="px-6 text-xs font-bold text-slate-400 mb-4 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-300" />
-                {subCategory}
-              </h4>
-              <div className="flex gap-4 overflow-x-auto hide-scrollbar px-6 snap-x">
-                {developmentalAssessments
-                  .filter((item) => item.subCategory === subCategory)
-                  .map((question) => (
+          {DEVELOPMENTAL_SUBCATEGORY_ORDER.map((subCategory) => {
+            const categoryQuestions = developmentalAssessments.filter(
+              (item) => item.subCategory === subCategory
+            );
+
+            if (categoryQuestions.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={subCategory} className="mb-10">
+                <h4 className="px-6 text-xs font-bold text-slate-400 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-300" />
+                  {DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory]}
+                </h4>
+                <div className="flex gap-4 overflow-x-auto hide-scrollbar px-6 snap-x">
+                  {categoryQuestions.map((question) => (
                     <div
                       key={question.id}
                       onClick={() => {
@@ -491,9 +493,10 @@ const AssessmentView: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {developmentalState.error && (
             <div className="px-6 mt-2">

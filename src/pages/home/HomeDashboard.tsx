@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
@@ -9,6 +9,10 @@ import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchParent } from '@/redux/slices/itemSlice';
 import { fetchProducts } from '@/redux/slices/productSlice';
 import { fetchMeals } from '@/redux/slices/mealSlice';
+import {
+  getAgeInMonthsFromDob,
+  getDevelopmentTracePromptsForAge,
+} from '@/data/developmentalMilestones';
 
 interface AssessmentPrompt {
   id: string;
@@ -16,11 +20,11 @@ interface AssessmentPrompt {
   category: 'development' | 'growth';
 }
 
-const ASSESSMENT_PROMPTS: AssessmentPrompt[] = [
-  { id: '1', question: "Can your child jump with both feet off the floor?", category: 'development' },
-  { id: '2', question: "Does your child identify at least 3 body parts?", category: 'development' },
-  { id: '3', question: "Update weight & height measurement today?", category: 'growth' },
-];
+const GROWTH_PROMPT: AssessmentPrompt = {
+  id: 'growth-prompt',
+  question: 'Update weight & height measurement today?',
+  category: 'growth',
+};
 
 // Fallback data in case backend data is not available
 const FALLBACK_MEAL = {
@@ -54,6 +58,27 @@ const HomeDashboard: React.FC = () => {
   // Redux state
   const { products } = useSelector((state: RootState) => state.products);
   const { meals } = useSelector((state: RootState) => state.meals);
+  const { data: children } = useSelector((state: RootState) => state.children);
+
+  const favoriteChildId = localStorage.getItem('favorite_child_id');
+  const activeChild = children.find((child) => child.id === favoriteChildId) || children[0];
+
+  const childAgeInMonths = useMemo(
+    () => getAgeInMonthsFromDob(activeChild?.date_of_birth),
+    [activeChild?.date_of_birth]
+  );
+
+  const assessmentPrompts = useMemo<AssessmentPrompt[]>(() => {
+    const developmentPrompts = getDevelopmentTracePromptsForAge(childAgeInMonths, 2).map(
+      (prompt) => ({
+        id: prompt.id,
+        question: prompt.question,
+        category: 'development' as const,
+      })
+    );
+
+    return [...developmentPrompts, GROWTH_PROMPT];
+  }, [childAgeInMonths]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -107,7 +132,7 @@ const HomeDashboard: React.FC = () => {
         </div>
 
         <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-4 px-4 pb-2">
-          {ASSESSMENT_PROMPTS.map((prompt) => (
+          {assessmentPrompts.map((prompt) => (
             <Card
               key={prompt.id}
               className="flex-shrink-0 w-[85%] snap-center"
