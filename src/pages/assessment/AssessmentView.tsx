@@ -1,20 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '@/redux/store';
-import { updateChild } from '@/redux/slices/childSlice';
-import {
-  fetchDevelopmentalAssessments,
-  saveDevelopmentalAssessmentsBulk,
-} from '@/redux/slices/developmentalAssessmentSlice';
-import { PlusIcon, BellIcon, InfoIcon } from '@/design-system/icons';
+import { useDispatch, useSelector } from 'react-redux';
+
 import { BottomSheet } from '@/components/ui';
-import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
 import {
   DEVELOPMENTAL_SUBCATEGORY_LABELS,
   DEVELOPMENTAL_SUBCATEGORY_ORDER,
   getAgeInMonthsFromDob,
   getDevelopmentalAssessmentsForAge,
 } from '@/data/developmentalMilestones';
+import { BellIcon, InfoIcon, PlusIcon } from '@/design-system/icons';
+import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
+import { updateChild } from '@/redux/slices/childSlice';
+import {
+  fetchDevelopmentalAssessments,
+  saveDevelopmentalAssessmentsBulk,
+} from '@/redux/slices/developmentalAssessmentSlice';
+import type { AppDispatch, RootState } from '@/redux/store';
+import {
+  getAnthropometricStatus,
+  type AnthropometricAssessmentId,
+  type AnthropometricTone,
+} from '@/utils/anthropometric';
 
 interface MeasurementField {
   label: string;
@@ -22,7 +28,54 @@ interface MeasurementField {
   help: string;
 }
 
-type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3';
+interface CardMetric {
+  label: string;
+  value: string;
+}
+
+interface AnthropometricCard {
+  id: AnthropometricAssessmentId;
+  title: string;
+  category: 'Anthropometric';
+  type: 'measurement';
+  metrics: CardMetric[];
+  isRecorded: boolean;
+  isStale: boolean;
+  hasResult: boolean;
+  lastUpdatedText: string;
+  displayStatus: string;
+  detailText: string;
+  whoClassification: string | null;
+  zScore: number | null;
+  score: number | null;
+  progress: number;
+  tone: AnthropometricTone;
+}
+
+const STATUS_STYLES: Record<
+  AnthropometricTone,
+  {
+    ring: string;
+    pill: string;
+  }
+> = {
+  danger: {
+    ring: 'text-rose-500',
+    pill: 'border-rose-200 bg-rose-50 text-rose-500',
+  },
+  success: {
+    ring: 'text-emerald-500',
+    pill: 'border-emerald-200 bg-emerald-50 text-emerald-500',
+  },
+  warning: {
+    ring: 'text-amber-500',
+    pill: 'border-amber-200 bg-amber-50 text-amber-600',
+  },
+  neutral: {
+    ring: 'text-slate-300',
+    pill: 'border-slate-200 bg-slate-100 text-slate-500',
+  },
+};
 
 const MEASUREMENT_GUIDES: Record<string, { title: string; items: string[]; tip: string }> = {
   a1: {
@@ -92,10 +145,15 @@ const MEASUREMENT_FIELDS: Record<string, MeasurementField[]> = {
   ],
 };
 
-const ANTHROPOMETRIC_ASSESSMENTS: DetailedAssessment[] = [
+const ANTHROPOMETRIC_ASSESSMENTS: Array<{
+  id: AnthropometricAssessmentId;
+  title: string;
+  category: 'Anthropometric';
+  type: 'measurement';
+}> = [
   { id: 'a1', title: 'Weight for Height', category: 'Anthropometric', type: 'measurement' },
   { id: 'a1-2', title: 'Height for Age', category: 'Anthropometric', type: 'measurement' },
-  { id: 'a1-3', title: 'MUAC Tape Test', category: 'Anthropometric', type: 'measurement' },
+  { id: 'a1-3', title: 'MUAC for Age', category: 'Anthropometric', type: 'measurement' },
 ];
 
 const formatRelativeTime = (isoDate?: string) => {
@@ -118,6 +176,11 @@ const formatRelativeTime = (isoDate?: string) => {
   return `Updated ${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
 };
 
+const formatMetricValue = (value?: number | null, unit?: string) => {
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) return '--';
+  return unit ? `${value} ${unit}` : `${value}`;
+};
+
 const getAnswerColor = (answer?: DevAnswer) => {
   switch (answer) {
     case 'yes':
@@ -131,12 +194,61 @@ const getAnswerColor = (answer?: DevAnswer) => {
   }
 };
 
+const ProgressRing: React.FC<{
+  progress: number;
+  score: number | null;
+  tone: AnthropometricTone;
+  size?: 'sm' | 'md';
+}> = ({ progress, score, tone, size = 'md' }) => {
+  const styles = STATUS_STYLES[tone];
+  const containerClass = size === 'sm' ? 'h-24 w-24' : 'h-28 w-28';
+  const scoreClass = size === 'sm' ? 'text-2xl' : 'text-[1.95rem]';
+
+  return (
+    <div className={`relative ${containerClass} flex items-center justify-center`}>
+      <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+        <circle
+          cx="18"
+          cy="18"
+          r="15.9155"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.25"
+          className="text-slate-200"
+        />
+        <circle
+          cx="18"
+          cy="18"
+          r="15.9155"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.25"
+          strokeLinecap="round"
+          strokeDasharray={`${progress}, 100`}
+          className={styles.ring}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className={`${scoreClass} font-black tracking-tight text-slate-700`}>
+          {score ?? '--'}
+        </span>
+        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+          {score === null ? 'No Data' : 'Score'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const AssessmentView: React.FC = () => {
   const [developmentalAssessments, setDevelopmentalAssessments] = useState<DetailedAssessment[]>(
     []
   );
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
-  const [notificationType, setNotificationType] = useState<'anthropometric' | 'developmental' | null>(null);
+  const [selectedAssessmentId, setSelectedAssessmentId] =
+    useState<AnthropometricAssessmentId | null>(null);
+  const [notificationType, setNotificationType] = useState<
+    'anthropometric' | 'developmental' | null
+  >(null);
   const [recommendationModal, setRecommendationModal] = useState<DetailedAssessment | null>(null);
   const [helpAssessment, setHelpAssessment] = useState<string | null>(null);
   const [isAddingData, setIsAddingData] = useState<string | null>(null);
@@ -148,11 +260,10 @@ const AssessmentView: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
 
   const childrenState = useSelector((state: RootState) => state.children);
-  const developmentalState = useSelector(
-    (state: RootState) => state.developmentalAssessments
-  );
+  const developmentalState = useSelector((state: RootState) => state.developmentalAssessments);
 
-  const favoriteChildId = localStorage.getItem('favorite_child_id');
+  const favoriteChildId =
+    typeof window !== 'undefined' ? localStorage.getItem('favorite_child_id') : null;
   const activeChild =
     childrenState.data.find((child) => child.id === favoriteChildId) || childrenState.data[0];
 
@@ -181,57 +292,53 @@ const AssessmentView: React.FC = () => {
     );
   }, [baseDevelopmentalAssessments, developmentalState.byQuestionId]);
 
-  const anthropometricCards = useMemo(() => {
+  const anthropometricCards = useMemo<AnthropometricCard[]>(() => {
     const childUpdatedAt = activeChild?.updatedAt;
     const staleCutoffDays = 30;
     const diffDays = childUpdatedAt
       ? Math.floor((Date.now() - new Date(childUpdatedAt).getTime()) / (1000 * 60 * 60 * 24))
       : Number.POSITIVE_INFINITY;
-
     const isStale = !Number.isFinite(diffDays) || diffDays > staleCutoffDays;
 
     return ANTHROPOMETRIC_ASSESSMENTS.map((assessment) => {
-      const id = assessment.id as AnthropometricAssessmentId;
+      const status = getAnthropometricStatus(assessment.id, activeChild);
 
-      if (id === 'a1') {
-        const isRecorded = Boolean(activeChild?.weight && activeChild?.height);
-        return {
-          ...assessment,
-          isRecorded,
-          isStale,
-          lastUpdatedText: formatRelativeTime(childUpdatedAt),
-          metrics: [
-            { label: 'Weight', value: activeChild?.weight ? `${activeChild.weight} kg` : '--' },
-            { label: 'Height', value: activeChild?.height ? `${activeChild.height} cm` : '--' },
-          ],
-        };
-      }
+      const metrics: CardMetric[] =
+        assessment.id === 'a1'
+          ? [
+              { label: 'Weight', value: formatMetricValue(activeChild?.weight, 'kg') },
+              { label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') },
+            ]
+          : assessment.id === 'a1-2'
+            ? [{ label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') }]
+            : [{ label: 'MUAC', value: formatMetricValue(activeChild?.muac, 'cm') }];
 
-      if (id === 'a1-2') {
-        const isRecorded = Boolean(activeChild?.height);
-        return {
-          ...assessment,
-          isRecorded,
-          isStale,
-          lastUpdatedText: formatRelativeTime(childUpdatedAt),
-          metrics: [{ label: 'Height', value: activeChild?.height ? `${activeChild.height} cm` : '--' }],
-        };
-      }
-
-      const isRecorded = Boolean(activeChild?.muac);
       return {
         ...assessment,
-        isRecorded,
+        metrics,
+        isRecorded: status.isRecorded,
         isStale,
+        hasResult: status.hasResult,
         lastUpdatedText: formatRelativeTime(childUpdatedAt),
-        metrics: [{ label: 'MUAC', value: activeChild?.muac ? `${activeChild.muac} cm` : '--' }],
+        displayStatus: status.displayLabel,
+        detailText: status.detail,
+        whoClassification: status.whoClassification,
+        zScore: status.zScore,
+        score: status.score,
+        progress: status.progress,
+        tone: status.tone,
       };
     });
-  }, [activeChild?.height, activeChild?.muac, activeChild?.updatedAt, activeChild?.weight]);
+  }, [
+    activeChild,
+    activeChild?.height,
+    activeChild?.muac,
+    activeChild?.updatedAt,
+    activeChild?.weight,
+  ]);
 
   const expiredAnthro = anthropometricCards.filter((item) => !item.isRecorded || item.isStale);
   const unaddressedDev = developmentalAssessments.filter((item) => item.answer === 'no');
-
   const selectedAssessment =
     selectedAssessmentId &&
     anthropometricCards.find((assessment) => assessment.id === selectedAssessmentId);
@@ -277,9 +384,7 @@ const AssessmentView: React.FC = () => {
       setIsAddingData(null);
       setMeasurementValues({});
     } catch (error: any) {
-      setSaveMeasurementError(
-        typeof error === 'string' ? error : 'Failed to save measurement'
-      );
+      setSaveMeasurementError(typeof error === 'string' ? error : 'Failed to save measurement');
     } finally {
       setIsSavingMeasurement(false);
     }
@@ -316,9 +421,7 @@ const AssessmentView: React.FC = () => {
 
   const markAsAddressed = (id: string) => {
     const nextAssessments: DetailedAssessment[] = developmentalAssessments.map((assessment) =>
-      assessment.id === id
-        ? { ...assessment, answer: 'addressed' as DevAnswer }
-        : assessment
+      assessment.id === id ? { ...assessment, answer: 'addressed' as DevAnswer } : assessment
     );
 
     setDevelopmentalAssessments(nextAssessments);
@@ -327,98 +430,130 @@ const AssessmentView: React.FC = () => {
 
   return (
     <div className="pb-32 pt-4">
-      <div className="px-6 mb-8 flex justify-between items-end">
+      <div className="mb-8 flex items-end justify-between px-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Assessments</h2>
-          <p className="text-slate-500 text-sm">Monitor milestones and growth.</p>
+          <p className="text-sm text-slate-500">Monitor milestones and growth.</p>
         </div>
       </div>
 
       <div className="space-y-12">
         <section>
-          <div className="px-6 flex justify-between items-center mb-4">
-            <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest">
+          <div className="mb-4 flex items-center justify-between px-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Anthropometric
             </h3>
             <button
+              type="button"
               onClick={() => setNotificationType('anthropometric')}
-              className="relative p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400 hover:text-sky-500 transition-colors"
+              className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
             >
-              <BellIcon className="w-5 h-5" />
+              <BellIcon className="h-5 w-5" />
               {expiredAnthro.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-[8px] font-black text-white flex items-center justify-center border-2 border-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
                   {expiredAnthro.length}
                 </span>
               )}
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar px-6 snap-x">
-            {anthropometricCards.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setSelectedAssessmentId(item.id)}
-                className="flex-shrink-0 w-64 bg-white rounded-[2rem] p-6 border border-slate-50 shadow-sm snap-center text-left transition-all active:scale-95 relative"
-              >
+          <div className="hide-scrollbar flex gap-5 overflow-x-auto px-6 snap-x snap-mandatory">
+            {anthropometricCards.map((item) => {
+              const styles = STATUS_STYLES[item.tone];
+
+              return (
                 <div
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setHelpAssessment(item.id);
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedAssessmentId(item.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedAssessmentId(item.id);
+                    }
                   }}
-                  className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-50 text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-colors"
+                  className="relative w-[19rem] flex-shrink-0 snap-center rounded-[2rem] border border-slate-100 bg-white p-6 text-left shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-transform active:scale-[0.98]"
                 >
-                  <InfoIcon size={16} />
-                </div>
-
-                <h4 className="font-bold text-slate-800 leading-tight mb-4 min-h-[40px] pr-8">
-                  {item.title}
-                </h4>
-
-                <div className="space-y-2 mb-4">
-                  {item.metrics.map((metric) => (
-                    <div key={metric.label} className="flex justify-between text-xs">
-                      <span className="font-bold uppercase text-slate-400">{metric.label}</span>
-                      <span className="font-bold text-slate-700">{metric.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="text-[10px] font-black uppercase mb-4 text-slate-400">
-                  {item.lastUpdatedText}
-                </div>
-
-                <div className="mt-4">
                   <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setHelpAssessment(item.id);
+                    }}
+                    className="absolute right-4 top-4 rounded-full bg-slate-50 p-1.5 text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-500"
+                    aria-label={`Open help for ${item.title}`}
+                  >
+                    <InfoIcon size={16} />
+                  </button>
+
+                  <h4 className="max-w-[12rem] pr-6 text-[1.95rem] font-black leading-[1.02] tracking-tight text-slate-800">
+                    {item.title}
+                  </h4>
+
+                  <div className="mt-8 flex items-center gap-5">
+                    <ProgressRing progress={item.progress} score={item.score} tone={item.tone} />
+
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={`inline-flex rounded-full border px-4 py-2 text-sm font-black uppercase tracking-wide ${styles.pill}`}
+                      >
+                        {item.displayStatus}
+                      </span>
+                      <p className="mt-3 text-xs font-semibold leading-relaxed text-slate-500">
+                        {item.detailText}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {item.metrics.map((metric) => (
+                      <div
+                        key={metric.label}
+                        className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          {metric.label}
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-slate-700">{metric.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    {item.lastUpdatedText}
+                  </p>
+
+                  <button
+                    type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       handleOpenMeasurementEntry(item.id);
                     }}
-                    className={`w-full py-3 rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
-                      item.isRecorded
-                        ? 'bg-slate-100 text-slate-600 shadow-slate-100'
-                        : 'bg-sky-500 text-white shadow-sky-100'
-                    }`}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-[1.45rem] bg-slate-100 py-4 text-sm font-black uppercase tracking-wide text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
                   >
-                    <PlusIcon className="w-4 h-4" /> {item.isRecorded ? 'Update Data' : 'Add Data'}
+                    <PlusIcon className="h-4 w-4" />
+                    {item.isRecorded ? 'Update Data' : 'Add Data'}
                   </button>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section>
-          <div className="px-6 flex justify-between items-center mb-6">
-            <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest">
+          <div className="mb-6 flex items-center justify-between px-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Developmental
             </h3>
             <button
+              type="button"
               onClick={() => setNotificationType('developmental')}
-              className="relative p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400 hover:text-sky-500 transition-colors"
+              className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
             >
-              <BellIcon className="w-5 h-5" />
+              <BellIcon className="h-5 w-5" />
               {unaddressedDev.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-[8px] font-black text-white flex items-center justify-center border-2 border-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
                   {unaddressedDev.length}
                 </span>
               )}
@@ -436,11 +571,11 @@ const AssessmentView: React.FC = () => {
 
             return (
               <div key={subCategory} className="mb-10">
-                <h4 className="px-6 text-xs font-bold text-slate-400 mb-4 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-300" />
+                <h4 className="mb-4 flex items-center gap-2 px-6 text-xs font-bold text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
                   {DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory]}
                 </h4>
-                <div className="flex gap-4 overflow-x-auto hide-scrollbar px-6 snap-x">
+                <div className="hide-scrollbar flex gap-4 overflow-x-auto px-6 snap-x">
                   {categoryQuestions.map((question) => (
                     <div
                       key={question.id}
@@ -449,10 +584,10 @@ const AssessmentView: React.FC = () => {
                           setRecommendationModal(question);
                         }
                       }}
-                      className={`flex-shrink-0 w-64 rounded-[2rem] p-6 border-2 transition-all snap-center flex flex-col justify-between min-h-[180px] ${getAnswerColor(question.answer)}`}
+                      className={`flex min-h-[180px] w-64 flex-shrink-0 snap-center flex-col justify-between rounded-[2rem] border-2 p-6 transition-all ${getAnswerColor(question.answer)}`}
                     >
                       <div>
-                        <h5 className="font-bold leading-tight mb-4">{question.title}</h5>
+                        <h5 className="mb-4 font-bold leading-tight">{question.title}</h5>
                         <p className="text-[10px] font-black uppercase opacity-60">
                           Status:{' '}
                           {question.answer === 'addressed'
@@ -465,27 +600,29 @@ const AssessmentView: React.FC = () => {
 
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             toggleAnswer(question.id, 'yes');
                           }}
-                          className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                          className={`flex-1 rounded-xl py-2 text-[10px] font-black uppercase transition-all ${
                             question.answer === 'yes'
                               ? 'bg-emerald-600 text-white shadow-md'
-                              : 'bg-white/50 text-slate-600 border border-slate-200'
+                              : 'border border-slate-200 bg-white/50 text-slate-600'
                           }`}
                         >
                           Yes
                         </button>
                         <button
+                          type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             toggleAnswer(question.id, 'no');
                           }}
-                          className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                          className={`flex-1 rounded-xl py-2 text-[10px] font-black uppercase transition-all ${
                             question.answer === 'no'
                               ? 'bg-rose-600 text-white shadow-md'
-                              : 'bg-white/50 text-slate-600 border border-slate-200'
+                              : 'border border-slate-200 bg-white/50 text-slate-600'
                           }`}
                         >
                           No
@@ -499,12 +636,12 @@ const AssessmentView: React.FC = () => {
           })}
 
           {developmentalState.error && (
-            <div className="px-6 mt-2">
+            <div className="mt-2 px-6">
               <p className="text-xs text-rose-600">{developmentalState.error}</p>
             </div>
           )}
           {developmentalState.saving && (
-            <div className="px-6 mt-2">
+            <div className="mt-2 px-6">
               <p className="text-xs text-slate-500">Saving developmental answers...</p>
             </div>
           )}
@@ -512,31 +649,33 @@ const AssessmentView: React.FC = () => {
       </div>
 
       {recommendationModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center">
-            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-6 text-3xl mx-auto shadow-inner">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+          <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-rose-50 text-3xl shadow-inner">
               <span role="img" aria-label="doctor">
                 👨‍⚕️
               </span>
             </div>
-            <h4 className="text-xl font-black text-slate-800 mb-3">Notice Something?</h4>
-            <p className="text-slate-600 text-sm leading-relaxed mb-8">
+            <h4 className="mb-3 text-xl font-black text-slate-800">Notice Something?</h4>
+            <p className="mb-8 text-sm leading-relaxed text-slate-600">
               If you are unsure or ticked <strong>"No"</strong> for "{recommendationModal.title}",
               we recommend consulting with your pediatrician for a professional evaluation.
             </p>
             <div className="space-y-3">
               <button
+                type="button"
                 onClick={() => setRecommendationModal(null)}
-                className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl"
+                className="w-full rounded-2xl bg-slate-900 py-4 font-black text-white"
               >
                 I Understand
               </button>
               <button
+                type="button"
                 onClick={() => {
                   markAsAddressed(recommendationModal.id);
                   setRecommendationModal(null);
                 }}
-                className="w-full py-3 text-sky-500 font-bold"
+                className="w-full py-3 font-bold text-sky-500"
               >
                 Already talked to doctor
               </button>
@@ -546,18 +685,19 @@ const AssessmentView: React.FC = () => {
       )}
 
       {notificationType && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-md flex items-end">
-          <div className="w-full bg-white rounded-t-[3rem] p-8 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-            <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-10" />
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">
+        <div className="fixed inset-0 z-[80] flex items-end bg-slate-900/60 backdrop-blur-md">
+          <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-[3rem] bg-white p-8 animate-in slide-in-from-bottom duration-300">
+            <div className="mx-auto mb-10 h-1.5 w-12 rounded-full bg-slate-100" />
+            <div className="mb-8 flex items-center justify-between">
+              <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800">
                 {notificationType === 'anthropometric'
                   ? 'Expired Measurements'
                   : 'Unaddressed Concerns'}
               </h3>
               <button
+                type="button"
                 onClick={() => setNotificationType(null)}
-                className="p-2 bg-slate-100 rounded-full"
+                className="rounded-full bg-slate-100 p-2"
               >
                 <PlusIcon className="rotate-45 text-slate-400" />
               </button>
@@ -569,27 +709,28 @@ const AssessmentView: React.FC = () => {
                   expiredAnthro.map((assessment) => (
                     <div
                       key={assessment.id}
-                      className="p-5 bg-amber-50 rounded-3xl border border-amber-100 flex justify-between items-center"
+                      className="flex items-center justify-between rounded-3xl border border-amber-100 bg-amber-50 p-5"
                     >
                       <div>
                         <h5 className="font-bold text-slate-800">{assessment.title}</h5>
-                        <p className="text-[10px] text-amber-600 font-black uppercase">
+                        <p className="text-[10px] font-black uppercase text-amber-600">
                           {assessment.lastUpdatedText}
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => {
                           handleOpenMeasurementEntry(assessment.id);
                           setNotificationType(null);
                         }}
-                        className="px-4 py-2 bg-white rounded-xl text-[10px] font-black text-amber-600 border border-amber-200"
+                        className="rounded-xl border border-amber-200 bg-white px-4 py-2 text-[10px] font-black text-amber-600"
                       >
                         Update
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className="text-center text-slate-400 py-10 font-bold">
+                  <p className="py-10 text-center font-bold text-slate-400">
                     All measurements are up to date!
                   </p>
                 )
@@ -597,23 +738,24 @@ const AssessmentView: React.FC = () => {
                 unaddressedDev.map((assessment) => (
                   <div
                     key={assessment.id}
-                    className="p-5 bg-rose-50 rounded-3xl border border-rose-100 space-y-4"
+                    className="space-y-4 rounded-3xl border border-rose-100 bg-rose-50 p-5"
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex items-start justify-between">
                       <div>
                         <h5 className="font-bold text-slate-800">{assessment.title}</h5>
-                        <p className="text-[10px] text-rose-600 font-black uppercase">
+                        <p className="text-[10px] font-black uppercase text-rose-600">
                           {assessment.subCategory}
                         </p>
                       </div>
-                      <span className="px-2 py-0.5 bg-rose-100 rounded-md text-[8px] font-black text-rose-500 uppercase">
+                      <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[8px] font-black uppercase text-rose-500">
                         Action Needed
                       </span>
                     </div>
                     <div className="flex gap-2">
                       <button
+                        type="button"
                         onClick={() => markAsAddressed(assessment.id)}
-                        className="flex-1 py-2 bg-white rounded-xl text-[10px] font-black text-sky-500 border border-sky-100 shadow-sm"
+                        className="flex-1 rounded-xl border border-sky-100 bg-white py-2 text-[10px] font-black text-sky-500 shadow-sm"
                       >
                         Addressed with Doctor
                       </button>
@@ -621,14 +763,15 @@ const AssessmentView: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-center text-slate-400 py-10 font-bold">
+                <p className="py-10 text-center font-bold text-slate-400">
                   No unaddressed concerns. Great job!
                 </p>
               )}
             </div>
             <button
+              type="button"
               onClick={() => setNotificationType(null)}
-              className="w-full py-4 text-slate-400 font-black mt-8 uppercase text-xs tracking-widest"
+              className="mt-8 w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400"
             >
               Close Notifications
             </button>
@@ -643,25 +786,26 @@ const AssessmentView: React.FC = () => {
       >
         {helpAssessment && MEASUREMENT_GUIDES[helpAssessment] && (
           <div className="px-2">
-            <ol className="space-y-3 mb-6">
+            <ol className="mb-6 space-y-3">
               {MEASUREMENT_GUIDES[helpAssessment].items.map((step, index) => (
-                <li key={index} className="flex gap-3 items-start">
-                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-sky-100 text-sky-600 text-xs font-black flex items-center justify-center">
+                <li key={index} className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-600">
                     {index + 1}
                   </span>
-                  <span className="text-sm text-slate-700 leading-relaxed pt-1">{step}</span>
+                  <span className="pt-1 text-sm leading-relaxed text-slate-700">{step}</span>
                 </li>
               ))}
             </ol>
-            <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
-              <p className="text-sm text-sky-700 italic">
+            <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+              <p className="text-sm italic text-sky-700">
                 <span className="font-bold not-italic">Tip: </span>
                 {MEASUREMENT_GUIDES[helpAssessment].tip}
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setHelpAssessment(null)}
-              className="w-full py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors mt-6 mb-2"
+              className="mb-2 mt-6 w-full py-4 font-bold text-slate-400 transition-colors hover:text-slate-600"
             >
               Close
             </button>
@@ -690,17 +834,18 @@ const AssessmentView: React.FC = () => {
             <div className="space-y-5">
               {MEASUREMENT_FIELDS[isAddingData].map((field) => (
                 <div key={field.key}>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-bold text-slate-600 ml-1">{field.label}</label>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="ml-1 text-sm font-bold text-slate-600">{field.label}</label>
                     <button
+                      type="button"
                       onClick={() => setActiveHelp(activeHelp === field.key ? null : field.key)}
-                      className="p-1 text-slate-400 hover:text-sky-500 transition-colors"
+                      className="p-1 text-slate-400 transition-colors hover:text-sky-500"
                     >
                       <InfoIcon size={16} />
                     </button>
                   </div>
                   {activeHelp === field.key && (
-                    <div className="mb-3 bg-sky-50 rounded-xl p-3 border border-sky-100">
+                    <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50 p-3">
                       <p className="text-xs text-sky-700">{field.help}</p>
                     </div>
                   )}
@@ -709,7 +854,7 @@ const AssessmentView: React.FC = () => {
                     step="0.1"
                     min="0"
                     placeholder={`Enter ${field.label.toLowerCase()}`}
-                    className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 text-slate-800 font-medium transition-all"
+                    className="w-full rounded-2xl border-2 border-slate-200 bg-white px-5 py-4 font-medium text-slate-800 outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                     value={measurementValues[field.key] || ''}
                     onChange={(event) =>
                       setMeasurementValues({
@@ -723,27 +868,29 @@ const AssessmentView: React.FC = () => {
             </div>
 
             {saveMeasurementError && (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                <p className="text-xs text-rose-600 font-medium">{saveMeasurementError}</p>
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                <p className="text-xs font-medium text-rose-600">{saveMeasurementError}</p>
               </div>
             )}
 
             <div className="mt-6 flex gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setIsAddingData(null);
                   setMeasurementValues({});
                   setSaveMeasurementError(null);
                 }}
                 disabled={isSavingMeasurement}
-                className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95 disabled:opacity-50"
+                className="rounded-2xl border-2 border-slate-200 px-6 py-4 font-bold text-slate-600 transition-all active:scale-95 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSaveMeasurement}
                 disabled={isSavingMeasurement}
-                className="flex-1 py-4 bg-sky-500 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 active:scale-95 transition-all disabled:opacity-50"
+                className="flex-1 rounded-2xl bg-sky-500 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isSavingMeasurement ? 'Saving...' : 'Save Measurement'}
               </button>
@@ -755,41 +902,89 @@ const AssessmentView: React.FC = () => {
       <BottomSheet isOpen={!!selectedAssessment} onClose={() => setSelectedAssessmentId(null)}>
         {selectedAssessment && (
           <div className="flex flex-col items-center text-center">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">{selectedAssessment.title}</h2>
-            <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-[0.2em]">
+            <h2 className="mb-2 text-2xl font-bold text-slate-800">{selectedAssessment.title}</h2>
+            <p className="mb-8 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
               {selectedAssessment.category}
             </p>
 
-            <div className="w-full space-y-4 text-left mb-8">
+            <div className="mb-6 w-full rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4 text-left">
+                <ProgressRing
+                  progress={selectedAssessment.progress}
+                  score={selectedAssessment.score}
+                  tone={selectedAssessment.tone}
+                  size="sm"
+                />
+                <div>
+                  <span
+                    className={`inline-flex rounded-full border px-4 py-2 text-sm font-black uppercase tracking-wide ${
+                      STATUS_STYLES[selectedAssessment.tone].pill
+                    }`}
+                  >
+                    {selectedAssessment.displayStatus}
+                  </span>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                    {selectedAssessment.detailText}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4 grid w-full grid-cols-2 gap-3 text-left">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  WHO Classification
+                </p>
+                <p className="text-sm font-bold text-slate-800">
+                  {selectedAssessment.whoClassification || 'Waiting for measurements'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  Z-Score
+                </p>
+                <p className="text-sm font-bold text-slate-800">
+                  {selectedAssessment.zScore !== null
+                    ? selectedAssessment.zScore.toFixed(2)
+                    : '--'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-8 w-full space-y-4 text-left">
               {selectedAssessment.metrics.map((metric) => (
                 <div
                   key={metric.label}
-                  className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex justify-between items-center"
+                  className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4"
                 >
                   <span className="text-xs font-black uppercase text-slate-400">{metric.label}</span>
                   <span className="text-sm font-bold text-slate-800">{metric.value}</span>
                 </div>
               ))}
 
-              <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
-                <p className="text-xs font-black uppercase text-sky-500 mb-1">Last Updated</p>
-                <p className="text-sm text-slate-700 font-medium">{selectedAssessment.lastUpdatedText}</p>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="mb-1 text-xs font-black uppercase text-sky-500">Last Updated</p>
+                <p className="text-sm font-medium text-slate-700">
+                  {selectedAssessment.lastUpdatedText}
+                </p>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 setSelectedAssessmentId(null);
                 handleOpenMeasurementEntry(selectedAssessment.id);
               }}
-              className="w-full py-5 bg-sky-500 text-white font-black rounded-3xl shadow-2xl shadow-sky-100 active:scale-95 transition-transform"
+              className="w-full rounded-3xl bg-sky-500 py-5 font-black text-white shadow-2xl shadow-sky-100 transition-transform active:scale-95"
             >
               {selectedAssessment.isRecorded ? 'Update Measurements' : 'Add Measurements'}
             </button>
 
             <button
+              type="button"
               onClick={() => setSelectedAssessmentId(null)}
-              className="mt-6 mb-4 w-full py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors"
+              className="mb-4 mt-6 w-full py-4 font-bold text-slate-400 transition-colors hover:text-slate-600"
             >
               Close Assessment
             </button>
