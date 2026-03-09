@@ -6,7 +6,8 @@ import { calculateWHZ } from "@/excelData/calculateWHZ";
 import { calculateWAZ } from "@/excelData/calculateWAZ";
 import { calculateBMIZ } from "@/excelData/calculateBMIZ";
 import { calculateMUACZ } from "@/excelData/calculateMUACZ";
-import { classifyZ, getAgeDetails, getWHZRange } from "../../utils/growthUtils"; // Adjust path as needed
+import { getAgeDetails, getWHZRange } from "@/excelData/growthAgeUtils";
+import { classifyZ } from "../../utils/growthUtils";
 import { useTranslation } from "react-i18next";
 import { differenceInWeeks } from "date-fns";
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { BottomSheet } from '@/components/ui';
 import {
@@ -258,6 +259,8 @@ const AssessmentView: React.FC = () => {
   const [saveMeasurementError, setSaveMeasurementError] = useState<string | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const childrenState = useSelector((state: RootState) => state.children);
   const developmentalState = useSelector((state: RootState) => state.developmentalAssessments);
@@ -291,6 +294,17 @@ const AssessmentView: React.FC = () => {
       }))
     );
   }, [baseDevelopmentalAssessments, developmentalState.byQuestionId]);
+
+  useEffect(() => {
+    const nextMeasurementId = (
+      location.state as { openMeasurementId?: string } | null
+    )?.openMeasurementId;
+
+    if (nextMeasurementId && MEASUREMENT_FIELDS[nextMeasurementId] && !isAddingData) {
+      handleOpenMeasurementEntry(nextMeasurementId);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [isAddingData, location.pathname, location.state, navigate]);
 
   const anthropometricCards = useMemo<AnthropometricCard[]>(() => {
     const childUpdatedAt = activeChild?.updatedAt;
@@ -445,7 +459,7 @@ const AssessmentView: React.FC = () => {
             </h3>
             <button
               type="button"
-              onClick={() => setNotificationType('anthropometric')}
+              onClick={() => navigate('/notifications')}
               className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
             >
               <BellIcon className="h-5 w-5" />

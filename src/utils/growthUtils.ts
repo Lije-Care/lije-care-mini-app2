@@ -1,3 +1,9 @@
+export {
+  getAgeDetails,
+  getAgeValue,
+  getWHZRange,
+} from "@/excelData/growthAgeUtils";
+
 export const classifyZ = (z: number, type: string) => {
   if (type === "BMI") {
     if (z < -3)
@@ -116,67 +122,4 @@ export const classifyZ = (z: number, type: string) => {
     color: "text-gray-500",
     note: "Unrecognized indicator type or missing data.",
   };
-};
-
-/**
- * Calculate difference in days between two dates
- */
-const differenceInDays = (end: Date, start: Date): number => {
-  const msPerDay = 1000 * 60 * 60 * 24;
-  return Math.floor((end.getTime() - start.getTime()) / msPerDay);
-};
-
-/**
- * Custom month difference assuming 1 month = 30 days
- */
-const differenceInMonthsApprox = (end: Date, start: Date): number => {
-  return Math.floor(differenceInDays(end, start) / 30);
-};
-
-/**
- * Custom week difference assuming 1 week = 7 days
- */
-const differenceInWeeksApprox = (end: Date, start: Date): number => {
-  return Math.floor(differenceInDays(end, start) / 7);
-};
-
-/**
- * Get age value based on type (week or month) using approximations.
- */
-export const getAgeValue = (
-  dob: string | Date,
-  ageType: "week" | "month"
-): number => {
-  const birthDate = new Date(dob);
-  const now = new Date();
-  if (ageType === "week") return differenceInWeeksApprox(now, birthDate);
-  return differenceInMonthsApprox(now, birthDate);
-};
-
-/**
- * Get age details with type (week or month) based on child's age.
- * Uses weeks if <=13 weeks, else months.
- */
-export const getAgeDetails = (
-  dob: string
-): { age: number; type: "week" | "month" } => {
-  const birthDate = new Date(dob);
-  const now = new Date();
-  const diffInDays = Math.floor((+now - +birthDate) / (1000 * 60 * 60 * 24));
-  const ageInWeeks = Math.floor(diffInDays / 7);
-  return ageInWeeks <= 13
-    ? { age: ageInWeeks, type: "week" }
-    : { age: Math.floor(diffInDays / 30), type: "month" };
-};
-
-/**
- * Get WHZ range based on age in months (<24: "0_2", else "2_5").
- */
-export const getWHZRange = (dob: string): "0_2" | "2_5" => {
-  const birthDate = new Date(dob);
-  const now = new Date();
-  const ageInMonths = Math.floor(
-    (+now - +birthDate) / (1000 * 60 * 60 * 24 * 30.44)
-  );
-  return ageInMonths < 24 ? "0_2" : "2_5";
 };

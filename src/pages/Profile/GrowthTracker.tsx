@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 
 import { calculateBMIZ } from "@/excelData/calculateBMIZ";
 import { calculateMUACZ } from "@/excelData/calculateMUACZ";
-import { classifyZ, getAgeDetails, getWHZRange } from "../../utils/growthUtils"; // Adjust path as needed
+import { getAgeDetails, getWHZRange } from "@/excelData/growthAgeUtils";
+import { classifyZ } from "../../utils/growthUtils";
 
 interface ChildProfile {
   date_of_birth: any;

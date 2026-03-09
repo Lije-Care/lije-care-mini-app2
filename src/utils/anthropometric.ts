@@ -1,9 +1,10 @@
-import { differenceInWeeks } from 'date-fns';
-
 import { calculateHAZ } from '@/excelData/calculateHAZ';
 import { calculateMUACZ } from '@/excelData/calculateMUACZ';
 import { calculateWHZ } from '@/excelData/calculateWHZ';
-import { getWHZRange } from '@/utils/growthUtils';
+import {
+  getAnthropometricAgeContext,
+  normalizeGrowthGender,
+} from '@/excelData/growthAgeUtils';
 
 export type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3';
 export type AnthropometricTone = 'danger' | 'success' | 'warning' | 'neutral';
@@ -28,31 +29,8 @@ export interface AnthropometricStatus {
   progress: number;
 }
 
-const DAY_MS = 1000 * 60 * 60 * 24;
-
 const isPositiveNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0;
-
-const normalizeGender = (gender?: string | null): 'boy' | 'girl' => {
-  const normalized = gender?.toLowerCase();
-  return normalized === 'female' || normalized === 'girl' ? 'girl' : 'boy';
-};
-
-const getAgeContext = (dateOfBirth?: string) => {
-  if (!dateOfBirth) return null;
-
-  const birthDate = new Date(dateOfBirth);
-  if (Number.isNaN(birthDate.getTime())) return null;
-
-  const today = new Date();
-  const diffInDays = Math.max(0, Math.floor((today.getTime() - birthDate.getTime()) / DAY_MS));
-
-  return {
-    ageInWeeks: differenceInWeeks(today, birthDate),
-    ageInMonths: Math.round(diffInDays / 30),
-    weightForHeightRange: getWHZRange(dateOfBirth),
-  };
-};
 
 const toPresentationScore = (zScore: number) => {
   const score = Math.round(90 - Math.abs(zScore) * 15);
@@ -182,12 +160,12 @@ export const getAnthropometricStatus = (
     return unavailableResult(false, 'Add measurements to calculate this growth status.');
   }
 
-  const ageContext = getAgeContext(child.date_of_birth);
+  const ageContext = getAnthropometricAgeContext(child.date_of_birth);
   if (!ageContext) {
     return unavailableResult(false, 'Add a valid date of birth to calculate this growth status.');
   }
 
-  const gender = normalizeGender(child.gender);
+  const gender = normalizeGrowthGender(child.gender);
 
   if (assessmentId === 'a1') {
     const isRecorded = isPositiveNumber(child.weight) && isPositiveNumber(child.height);
