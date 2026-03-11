@@ -7,7 +7,7 @@ import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchAllNotifications } from '@/redux/slices/notificationSlice';
 import type { AppDispatch, RootState } from '@/redux/store';
 
-type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3';
+type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3' | 'a1-4' | 'a1-5';
 
 interface ExpiredMeasurementItem {
   id: AnthropometricAssessmentId;
@@ -97,6 +97,18 @@ const NotificationsPage = () => {
         title: 'MUAC for Age',
         isRecorded: Boolean(activeChild?.muac),
         statusText: toStatusText(lastUpdatedText, Boolean(activeChild?.muac)),
+      },
+      {
+        id: 'a1-4',
+        title: 'BMI for Age',
+        isRecorded: Boolean(activeChild?.weight && activeChild?.height),
+        statusText: toStatusText(lastUpdatedText, Boolean(activeChild?.weight && activeChild?.height)),
+      },
+      {
+        id: 'a1-5',
+        title: 'Weight for Age',
+        isRecorded: Boolean(activeChild?.weight),
+        statusText: toStatusText(lastUpdatedText, Boolean(activeChild?.weight)),
       },
     ];
 

@@ -115,6 +115,28 @@ const MEASUREMENT_GUIDES: Record<string, { title: string; items: string[]; tip: 
     ],
     tip: 'The MUAC tape is most reliable for children aged 6 months to 5 years.',
   },
+  'a1-4': {
+    title: 'How to Measure BMI for Age',
+    items: [
+      'Measure weight on a calibrated scale with shoes and heavy clothing removed',
+      'Measure height or length carefully using a stadiometer or infant board',
+      'Record weight in kilograms and height in centimeters',
+      'Use the child’s age and sex with the WHO BMI-for-age reference',
+      'Recheck both measurements if the result looks unusual',
+    ],
+    tip: 'BMI for age depends on accurate height, weight, age, and sex.',
+  },
+  'a1-5': {
+    title: 'How to Measure Weight for Age',
+    items: [
+      'Place the scale on a flat, stable surface',
+      'Remove shoes, jackets, and heavy items before weighing',
+      'Record weight to the nearest 0.1 kg',
+      'Use the child’s exact age and sex with the WHO weight-for-age reference',
+      'Repeat the measurement if the child moves during weighing',
+    ],
+    tip: 'Weight for age is most useful when date of birth is recorded correctly.',
+  },
 };
 
 const MEASUREMENT_FIELDS: Record<string, MeasurementField[]> = {
@@ -144,6 +166,25 @@ const MEASUREMENT_FIELDS: Record<string, MeasurementField[]> = {
       help: 'Measure at midpoint of left upper arm. Tape should be snug but not tight.',
     },
   ],
+  'a1-4': [
+    {
+      label: 'Weight (kg)',
+      key: 'weight',
+      help: 'Use a calibrated scale. Remove shoes and heavy clothing.',
+    },
+    {
+      label: 'Height (cm)',
+      key: 'height',
+      help: 'Use a stadiometer or wall chart. Stand upright.',
+    },
+  ],
+  'a1-5': [
+    {
+      label: 'Weight (kg)',
+      key: 'weight',
+      help: 'Use a calibrated scale. Remove shoes and heavy clothing.',
+    },
+  ],
 };
 
 const ANTHROPOMETRIC_ASSESSMENTS: Array<{
@@ -155,6 +196,8 @@ const ANTHROPOMETRIC_ASSESSMENTS: Array<{
   { id: 'a1', title: 'Weight for Height', category: 'Anthropometric', type: 'measurement' },
   { id: 'a1-2', title: 'Height for Age', category: 'Anthropometric', type: 'measurement' },
   { id: 'a1-3', title: 'MUAC for Age', category: 'Anthropometric', type: 'measurement' },
+  { id: 'a1-4', title: 'BMI for Age', category: 'Anthropometric', type: 'measurement' },
+  { id: 'a1-5', title: 'Weight for Age', category: 'Anthropometric', type: 'measurement' },
 ];
 
 const formatRelativeTime = (isoDate?: string) => {
@@ -318,13 +361,15 @@ const AssessmentView: React.FC = () => {
       const status = getAnthropometricStatus(assessment.id, activeChild);
 
       const metrics: CardMetric[] =
-        assessment.id === 'a1'
+        assessment.id === 'a1' || assessment.id === 'a1-4'
           ? [
               { label: 'Weight', value: formatMetricValue(activeChild?.weight, 'kg') },
               { label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') },
             ]
           : assessment.id === 'a1-2'
             ? [{ label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') }]
+            : assessment.id === 'a1-5'
+              ? [{ label: 'Weight', value: formatMetricValue(activeChild?.weight, 'kg') }]
             : [{ label: 'MUAC', value: formatMetricValue(activeChild?.muac, 'cm') }];
 
       return {

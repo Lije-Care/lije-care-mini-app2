@@ -1,12 +1,15 @@
 import { calculateHAZ } from '@/excelData/calculateHAZ';
+import { calculateBMIZ } from '@/excelData/calculateBMIZ';
 import { calculateMUACZ } from '@/excelData/calculateMUACZ';
+import { calculateWAZ } from '@/excelData/calculateWAZ';
 import { calculateWHZ } from '@/excelData/calculateWHZ';
 import {
   getAnthropometricAgeContext,
+  getAgeDetails,
   normalizeGrowthGender,
 } from '@/excelData/growthAgeUtils';
 
-export type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3';
+export type AnthropometricAssessmentId = 'a1' | 'a1-2' | 'a1-3' | 'a1-4' | 'a1-5';
 export type AnthropometricTone = 'danger' | 'success' | 'warning' | 'neutral';
 
 export interface AnthropometricInput {
@@ -152,6 +155,66 @@ const mapMuac = (
   return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
 };
 
+const mapBmiForAge = (
+  zScore: number,
+  classification: string,
+  isRecorded: boolean
+): AnthropometricStatus => {
+  if (isInvalidClassification(classification)) {
+    return unavailableResult(
+      isRecorded,
+      'Weight and height are recorded, but no BMI-for-age result is available yet.'
+    );
+  }
+
+  if (/underweight/i.test(classification)) {
+    return buildResult(
+      isRecorded,
+      zScore,
+      classification,
+      'Underweight',
+      classification,
+      'danger'
+    );
+  }
+
+  if (/normal weight/i.test(classification)) {
+    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  }
+
+  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+};
+
+const mapWeightForAge = (
+  zScore: number,
+  classification: string,
+  isRecorded: boolean
+): AnthropometricStatus => {
+  if (isInvalidClassification(classification)) {
+    return unavailableResult(
+      isRecorded,
+      'Weight is recorded, but no weight-for-age result is available yet.'
+    );
+  }
+
+  if (/underweight/i.test(classification)) {
+    return buildResult(
+      isRecorded,
+      zScore,
+      classification,
+      'Underweight',
+      classification,
+      classification.includes('Mild') ? 'warning' : 'danger'
+    );
+  }
+
+  if (/normal weight for age/i.test(classification)) {
+    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  }
+
+  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+};
+
 export const getAnthropometricStatus = (
   assessmentId: AnthropometricAssessmentId,
   child?: AnthropometricInput | null
@@ -166,6 +229,7 @@ export const getAnthropometricStatus = (
   }
 
   const gender = normalizeGrowthGender(child.gender);
+  const ageDetails = child.date_of_birth ? getAgeDetails(child.date_of_birth) : null;
 
   if (assessmentId === 'a1') {
     const isRecorded = isPositiveNumber(child.weight) && isPositiveNumber(child.height);
@@ -190,6 +254,47 @@ export const getAnthropometricStatus = (
     const result = calculateHAZ(height, ageContext.ageInWeeks, ageContext.ageInMonths, gender);
 
     return mapHeightForAge(result.haz, result.classification, true);
+  }
+
+  if (assessmentId === 'a1-4') {
+    const isRecorded = isPositiveNumber(child.weight) && isPositiveNumber(child.height);
+    if (!isRecorded) {
+      return unavailableResult(false, 'Add both weight and height to calculate BMI for age.');
+    }
+
+    if (!ageDetails) {
+      return unavailableResult(true, 'Add a valid date of birth to calculate BMI for age.');
+    }
+
+    const weight = child.weight as number;
+    const height = child.height as number;
+    const measuredStanding = height > 87;
+    const result = calculateBMIZ(
+      weight,
+      height,
+      ageDetails.age,
+      ageDetails.type,
+      gender,
+      measuredStanding
+    );
+
+    return mapBmiForAge(result.zScore, result.classification, true);
+  }
+
+  if (assessmentId === 'a1-5') {
+    const isRecorded = isPositiveNumber(child.weight);
+    if (!isRecorded) {
+      return unavailableResult(false, 'Add weight to calculate weight for age.');
+    }
+
+    if (!ageDetails) {
+      return unavailableResult(true, 'Add a valid date of birth to calculate weight for age.');
+    }
+
+    const weight = child.weight as number;
+    const result = calculateWAZ(weight, ageDetails.age, ageDetails.type, gender);
+
+    return mapWeightForAge(result.zScore, result.classification, true);
   }
 
   const isRecorded = isPositiveNumber(child.muac);
