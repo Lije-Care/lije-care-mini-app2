@@ -1,7 +1,7 @@
 # Telegram Mini Apps React Template
 
 This template demonstrates how developers can implement a single-page
-application on the Telegram Mini Apps platform using the following technologies
+application on the Telegram Mini-Apps platform using the following technologies
 and libraries:
 
 - [React](https://react.dev/)
