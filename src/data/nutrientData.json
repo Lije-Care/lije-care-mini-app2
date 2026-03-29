@@ -1,0 +1,30 @@
+[
+    {
+      "Age (months)": 10,
+      "Sex": "Male",
+      "Weight (kg)": 10,
+      "Height (cm)": 100,
+      "Activity Level": "Moderate",
+      "Health Condition": "Underweight",
+      "Calories (kcal/day)": 1273.51,
+      "Protein (g/day)": 38.21,
+      "Fat (g/day)": 49.53,
+      "Carbs (g/day)": 159.19,
+      "Iron (mg/day)": 12.65,
+      "Calcium (mg/day)": 299,
+      "Vitamin A (mcg/day)": 400,
+      "BMI": 10.0,
+      "Nutrition Status": "Underweight",
+      "Age Group Label": "0–6",
+      "Calorie Multiplier": 108
+    },
+    {
+      "Age Group Label": "7–12",
+      "Calorie Multiplier": 98
+    },
+    {
+      "Age Group Label": "13–36",
+      "Calorie Multiplier": 102
+    }
+  ]
+  

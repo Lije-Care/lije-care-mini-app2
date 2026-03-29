@@ -1,0 +1,32 @@
+// vite.config.ts
+import { defineConfig } from "file:///C:/Users/HP/Desktop/projects/TBC/lijeminiapp/node_modules/vite/dist/node/index.js";
+import tsconfigPaths from "file:///C:/Users/HP/Desktop/projects/TBC/lijeminiapp/node_modules/vite-tsconfig-paths/dist/index.mjs";
+import react from "file:///C:/Users/HP/Desktop/projects/TBC/lijeminiapp/node_modules/@vitejs/plugin-react-swc/index.mjs";
+import mkcert from "file:///C:/Users/HP/Desktop/projects/TBC/lijeminiapp/node_modules/vite-plugin-mkcert/dist/mkcert.mjs";
+import tailwindcss from "file:///C:/Users/HP/Desktop/projects/TBC/lijeminiapp/node_modules/@tailwindcss/vite/dist/index.mjs";
+var vite_config_default = defineConfig({
+  base: "/",
+  plugins: [
+    // Allows using React dev server along with building a React application with Vite.
+    // https://npmjs.com/package/@vitejs/plugin-react-swc
+    react(),
+    tailwindcss(),
+    // Allows using the compilerOptions.paths property in tsconfig.json.
+    // https://www.npmjs.com/package/vite-tsconfig-paths
+    tsconfigPaths(),
+    // Creates a custom SSL certificate valid for the local machine.
+    // Using this plugin requires admin rights on the first dev-mode launch.
+    // https://www.npmjs.com/package/vite-plugin-mkcert
+    process.env.HTTPS && mkcert()
+  ],
+  publicDir: "./public",
+  server: {
+    // Exposes your dev server and makes it accessible for the devices in the same network.
+    host: true,
+    allowedHosts: ["lije-care-miniapp-dev.zikollab.com"]
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcudHMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxIUFxcXFxEZXNrdG9wXFxcXHByb2plY3RzXFxcXFRCQ1xcXFxsaWplbWluaWFwcFwiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9maWxlbmFtZSA9IFwiQzpcXFxcVXNlcnNcXFxcSFBcXFxcRGVza3RvcFxcXFxwcm9qZWN0c1xcXFxUQkNcXFxcbGlqZW1pbmlhcHBcXFxcdml0ZS5jb25maWcudHNcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfaW1wb3J0X21ldGFfdXJsID0gXCJmaWxlOi8vL0M6L1VzZXJzL0hQL0Rlc2t0b3AvcHJvamVjdHMvVEJDL2xpamVtaW5pYXBwL3ZpdGUuY29uZmlnLnRzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSAndml0ZSc7XHJcbmltcG9ydCB0c2NvbmZpZ1BhdGhzIGZyb20gJ3ZpdGUtdHNjb25maWctcGF0aHMnO1xyXG5pbXBvcnQgcmVhY3QgZnJvbSAnQHZpdGVqcy9wbHVnaW4tcmVhY3Qtc3djJztcclxuaW1wb3J0IG1rY2VydCBmcm9tICd2aXRlLXBsdWdpbi1ta2NlcnQnO1xyXG5pbXBvcnQgdGFpbHdpbmRjc3MgZnJvbSAnQHRhaWx3aW5kY3NzL3ZpdGUnO1xyXG4vLyBodHRwczovL3ZpdGVqcy5kZXYvY29uZmlnL1xyXG5leHBvcnQgZGVmYXVsdCBkZWZpbmVDb25maWcoe1xyXG4gIGJhc2U6ICcvJyxcclxuIFxyXG4gIHBsdWdpbnM6IFtcclxuICAgIC8vIEFsbG93cyB1c2luZyBSZWFjdCBkZXYgc2VydmVyIGFsb25nIHdpdGggYnVpbGRpbmcgYSBSZWFjdCBhcHBsaWNhdGlvbiB3aXRoIFZpdGUuXHJcbiAgICAvLyBodHRwczovL25wbWpzLmNvbS9wYWNrYWdlL0B2aXRlanMvcGx1Z2luLXJlYWN0LXN3Y1xyXG4gICAgcmVhY3QoKSxcclxuICAgIHRhaWx3aW5kY3NzKCksXHJcbiAgICAvLyBBbGxvd3MgdXNpbmcgdGhlIGNvbXBpbGVyT3B0aW9ucy5wYXRocyBwcm9wZXJ0eSBpbiB0c2NvbmZpZy5qc29uLlxyXG4gICAgLy8gaHR0cHM6Ly93d3cubnBtanMuY29tL3BhY2thZ2Uvdml0ZS10c2NvbmZpZy1wYXRoc1xyXG4gICAgdHNjb25maWdQYXRocygpLFxyXG4gICAgLy8gQ3JlYXRlcyBhIGN1c3RvbSBTU0wgY2VydGlmaWNhdGUgdmFsaWQgZm9yIHRoZSBsb2NhbCBtYWNoaW5lLlxyXG4gICAgLy8gVXNpbmcgdGhpcyBwbHVnaW4gcmVxdWlyZXMgYWRtaW4gcmlnaHRzIG9uIHRoZSBmaXJzdCBkZXYtbW9kZSBsYXVuY2guXHJcbiAgICAvLyBodHRwczovL3d3dy5ucG1qcy5jb20vcGFja2FnZS92aXRlLXBsdWdpbi1ta2NlcnRcclxuICAgIHByb2Nlc3MuZW52LkhUVFBTICYmIG1rY2VydCgpLFxyXG4gIF0sXHJcbiAgcHVibGljRGlyOiAnLi9wdWJsaWMnLFxyXG4gIHNlcnZlcjoge1xyXG4gICAgLy8gRXhwb3NlcyB5b3VyIGRldiBzZXJ2ZXIgYW5kIG1ha2VzIGl0IGFjY2Vzc2libGUgZm9yIHRoZSBkZXZpY2VzIGluIHRoZSBzYW1lIG5ldHdvcmsuXHJcbiAgICBob3N0OiB0cnVlLFxyXG4gICAgYWxsb3dlZEhvc3RzOiBbJ2xpamUtY2FyZS1taW5pYXBwLWRldi56aWtvbGxhYi5jb20nXSwgXHJcbiAgfSxcclxufSk7XHJcblxyXG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQW9VLFNBQVMsb0JBQW9CO0FBQ2pXLE9BQU8sbUJBQW1CO0FBQzFCLE9BQU8sV0FBVztBQUNsQixPQUFPLFlBQVk7QUFDbkIsT0FBTyxpQkFBaUI7QUFFeEIsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsTUFBTTtBQUFBLEVBRU4sU0FBUztBQUFBO0FBQUE7QUFBQSxJQUdQLE1BQU07QUFBQSxJQUNOLFlBQVk7QUFBQTtBQUFBO0FBQUEsSUFHWixjQUFjO0FBQUE7QUFBQTtBQUFBO0FBQUEsSUFJZCxRQUFRLElBQUksU0FBUyxPQUFPO0FBQUEsRUFDOUI7QUFBQSxFQUNBLFdBQVc7QUFBQSxFQUNYLFFBQVE7QUFBQTtBQUFBLElBRU4sTUFBTTtBQUFBLElBQ04sY0FBYyxDQUFDLG9DQUFvQztBQUFBLEVBQ3JEO0FBQ0YsQ0FBQzsiLAogICJuYW1lcyI6IFtdCn0K
