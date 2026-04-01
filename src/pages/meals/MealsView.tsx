@@ -1077,7 +1077,8 @@ const MealsView: React.FC = () => {
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editingPlanGroupKey, setEditingPlanGroupKey] = useState<string | null>(null);
-  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [deletingPlanGroupKey, setDeletingPlanGroupKey] = useState<string | null>(null);
+  const [pendingDeletePlan, setPendingDeletePlan] = useState<BackendMealPlan | null>(null);
   const currentUserId = useMemo(() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -1429,6 +1430,9 @@ const MealsView: React.FC = () => {
       (plan.meal_description || 'untitled-plan').trim().toLowerCase(),
     ].join('::');
 
+  const getRelatedPlans = (plan: BackendMealPlan) =>
+    mealPlans.filter((candidate) => getPlanGroupKey(candidate) === getPlanGroupKey(plan));
+
   const groupPlans = (plans: BackendMealPlan[]) =>
     Array.from(
       new Map(
@@ -1562,17 +1566,50 @@ const MealsView: React.FC = () => {
     setPlansSuccess(null);
   };
 
-  const handleDeletePlan = async (planId: string) => {
-    setDeletingPlanId(planId);
+  const requestDeletePlan = (plan: BackendMealPlan) => {
+    setPendingDeletePlan(plan);
+    setPlansError(null);
+    setPlansSuccess(null);
+  };
+
+  const closeDeletePlanDialog = () => {
+    if (deletingPlanGroupKey) {
+      return;
+    }
+
+    setPendingDeletePlan(null);
+  };
+
+  const handleDeletePlan = async () => {
+    if (!pendingDeletePlan) {
+      return;
+    }
+
+    const planGroupKey = getPlanGroupKey(pendingDeletePlan);
+    const relatedPlans = getRelatedPlans(pendingDeletePlan);
+
+    if (!relatedPlans.length) {
+      setPendingDeletePlan(null);
+      return;
+    }
+
+    setDeletingPlanGroupKey(planGroupKey);
     setPlansError(null);
     setPlansSuccess(null);
 
     try {
-      await api.delete(`/meal-plans/${planId}`);
-      setMealPlans((prev) => prev.filter((plan) => plan.id !== planId));
-      if (activeViewPlan?.id === planId) {
+      await Promise.all(
+        relatedPlans.map((plan) => api.delete(`/meal-plans/${plan.id}`))
+      );
+      setMealPlans((prev) =>
+        prev.filter((plan) => getPlanGroupKey(plan) !== planGroupKey)
+      );
+      if (activeViewPlan && getPlanGroupKey(activeViewPlan) === planGroupKey) {
         setActiveViewPlan(null);
+        setActiveViewDay(null);
+        setActiveViewReadOnly(false);
       }
+      setPendingDeletePlan(null);
       setPlansSuccess('Meal plan deleted.');
     } catch (error: any) {
       const message = error?.response?.data?.message;
@@ -1581,8 +1618,9 @@ const MealsView: React.FC = () => {
           ? message.join(', ')
           : message || 'Failed to delete meal plan.'
       );
+      await refreshMealPlans();
     } finally {
-      setDeletingPlanId(null);
+      setDeletingPlanGroupKey(null);
     }
   };
 
@@ -1739,9 +1777,7 @@ const MealsView: React.FC = () => {
   };
 
   const renderPlanDetail = (plan: BackendMealPlan) => {
-    const relatedPlans = mealPlans.filter((candidate) => {
-      return getPlanGroupKey(candidate) === getPlanGroupKey(plan);
-    });
+    const relatedPlans = getRelatedPlans(plan);
 
     const plansByDay = new Map(
       relatedPlans.map((candidate) => [
@@ -1949,14 +1985,13 @@ const MealsView: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {displayPlans.map(plan => {
-                const relatedPlans = mealPlans.filter(
-                  (candidate) => getPlanGroupKey(candidate) === getPlanGroupKey(plan)
-                );
+                const relatedPlans = getRelatedPlans(plan);
                 const mealCount = relatedPlans.reduce(
                   (total, candidate) => total + (Array.isArray(candidate.meals) ? candidate.meals.length : 0),
                   0
                 );
                 const dayCount = relatedPlans.length;
+                const planGroupKey = getPlanGroupKey(plan);
                 const planDate = plan.meal_date
                   ? new Date(plan.meal_date).toLocaleDateString()
                   : plan.createdAt
@@ -1995,11 +2030,11 @@ const MealsView: React.FC = () => {
                             Edit
                           </button>
                           <button
-                            onClick={() => void handleDeletePlan(plan.id)}
-                            disabled={deletingPlanId === plan.id}
+                            onClick={() => requestDeletePlan(plan)}
+                            disabled={deletingPlanGroupKey === planGroupKey}
                             className="px-3 py-2 bg-rose-50 text-rose-600 rounded-xl font-black text-[10px] uppercase disabled:opacity-50"
                           >
-                            {deletingPlanId === plan.id ? '...' : 'Delete'}
+                            {deletingPlanGroupKey === planGroupKey ? '...' : 'Delete'}
                           </button>
                         </>
                       )}
@@ -2305,6 +2340,48 @@ const MealsView: React.FC = () => {
           onClose={closeIngredientDetail}
         />
       )}
+      {pendingDeletePlan && (() => {
+        const relatedPlans = getRelatedPlans(pendingDeletePlan);
+        const dayCount = relatedPlans.length;
+        const childName = pendingDeletePlan.child?.name || 'this child';
+        const planTitle = pendingDeletePlan.meal_description || 'this meal plan';
+
+        return (
+          <div className="fixed inset-0 z-[150] flex items-end justify-center bg-slate-900/40 px-4 pb-6 pt-12">
+            <div className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-2xl">
+                !
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-black text-slate-800">Delete whole plan?</h3>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-500">
+                  This will delete <span className="font-bold text-slate-700">{planTitle}</span> for{' '}
+                  <span className="font-bold text-slate-700">{childName}</span>, including all{' '}
+                  <span className="font-bold text-slate-700">{dayCount}</span> saved day{dayCount === 1 ? '' : 's'} in that plan.
+                </p>
+              </div>
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={closeDeletePlanDialog}
+                  disabled={Boolean(deletingPlanGroupKey)}
+                  className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-500 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeletePlan()}
+                  disabled={Boolean(deletingPlanGroupKey)}
+                  className="flex-1 rounded-2xl bg-rose-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+                >
+                  {deletingPlanGroupKey ? 'Deleting...' : 'Delete Plan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {showFilters && subTab !== 'planning' && (
         <FilterOverlay
           onClose={() => setShowFilters(false)}
