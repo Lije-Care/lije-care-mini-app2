@@ -295,28 +295,68 @@ type DetailedIngredient = {
     nutrient?: {
       id: string;
       name?: string | null;
-      unit?: string | null;
+      unit?:
+        | string
+        | {
+            name?: string | null;
+            abbreviation?: string | null;
+            symbol?: string | null;
+            shortName?: string | null;
+          }
+        | null;
+      abbreviation?: string | null;
+      symbol?: string | null;
     } | null;
   }>;
 };
 
+function getNutrientUnitLabel(
+  nutrient?: {
+    unit?:
+      | string
+      | {
+          name?: string | null;
+          abbreviation?: string | null;
+          symbol?: string | null;
+          shortName?: string | null;
+        }
+      | null;
+    abbreviation?: string | null;
+    symbol?: string | null;
+  } | null
+) {
+  if (!nutrient) {
+    return '';
+  }
+
+  const sanitizeUnitLabel = (value?: string | null) => {
+    if (!value) {
+      return '';
+    }
+
+    const trimmed = value.trim();
+    return looksLikeId(trimmed) ? '' : trimmed;
+  };
+
+  if (typeof nutrient.unit === 'string') {
+    return sanitizeUnitLabel(nutrient.unit);
+  }
+
+  return (
+    sanitizeUnitLabel(nutrient.unit?.abbreviation) ||
+    sanitizeUnitLabel(nutrient.unit?.symbol) ||
+    sanitizeUnitLabel(nutrient.unit?.shortName) ||
+    sanitizeUnitLabel(nutrient.unit?.name) ||
+    sanitizeUnitLabel(nutrient.abbreviation) ||
+    sanitizeUnitLabel(nutrient.symbol) ||
+    ''
+  );
+}
+
 function getIngredientAgeRangeLabel(
   suitableAgeRange?: DetailedIngredient['suitableAgeRange']
 ) {
-  if (!suitableAgeRange) {
-    return 'N/A';
-  }
-
-  const parsedRange =
-    typeof suitableAgeRange === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(suitableAgeRange);
-          } catch {
-            return null;
-          }
-        })()
-      : suitableAgeRange;
+  const parsedRange = parseSuitableAgeRange(suitableAgeRange);
 
   if (!parsedRange || parsedRange.minMonths == null) {
     return 'N/A';
@@ -327,6 +367,24 @@ function getIngredientAgeRangeLabel(
   }
 
   return `${parsedRange.minMonths} - ${parsedRange.maxMonths} months`;
+}
+
+function parseSuitableAgeRange(
+  suitableAgeRange?: DetailedIngredient['suitableAgeRange']
+) {
+  if (!suitableAgeRange) {
+    return null;
+  }
+
+  if (typeof suitableAgeRange === 'string') {
+    try {
+      return JSON.parse(suitableAgeRange);
+    } catch {
+      return null;
+    }
+  }
+
+  return suitableAgeRange;
 }
 
 function getIngredientDescription(
@@ -343,6 +401,54 @@ function getIngredientDescription(
     : '';
 
   return `${ingredient.name} is a ${foodGroup} ingredient used in balanced meals.${ageText}`;
+}
+
+function parseMealMinAgeMonths(value?: string | number | null) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const numericValue = Number(trimmed);
+  if (Number.isFinite(numericValue)) {
+    return numericValue;
+  }
+
+  const match = trimmed.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function formatMealAgeGroup(value?: string | number | null) {
+  const minAgeMonths = parseMealMinAgeMonths(value);
+
+  if (minAgeMonths == null) {
+    return typeof value === 'string' && value.trim() ? value : 'N/A';
+  }
+
+  return `${minAgeMonths}+ months`;
+}
+
+function getAgeFilterLimitInMonths(ageFilter: string) {
+  if (ageFilter === 'all') {
+    return null;
+  }
+
+  const match = ageFilter.match(/\d+/);
+  const rawAgeLimit = match ? Number(match[0]) : null;
+
+  if (rawAgeLimit == null) {
+    return null;
+  }
+
+  return ageFilter.includes('year') ? rawAgeLimit * 12 : rawAgeLimit;
 }
 
 function looksLikeId(value?: string | null) {
@@ -460,7 +566,7 @@ const MealLibraryDetailOverlay = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     <tr>
-                      <td className="px-4 py-4 font-bold text-slate-600">{meal.ageGroup || 'N/A'}</td>
+                      <td className="px-4 py-4 font-bold text-slate-600">{formatMealAgeGroup(meal.ageGroup)}</td>
                       <td className="px-4 py-4 font-bold text-slate-600">{meal.mealType || 'N/A'}</td>
                       <td className="px-4 py-4 font-bold text-slate-600">
                         {meal.mealTimes?.join(', ') || 'N/A'}
@@ -663,7 +769,7 @@ const IngredientLibraryDetailOverlay = ({
     const current = nutrientTotals.get(nutrientName);
     nutrientTotals.set(nutrientName, {
       amount: (current?.amount || 0) + (entry.amount || 0),
-      unit: getDisplayLabel(entry.nutrient?.unit || current?.unit || '', ''),
+      unit: getNutrientUnitLabel(entry.nutrient) || current?.unit || '',
     });
   });
 
@@ -1153,6 +1259,7 @@ const MealsView: React.FC = () => {
   // Transform backend meals to match UI format
   const transformedMeals = backendMeals.map(m => ({
     raw: m,
+    minAgeMonths: parseMealMinAgeMonths(m.ageGroup),
     derivedDietType: deriveDietTypeFromText(
       m.name,
       m.description,
@@ -1174,7 +1281,7 @@ const MealsView: React.FC = () => {
     image: m.imageUrl || `https://picsum.photos/seed/${m.id}/400/300`,
     description: m.description || '',
     prepTime: m.prepTime || 'N/A',
-    ageGroup: m.ageGroup,
+    ageGroup: formatMealAgeGroup(m.ageGroup),
     ingredients: [],
     method: m.direction ? m.direction.split('.').filter(Boolean) : [],
     calories: Math.round(m.totalVolume * 1.3) || 200, // Estimate calories from volume
@@ -1241,8 +1348,10 @@ const MealsView: React.FC = () => {
     }
 
     if (ageFilter !== 'all') {
-      const normalizedAge = ageFilter.replace('<', '').toLowerCase();
-      result = result.filter((meal) => meal.ageGroup.toLowerCase().includes(normalizedAge));
+      const maxMonths = getAgeFilterLimitInMonths(ageFilter);
+      if (maxMonths != null) {
+        result = result.filter((meal) => meal.minAgeMonths != null && meal.minAgeMonths < maxMonths);
+      }
     }
 
     if (mealTypeFilter !== 'all') {
@@ -1280,7 +1389,7 @@ const MealsView: React.FC = () => {
       result.sort((a, b) => (b.raw.createdAt || '').localeCompare(a.raw.createdAt || ''));
     }
 
-    return result.map(({ raw: _raw, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal);
+    return result.map(({ raw: _raw, minAgeMonths: _minAgeMonths, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal);
   }, [
     transformedMeals,
     searchQuery,
@@ -1320,9 +1429,26 @@ const MealsView: React.FC = () => {
 
     if (ageFilter !== 'all') {
       const match = ageFilter.match(/\d+/);
-      const maxMonths = match ? Number(match[0]) : null;
-      if (maxMonths) {
-        result = result.filter((ingredient) => ingredient.raw.suitableAgeRange?.minMonths <= maxMonths);
+      const rawAgeLimit = match ? Number(match[0]) : null;
+      const maxMonths =
+        rawAgeLimit == null
+          ? null
+          : ageFilter.includes('year')
+            ? rawAgeLimit * 12
+            : rawAgeLimit;
+
+      if (maxMonths != null) {
+        result = result.filter((ingredient) => {
+          const ageRange = parseSuitableAgeRange(ingredient.raw.suitableAgeRange);
+
+          if (!ageRange || ageRange.minMonths == null) {
+            return false;
+          }
+
+          // "<12mo" means suitable for some age strictly below 12 months.
+          // Ex: "12+ months" should not match, but "6-18 months" should.
+          return ageRange.minMonths < maxMonths;
+        });
       }
     }
 
@@ -2260,7 +2386,7 @@ const MealsView: React.FC = () => {
           <input
             type="text"
             placeholder="Search by name, allergy..."
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium"
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium text-slate-800 placeholder:text-slate-300 caret-slate-700"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
