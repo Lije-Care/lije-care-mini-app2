@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
 import { fetchMeals, fetchIngredients } from '@/redux/slices/mealSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
-import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon } from '@/design-system/icons';
+import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon, AssessmentIcon, TrashIcon } from '@/design-system/icons';
 import type { Meal } from '@/design-system/types';
 import api from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -2017,9 +2017,9 @@ const MealsView: React.FC = () => {
           ) : (
             <button
               onClick={() => openEditPlan(selectedPlan ?? plan)}
-              className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 text-xl font-black"
+              className="cursor-pointer w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center transition-transform active:scale-90 hover:text-[#76A13B]"
             >
-              ✎
+              <AssessmentIcon size={20} />
             </button>
           )}
         </div>
@@ -2194,32 +2194,25 @@ const MealsView: React.FC = () => {
                 );
                 const dayCount = relatedPlans.length;
                 const planGroupKey = getPlanGroupKey(plan);
-                const planDate = plan.meal_date
-                  ? new Date(plan.meal_date).toLocaleDateString()
-                  : plan.createdAt
-                  ? new Date(plan.createdAt).toLocaleDateString()
-                  : 'No date';
-                const subtitle = planSourceTab === 'nutritionist' && plan.expert
-                  ? `${plan.expert.firstName || ''} ${plan.expert.lastName || ''}`.trim() || plan.expert.role || 'Nutritionist'
-                  : plan.child?.name || 'Meal plan';
-
                 return (
-                  <div key={plan.id} className="bg-white rounded-[2rem] p-6 border border-slate-50 shadow-sm flex items-center gap-4">
-                    <div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center text-2xl">
+                  <div key={plan.id} className="bg-white rounded-[2rem] p-4 border border-slate-50 shadow-sm flex items-center gap-3">
+                    <div className="w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center text-xl flex-shrink-0">
                       {planSourceTab === 'nutritionist' ? '🥗' : '🍽️'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h5 className="font-bold text-slate-800 truncate">
+                      <h5 className="font-bold text-slate-800 truncate text-sm">
                         {plan.meal_description || 'Meal Plan'}
                       </h5>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">
-                        {subtitle} • {dayCount} Days • {mealCount} Meals • {planDate}
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">
+                        {dayCount} Days • {mealCount} Meals
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => openViewPlan(plan)}
-                        className="px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase"
+                        aria-label="View plan"
+                        title="View plan"
+                        className="cursor-pointer min-w-[52px] h-10 px-3 bg-[#F9C846]/10 text-[#76A13B] rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center"
                       >
                         View
                       </button>
@@ -2227,16 +2220,20 @@ const MealsView: React.FC = () => {
                         <>
                           <button
                             onClick={() => openEditPlan(plan)}
-                            className="px-3 py-2 bg-amber-50 text-amber-600 rounded-xl font-black text-[10px] uppercase"
+                            aria-label="Edit plan"
+                            title="Edit plan"
+                            className="cursor-pointer w-10 h-10 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center transition-transform active:scale-90 hover:text-[#76A13B]"
                           >
-                            Edit
+                            <AssessmentIcon size={18} />
                           </button>
                           <button
                             onClick={() => requestDeletePlan(plan)}
                             disabled={deletingPlanGroupKey === planGroupKey}
-                            className="px-3 py-2 bg-rose-50 text-rose-600 rounded-xl font-black text-[10px] uppercase disabled:opacity-50"
+                            aria-label="Delete plan"
+                            title="Delete plan"
+                            className="cursor-pointer w-10 h-10 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center transition-transform active:scale-90 hover:text-rose-500 disabled:opacity-50"
                           >
-                            {deletingPlanGroupKey === planGroupKey ? '...' : 'Delete'}
+                            {deletingPlanGroupKey === planGroupKey ? '…' : <TrashIcon size={18} />}
                           </button>
                         </>
                       )}
