@@ -4,7 +4,6 @@ import { AppDispatch, RootState } from '@/redux/store';
 import { fetchMeals, fetchIngredients } from '@/redux/slices/mealSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon } from '@/design-system/icons';
-import { Button } from '@/components/ui';
 import type { Meal } from '@/design-system/types';
 import api from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1153,10 +1152,10 @@ const MealsView: React.FC = () => {
   const [subTab, setSubTab] = useState<'mealLib' | 'foodLib' | 'planning'>('planning');
   const [planSourceTab, setPlanSourceTab] = useState<'parent' | 'nutritionist'>('parent');
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
-  const [creationStep, setCreationStep] = useState(1);
+  const [creationStep, setCreationStep] = useState<1 | 2>(1);
   const [planName, setPlanName] = useState('');
-  const [selectedDay, setSelectedDay] = useState('');
-  const [activeSlot, setActiveSlot] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState('Mon');
+  const [activeSlot, setActiveSlot] = useState<string | null>('Breakfast');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('recent');
@@ -1505,8 +1504,47 @@ const MealsView: React.FC = () => {
     sortBy,
   ]);
 
-  const calorieTarget = 1500;
   const currentCals = selectedMealsForSlot.reduce((sum, m) => sum + m.calories, 0);
+  const nutrientProgressItems = useMemo(
+    () => [
+      {
+        key: 'calorie',
+        label: 'Calorie',
+        current: currentCals,
+        target: 1500,
+        unit: '',
+      },
+      {
+        key: 'carbohydrate',
+        label: 'Carbohydrate',
+        current: Math.round(currentCals * 0.125),
+        target: 200,
+        unit: '',
+      },
+      {
+        key: 'protein',
+        label: 'Protein',
+        current: Math.round(currentCals * 0.04),
+        target: 50,
+        unit: '',
+      },
+      {
+        key: 'fat',
+        label: 'Fat',
+        current: Math.round(currentCals * 0.033),
+        target: 50,
+        unit: '',
+      },
+      {
+        key: 'iron',
+        label: 'Iron',
+        current: Math.round(currentCals * 0.01),
+        target: 15,
+        unit: '',
+      },
+    ],
+    [currentCals]
+  );
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const selectedChild = useMemo(
     () =>
@@ -1587,12 +1625,12 @@ const MealsView: React.FC = () => {
 
   const resetPlanBuilder = () => {
     setIsCreatingPlan(false);
+    setCreationStep(1);
     setEditingPlanId(null);
     setEditingPlanGroupKey(null);
-    setCreationStep(1);
     setPlanName('');
-    setSelectedDay('');
-    setActiveSlot(null);
+    setSelectedDay('Mon');
+    setActiveSlot('Breakfast');
     setSelectedMealsForSlot([]);
   };
 
@@ -1652,34 +1690,56 @@ const MealsView: React.FC = () => {
   const getMealImage = (meal: BackendPlanMeal) =>
     meal?.imageUrl || `https://picsum.photos/seed/${meal?.id}/200/200`;
 
-  const mapBackendMealToSelection = (meal: BackendPlanMeal): Meal => ({
-    id: meal.id,
-    name: meal.name || 'Meal',
-    type: 'Lunch',
-    nutrients: [],
-    image: getMealImage(meal),
-    description: '',
-    prepTime: 'N/A',
-    ageGroup: '',
-    ingredients: [],
-    method: [],
-    calories: 0,
-    volume: `${meal.totalVolume ?? 0}ml`,
-  });
+  const mapBackendMealToSelection = (
+    meal: BackendPlanMeal,
+    selectedSlot: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'
+  ): Meal => {
+    const matchingMeal = MEALS.find((candidate) => candidate.id === meal.id);
+
+    if (matchingMeal) {
+      return {
+        ...matchingMeal,
+        type: selectedSlot,
+        image: meal.imageUrl || matchingMeal.image,
+        volume:
+          meal.totalVolume != null ? `${meal.totalVolume}ml` : matchingMeal.volume,
+      };
+    }
+
+    return {
+      id: meal.id,
+      name: meal.name || 'Meal',
+      type: selectedSlot,
+      nutrients: [],
+      image: getMealImage(meal),
+      description: '',
+      prepTime: 'N/A',
+      ageGroup: '',
+      ingredients: [],
+      method: [],
+      calories: Math.round((meal.totalVolume ?? 0) * 1.3) || 200,
+      volume: `${meal.totalVolume ?? 0}ml`,
+    };
+  };
 
   const openEditPlan = (plan: BackendMealPlan) => {
     const selectedSlot =
-      Object.values(plan.mealTimes || {}).flat()[0] || 'Lunch';
+      (Object.values(plan.mealTimes || {}).flat()[0] as
+        | 'Breakfast'
+        | 'Lunch'
+        | 'Dinner'
+        | 'Snack'
+        | undefined) || 'Lunch';
 
     setActiveViewPlan(null);
     setIsCreatingPlan(true);
+    setCreationStep(1);
     setEditingPlanId(plan.id);
     setEditingPlanGroupKey(getPlanGroupKey(plan));
-    setCreationStep(1);
     setPlanName(plan.meal_description || '');
     setSelectedDay(getDayKeyFromIsoDate(plan.meal_date));
     setActiveSlot(selectedSlot);
-    setSelectedMealsForSlot((plan.meals || []).map(mapBackendMealToSelection));
+    setSelectedMealsForSlot((plan.meals || []).map((meal) => mapBackendMealToSelection(meal, selectedSlot)));
     setPlansError(null);
     setPlansSuccess(null);
   };
@@ -1949,9 +2009,6 @@ const MealsView: React.FC = () => {
             <h3 className="text-2xl font-black text-slate-800">
               {plan.meal_description || 'Meal Plan'}
             </h3>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              {plan.child?.name || 'Child'}
-            </p>
           </div>
           {isReadOnlyPlan ? (
             <div className="min-w-12 rounded-2xl bg-slate-100 px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -2051,7 +2108,14 @@ const MealsView: React.FC = () => {
               <h3 className="text-2xl font-black mb-2 leading-tight">Smart Child<br/>Meal Planning</h3>
               <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">Design balanced nutrition tailored to your little one's growth.</p>
               <button
-                onClick={() => setIsCreatingPlan(true)}
+                onClick={() => {
+                  setCreationStep(1);
+                  setPlanName('');
+                  setSelectedDay('Mon');
+                  setActiveSlot('Breakfast');
+                  setSelectedMealsForSlot([]);
+                  setIsCreatingPlan(true);
+                }}
                 className="bg-white text-sky-500 px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
               >
               Create New Plan
@@ -2105,7 +2169,19 @@ const MealsView: React.FC = () => {
               <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl mb-4">🍽️</div>
               <p className="text-slate-400 text-sm font-bold">No plans found here.</p>
               {planSourceTab === 'parent' && (
-                <button onClick={() => setIsCreatingPlan(true)} className="mt-4 text-sky-500 text-xs font-black uppercase">Start First Plan</button>
+                <button
+                  onClick={() => {
+                    setCreationStep(1);
+                    setPlanName('');
+                    setSelectedDay('Mon');
+                    setActiveSlot('Breakfast');
+                    setSelectedMealsForSlot([]);
+                    setIsCreatingPlan(true);
+                  }}
+                  className="mt-4 text-sky-500 text-xs font-black uppercase"
+                >
+                  Start First Plan
+                </button>
               )}
             </div>
           ) : (
@@ -2173,26 +2249,25 @@ const MealsView: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-8 pb-10">
-          {/* Step Navigation Header */}
           <div className="flex items-center gap-4">
             <button onClick={resetPlanBuilder} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
               <PlusIcon className="rotate-45 text-slate-500" />
             </button>
             <div className="flex-1">
-              <h3 className="font-black text-slate-800">Step {creationStep}: {creationStep === 1 ? 'Name' : creationStep === 2 ? 'Day' : creationStep === 3 ? 'Time' : 'Meals'}</h3>
+              <h3 className="font-black text-slate-800">
+                {creationStep === 1 ? 'Plan Name' : 'Add Meals'}
+              </h3>
               <div className="flex gap-1 mt-1">
-                {[1, 2, 3, 4].map(s => (
-                  <div key={s} className={`h-1 rounded-full flex-1 transition-all ${s <= creationStep ? 'bg-sky-500' : 'bg-slate-100'}`} />
+                {[1, 2].map((step) => (
+                  <div
+                    key={step}
+                    className={`h-1 rounded-full flex-1 ${
+                      step <= creationStep ? 'bg-[#76A13B]' : 'bg-slate-100'
+                    }`}
+                  />
                 ))}
               </div>
             </div>
-          </div>
-
-          <div className="bg-white rounded-[2rem] border border-slate-100 px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selected Child</p>
-            <p className="mt-1 text-sm font-bold text-slate-800">
-              {selectedChild?.name || 'No child selected'}
-            </p>
           </div>
 
           {plansError && (
@@ -2200,142 +2275,152 @@ const MealsView: React.FC = () => {
               <p className="text-sm font-bold text-rose-600">{plansError}</p>
             </div>
           )}
-
-          {creationStep === 1 && (
+          {creationStep === 1 ? (
             <div className="space-y-6 animate-in slide-in-from-bottom">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-3 ml-2">Plan Name</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-3 ml-2 tracking-widest">
+                  What's the plan name?
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g., Growth Week 1"
-                  className="w-full bg-white border border-slate-100 p-5 rounded-2xl font-bold text-slate-800 outline-none focus:border-sky-400 shadow-sm"
                   value={planName}
-                  onChange={e => setPlanName(e.target.value)}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  placeholder="Enter plan name..."
+                  className="w-full rounded-2xl border-2 border-[#76A13B] bg-white px-6 py-4 text-slate-800 font-bold outline-none shadow-sm"
                 />
               </div>
-              <Button
-                disabled={!planName}
-                onClick={() => setCreationStep(2)}
-                color="sky"
-                fullWidth
-                size="lg"
+              <button
+                onClick={() => {
+                  if (!planName.trim()) {
+                    setPlansError('Plan name is required.');
+                    return;
+                  }
+                  setPlansError(null);
+                  setCreationStep(2);
+                }}
+                disabled={!planName.trim()}
+                className="w-full rounded-2xl bg-[#0B1A12] py-5 font-black text-white shadow-xl shadow-emerald-100 disabled:opacity-50"
               >
                 Next Step
-              </Button>
+              </button>
             </div>
-          )}
-
-          {creationStep === 2 && (
+          ) : (
             <div className="space-y-6 animate-in slide-in-from-bottom">
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2">Select Day</label>
-              <div className="grid grid-cols-4 gap-3">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                  <button
-                    key={day}
-                    onClick={() => setSelectedDay(day)}
-                    className={`py-4 rounded-2xl font-bold text-sm border transition-all ${selectedDay === day ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-500'}`}
-                  >
-                    {day}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-4 mt-8">
-                <button onClick={() => setCreationStep(1)} className="flex-1 py-4 text-slate-400 font-bold">Back</button>
-                <Button disabled={!selectedDay} onClick={() => setCreationStep(3)} color="sky" className="flex-[2]" size="lg">Next Step</Button>
-              </div>
-            </div>
-          )}
-
-          {creationStep === 3 && (
-            <div className="space-y-6 animate-in slide-in-from-bottom">
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2">Meal Time Slot</label>
               <div className="space-y-3">
-                {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(slot => (
-                  <button
-                    key={slot}
-                    onClick={() => setActiveSlot(slot)}
-                    className={`w-full p-5 rounded-[2rem] border-2 transition-all flex items-center justify-between ${activeSlot === slot ? 'border-sky-500 bg-sky-50/50' : 'border-slate-100 bg-white'}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl">
-                        {slot === 'Breakfast' ? '🥣' : slot === 'Lunch' ? '🍛' : slot === 'Dinner' ? '🍲' : '🍎'}
-                      </div>
-                      <span className="font-bold text-slate-800">{slot}</span>
-                    </div>
-                    {activeSlot === slot && <div className="w-6 h-6 bg-sky-500 rounded-full flex items-center justify-center text-white text-[10px]">✓</div>}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-4 mt-8">
-                <button onClick={() => setCreationStep(2)} className="flex-1 py-4 text-slate-400 font-bold">Back</button>
-                <Button disabled={!activeSlot} onClick={() => setCreationStep(4)} color="sky" className="flex-[2]" size="lg">Next Step</Button>
-              </div>
-            </div>
-          )}
+                <label className="block text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">
+                  Select Day
+                </label>
+                <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+                  {weekDays.map((day) => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      className={`min-w-18 px-6 py-3 rounded-xl font-bold text-xs border transition-all flex-shrink-0 ${
+                        selectedDay === day
+                          ? 'bg-[#76A13B] border-[#76A13B] text-white shadow-lg shadow-emerald-100'
+                          : 'bg-white border-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
 
-          {creationStep === 4 && (
-            <div className="space-y-8 animate-in slide-in-from-bottom">
-              {/* Nutrition Gauge */}
+                <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+                  {mealSlots.map((slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => setActiveSlot(slot)}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
+                        activeSlot === slot ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
-                <div className="flex justify-between items-end mb-6">
-                  <div>
-                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-1">Nutrient Gauge</h4>
-                    <p className="text-2xl font-black">{currentCals} <span className="text-xs font-medium text-slate-500">/ {calorieTarget} kcal</span></p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-sky-400">{Math.round((currentCals/calorieTarget)*100)}% Reached</p>
-                  </div>
-                </div>
-                <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-sky-500 rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.min((currentCals / calorieTarget) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-6 px-2">
-                  <div className="text-center">
-                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Vol</p>
-                    <p className="text-sm font-bold">{selectedMealsForSlot.reduce((sum, m) => sum + parseInt(m.volume) || 0, 0)}ml</p>
-                  </div>
-                  <div className="text-center border-x border-slate-800 px-8">
-                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Prot</p>
-                    <p className="text-sm font-bold">{Math.round(currentCals * 0.04)}g</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Iron</p>
-                    <p className="text-sm font-bold">{currentCals > 0 ? 'High' : '--'}</p>
-                  </div>
+                <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">
+                  Nutrient Progress ({selectedDay})
+                </h4>
+                <div className="space-y-6">
+                  {nutrientProgressItems.map((item) => {
+                    const percentage = Math.min(
+                      100,
+                      Math.round((item.current / item.target) * 100)
+                    );
+
+                    return (
+                      <div key={item.key} className="space-y-2">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            {item.label}
+                          </span>
+                          <span className="text-xs font-bold text-slate-300">
+                            {item.current} / {item.target}
+                            {item.unit}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#76A13B] rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-2">
-                  <h5 className="font-black text-slate-700 uppercase text-[10px] tracking-widest">Select Meals for {activeSlot}</h5>
-                  <span className="text-[10px] font-bold text-slate-400">{selectedMealsForSlot.length} Added</span>
+                  <h5 className="font-black text-slate-700 uppercase text-[10px] tracking-widest">
+                    Select {activeSlot} Meals
+                  </h5>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {selectedMealsForSlot.length} Selected
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {mealsForActiveSlot.map(meal => (
-                    <button
-                      key={meal.id}
-                      onClick={() => {
-                        if(selectedMealsForSlot.find(m => m.id === meal.id)) {
-                          setSelectedMealsForSlot(selectedMealsForSlot.filter(m => m.id !== meal.id));
-                        } else {
-                          setSelectedMealsForSlot([...selectedMealsForSlot, meal]);
-                        }
-                      }}
-                      className={`p-4 rounded-[2rem] border-2 text-left flex gap-4 transition-all ${selectedMealsForSlot.find(m => m.id === meal.id) ? 'border-sky-500 bg-sky-50' : 'border-slate-50 bg-white'}`}
-                    >
-                      <img src={meal.image} className="w-16 h-16 rounded-2xl object-cover" alt={meal.name} />
-                      <div className="flex-1 flex flex-col justify-center">
-                        <h6 className="font-bold text-slate-800">{meal.name}</h6>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{meal.calories} kcal • {meal.volume}</p>
-                      </div>
-                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center self-center transition-all ${selectedMealsForSlot.find(m => m.id === meal.id) ? 'bg-sky-500 border-sky-500 text-white' : 'border-slate-100 text-transparent'}`}>
-                        ✓
-                      </div>
-                    </button>
-                  ))}
+                  {mealsForActiveSlot.map((meal) => {
+                    const isSelected = selectedMealsForSlot.some((selectedMeal) => selectedMeal.id === meal.id);
+
+                    return (
+                      <button
+                        key={meal.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedMealsForSlot(selectedMealsForSlot.filter((selectedMeal) => selectedMeal.id !== meal.id));
+                          } else {
+                            setSelectedMealsForSlot([...selectedMealsForSlot, meal]);
+                          }
+                        }}
+                        className={`p-4 rounded-[2rem] border-2 text-left flex gap-4 transition-all ${
+                          isSelected ? 'border-[#76A13B] bg-[#76A13B]/5' : 'border-slate-50 bg-white'
+                        }`}
+                      >
+                        <img src={meal.image} className="w-16 h-16 rounded-2xl object-cover" alt={meal.name} />
+                        <div className="flex-1 flex flex-col justify-center">
+                          <h6 className="font-bold text-slate-800">{meal.name}</h6>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">
+                            {meal.calories} kcal • {meal.volume}
+                          </p>
+                        </div>
+                        <div
+                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center self-center transition-all ${
+                            isSelected
+                              ? 'bg-[#76A13B] border-[#76A13B] text-white shadow-lg shadow-emerald-100'
+                              : 'border-slate-100 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </div>
+                      </button>
+                    );
+                  })}
                   {activeSlot && mealsForActiveSlot.length === 0 && (
                     <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">
@@ -2346,14 +2431,16 @@ const MealsView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => setCreationStep(3)} className="flex-1 py-4 text-slate-400 font-bold">Back</button>
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {selectedMealsForSlot.length} Meals Total
+                </p>
                 <button
                   onClick={() => void handleCreatePlan()}
                   disabled={savingPlan || selectedMealsForSlot.length === 0}
-                  className="flex-[2] py-4 bg-emerald-500 text-white font-black rounded-3xl shadow-xl shadow-emerald-100"
+                  className="px-8 py-4 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl shadow-emerald-100 disabled:opacity-50"
                 >
-                  {savingPlan ? 'Saving...' : editingPlanId ? 'Save Changes' : 'Finish Plan'}
+                  {savingPlan ? 'Saving...' : editingPlanId ? 'Update Plan' : 'Finish Plan'}
                 </button>
               </div>
             </div>
@@ -2529,27 +2616,31 @@ const MealsView: React.FC = () => {
           commonAllergens={commonAllergens}
         />
       )}
-      <div className="px-6 mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Nutri-Meal</h2>
-        <p className="text-slate-500 text-sm">Balanced food for bright futures.</p>
-      </div>
+      {!activeViewPlan && !isCreatingPlan && (
+        <>
+          <div className="px-6 mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Nutri-Meal</h2>
+            <p className="text-slate-500 text-sm">Balanced food for bright futures.</p>
+          </div>
 
-      <div className="px-6 mb-8">
-        <div className="bg-slate-100 p-1.5 rounded-2xl flex">
-          <button
-            onClick={() => setSubTab('planning')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
-          >
-            Planning
-          </button>
-          <button
-            onClick={() => setSubTab('mealLib')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab !== 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
-          >
-            Libraries
-          </button>
-        </div>
-      </div>
+          <div className="px-6 mb-8">
+            <div className="bg-slate-100 p-1.5 rounded-2xl flex">
+              <button
+                onClick={() => setSubTab('planning')}
+                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
+              >
+                Planning
+              </button>
+              <button
+                onClick={() => setSubTab('mealLib')}
+                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab !== 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
+              >
+                Libraries
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {subTab === 'planning' ? renderPlanning() : renderLibraries()}
     </div>
