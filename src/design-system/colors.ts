@@ -3,33 +3,33 @@
 
 export const COLORS = {
   // Primary section colors
-  sky: '#38BDF8',      // Home
-  mint: '#34D399',     // Assessment
-  yellow: '#FBBF24',   // Meals
-  coral: '#FB7185',    // Shop
-  purple: '#A855F7',   // Help/Call Center
+  sky: '#F9C846',      // Home
+  mint: '#76A13B',     // Assessment
+  yellow: '#F9C846',   // Meals
+  coral: '#76A13B',    // Shop
+  purple: '#0B1A12',   // Help/Call Center
 
   // Neutral colors
   slate: {
-    50: '#F8FAFC',
-    100: '#F1F5F9',
-    200: '#E2E8F0',
-    300: '#CBD5E1',
-    400: '#94A3B8',
-    500: '#64748B',
-    600: '#475569',
-    700: '#334155',
-    800: '#1E293B',
-    900: '#0F172A',
+    50: '#FFFBF0',
+    100: '#F8F1DA',
+    200: '#E8DFC3',
+    300: '#D4C8A6',
+    400: '#A6AFB6',
+    500: '#7A8794',
+    600: '#51606C',
+    700: '#31414A',
+    800: '#1B2A21',
+    900: '#0B1A12',
   },
 
   // Status colors
   emerald: {
-    50: '#ECFDF5',
-    100: '#D1FAE5',
-    400: '#34D399',
-    500: '#10B981',
-    600: '#059669',
+    50: '#EEF6E5',
+    100: '#DDECC7',
+    400: '#8EB856',
+    500: '#76A13B',
+    600: '#5E832D',
   },
 
   rose: {
@@ -42,13 +42,13 @@ export const COLORS = {
   },
 
   amber: {
-    50: '#FFFBEB',
-    100: '#FEF3C7',
+    50: '#FFF8DE',
+    100: '#FFF0BF',
     200: '#FDE68A',
-    300: '#FCD34D',
-    400: '#FBBF24',
-    500: '#F59E0B',
-    600: '#D97706',
+    300: '#F9D86A',
+    400: '#F9C846',
+    500: '#E4AE1F',
+    600: '#C89213',
   },
 
   indigo: {
@@ -59,7 +59,7 @@ export const COLORS = {
 
   // Background
   white: '#FFFFFF',
-  background: '#F8FAFC', // slate-50
+  background: '#FFFBF0',
 };
 
 // Section color mapping

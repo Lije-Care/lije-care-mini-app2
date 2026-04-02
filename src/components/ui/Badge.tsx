@@ -14,14 +14,14 @@ interface BadgeProps {
 
 const colorStyles: Record<BadgeColor, Record<BadgeVariant, string>> = {
   sky: {
-    solid: 'bg-sky-500 text-white',
-    outline: 'border border-sky-500 text-sky-500',
-    soft: 'bg-sky-50 text-sky-600 border border-sky-100',
+    solid: 'bg-[#F9C846] text-[#0B1A12]',
+    outline: 'border border-[#F9C846] text-[#C89213]',
+    soft: 'bg-[#FFF8DE] text-[#C89213] border border-[#FFF0BF]',
   },
   emerald: {
-    solid: 'bg-emerald-500 text-white',
-    outline: 'border border-emerald-500 text-emerald-500',
-    soft: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+    solid: 'bg-[#76A13B] text-white',
+    outline: 'border border-[#76A13B] text-[#76A13B]',
+    soft: 'bg-[#EEF6E5] text-[#5E832D] border border-[#DDECC7]',
   },
   amber: {
     solid: 'bg-amber-400 text-slate-900',
@@ -34,14 +34,14 @@ const colorStyles: Record<BadgeColor, Record<BadgeVariant, string>> = {
     soft: 'bg-rose-50 text-rose-600 border border-rose-200',
   },
   purple: {
-    solid: 'bg-purple-500 text-white',
-    outline: 'border border-purple-500 text-purple-500',
-    soft: 'bg-purple-50 text-purple-600 border border-purple-100',
+    solid: 'bg-[#0B1A12] text-white',
+    outline: 'border border-[#0B1A12] text-[#0B1A12]',
+    soft: 'bg-[#1B3B2B] text-white border border-[#31414A]',
   },
   slate: {
-    solid: 'bg-slate-700 text-white',
-    outline: 'border border-slate-300 text-slate-600',
-    soft: 'bg-slate-50 text-slate-600 border border-slate-100',
+    solid: 'bg-[#31414A] text-white',
+    outline: 'border border-[#D4C8A6] text-[#51606C]',
+    soft: 'bg-[#F8F1DA] text-[#51606C] border border-[#E8DFC3]',
   },
   indigo: {
     solid: 'bg-indigo-500 text-white',

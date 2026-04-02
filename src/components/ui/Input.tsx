@@ -19,16 +19,16 @@ const Input: React.FC<InputProps> = ({
 }) => {
   const baseInputClasses = `
     w-full px-5 py-4
-    bg-slate-50
-    border border-slate-200
+    bg-[#FFFBF0]
+    border border-[#E8DFC3]
     rounded-2xl
-    text-slate-800
+    text-[#0B1A12]
     font-medium
     outline-none
     transition-colors
-    focus:border-sky-400
+    focus:border-[#76A13B]
     focus:bg-white
-    placeholder:text-slate-400
+    placeholder:text-[#7A8794]
   `;
 
   const errorClasses = error ? 'border-rose-400 focus:border-rose-500' : '';

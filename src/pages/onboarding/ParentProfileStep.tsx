@@ -27,11 +27,11 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
   const isValid = parentData.name.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-sky-200/30 rounded-full -mr-16 -mt-16 blur-3xl" />
-      <div className="absolute bottom-40 left-0 w-40 h-40 bg-purple-200/20 rounded-full -ml-20 blur-3xl" />
+    <div className="min-h-screen bg-gradient-to-b from-[#FFFBF0] to-white relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[#F9C846]/20 rounded-full -mr-16 -mt-16 blur-3xl" />
+      <div className="absolute bottom-40 left-0 w-40 h-40 bg-[#76A13B]/15 rounded-full -ml-20 blur-3xl" />
 
-      <div className="sticky top-0 bg-gradient-to-b from-sky-50/95 via-sky-50/90 to-transparent backdrop-blur-sm z-10 px-6 pt-6 pb-4">
+      <div className="sticky top-0 bg-gradient-to-b from-[#FFFBF0]/95 via-[#FFFBF0]/90 to-transparent backdrop-blur-sm z-10 px-6 pt-6 pb-4">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">About You</h2>
@@ -48,7 +48,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
 
       <div className="px-6 pt-4 pb-32">
         <div className="flex justify-center mb-8">
-          <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-sky-100 border border-sky-100">
+          <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-amber-100 border border-[#F8F1DA]">
             <span className="text-5xl">👤</span>
           </div>
         </div>
@@ -70,11 +70,11 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setParentData({ ...parentData, gender: value })}
-                  className={`py-4 rounded-2xl border-2 text-sm font-bold transition-all active:scale-95 ${
-                    parentData.gender === value
-                      ? 'bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-200'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    onClick={() => setParentData({ ...parentData, gender: value })}
+                    className={`py-4 rounded-2xl border-2 text-sm font-bold transition-all active:scale-95 ${
+                      parentData.gender === value
+                      ? 'bg-[#76A13B] border-[#76A13B] text-white shadow-lg shadow-emerald-100'
+                      : 'bg-white border-[#E8DFC3] text-slate-600 hover:border-[#D4C8A6]'
                   }`}
                 >
                   <span className="text-xl block mb-1">{emoji}</span>
@@ -91,7 +91,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
             <div className="relative">
               <input
                 type="date"
-                className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 text-slate-800 font-medium transition-all"
+                className="w-full px-5 py-4 bg-white border-2 border-[#E8DFC3] rounded-2xl outline-none focus:border-[#76A13B] focus:ring-4 focus:ring-[#EEF6E5] text-slate-800 font-medium transition-all"
                 value={parentData.birthDate}
                 onChange={(e) => setParentData({ ...parentData, birthDate: e.target.value })}
               />
@@ -107,7 +107,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
               disabled={!isValid}
               className={`w-full py-4 rounded-2xl font-bold text-white transition-all active:scale-95 ${
                 isValid
-                  ? 'bg-sky-500 shadow-xl shadow-sky-200 hover:bg-sky-600'
+                  ? 'bg-[#0B1A12] shadow-xl shadow-emerald-100 hover:bg-[#1B3B2B]'
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >

@@ -2103,7 +2103,7 @@ const MealsView: React.FC = () => {
         renderPlanDetail(activeViewPlan)
       ) : !isCreatingPlan ? (
         <div className="space-y-6">
-          <div className="bg-sky-500 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-sky-100">
+          <div className="bg-[#0B1A12] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-100">
             <div className="relative z-10">
               <h3 className="text-2xl font-black mb-2 leading-tight">Smart Child<br/>Meal Planning</h3>
               <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">Design balanced nutrition tailored to your little one's growth.</p>
@@ -2116,7 +2116,7 @@ const MealsView: React.FC = () => {
                   setSelectedMealsForSlot([]);
                   setIsCreatingPlan(true);
                 }}
-                className="bg-white text-sky-500 px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
+                className="bg-[#F9C846] text-[#0B1A12] px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
               >
               Create New Plan
               </button>
@@ -2127,13 +2127,13 @@ const MealsView: React.FC = () => {
           <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
             <button
               onClick={() => setPlanSourceTab('parent')}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'parent' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-400'}`}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'parent' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
             >
               My Plans
             </button>
             <button
               onClick={() => setPlanSourceTab('nutritionist')}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'nutritionist' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-400'}`}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'nutritionist' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
             >
               Nutritionist Plans
             </button>
@@ -2452,13 +2452,13 @@ const MealsView: React.FC = () => {
       <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
         <button
           onClick={() => setSubTab('mealLib')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'mealLib' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-400'}`}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'mealLib' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
         >
           Meal Library
         </button>
         <button
           onClick={() => setSubTab('foodLib')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'foodLib' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-400'}`}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'foodLib' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
         >
           Food Library
         </button>
@@ -2624,13 +2624,13 @@ const MealsView: React.FC = () => {
             <div className="bg-slate-100 p-1.5 rounded-2xl flex">
               <button
                 onClick={() => setSubTab('planning')}
-                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
+                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'planning' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-500'}`}
               >
                 Planning
               </button>
               <button
                 onClick={() => setSubTab('mealLib')}
-                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab !== 'planning' ? 'bg-white shadow-sm text-sky-500' : 'text-slate-500'}`}
+                className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab !== 'planning' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-500'}`}
               >
                 Libraries
               </button>

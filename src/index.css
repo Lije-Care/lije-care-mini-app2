@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+:root {
+  --color-primary: #F9C846;
+  --color-secondary: #76A13B;
+  --color-dark: #0B1A12;
+  --color-accent: #1B3B2B;
+  --color-brand-yellow: #F9C846;
+  --color-brand-green: #76A13B;
+  --color-brand-dark: #0B1A12;
+  --bg: #FFFBF0;
+  --ink: #0B1A12;
+  --primary: #F9C846;
+  --secondary: #76A13B;
+}
+
 /* Global Styles */
 * {
   box-sizing: border-box;
@@ -9,8 +23,8 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #F8FAFC;
-  color: #1E293B;
+  background-color: var(--bg);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -143,8 +157,8 @@ a,
 
 /* Telegram Mini App Specific */
 html.tg-theme-dark body {
-  background-color: #F8FAFC;
-  color: #1E293B;
+  background-color: var(--bg);
+  color: var(--ink);
 }
 
 /* Line clamp utilities */

@@ -68,7 +68,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <ProfileOverlayProvider>
-      <div className="min-h-screen bg-slate-50 flex flex-col max-w-md mx-auto relative shadow-2xl overflow-hidden font-['Quicksand']">
+      <div className="min-h-screen bg-[var(--bg)] flex flex-col max-w-md mx-auto relative shadow-2xl overflow-hidden font-['Quicksand'] text-[var(--ink)]">
         {!shouldHideHeader && <Header />}
 
         <main className="flex-1 overflow-y-auto hide-scrollbar">
