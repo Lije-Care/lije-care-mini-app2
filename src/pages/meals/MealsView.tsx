@@ -661,6 +661,71 @@ function getMealCaloriesSummary(
   };
 }
 
+function getDetailedMealSummary(
+  detailedMeal: DetailedMeal | null | undefined,
+  multiplier: number,
+  unitLabelsById: Record<string, string>,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  if (!detailedMeal) {
+    return {
+      calories: null as { amount: number; unitLabel: string } | null,
+      measurement: null as string | null,
+    };
+  }
+
+  const scaledDetailedMeal: DetailedMeal = {
+    ...detailedMeal,
+    totalVolume:
+      typeof detailedMeal.totalVolume === 'number'
+        ? Number((detailedMeal.totalVolume * multiplier).toFixed(2))
+        : detailedMeal.totalVolume,
+    mealIngredients: detailedMeal.mealIngredients?.map((item) => ({
+      ...item,
+      quantity:
+        typeof item.quantity === 'number'
+          ? Number((item.quantity * multiplier).toFixed(2))
+          : item.quantity,
+      ingredient: item.ingredient
+        ? {
+            ...item.ingredient,
+            nutrientAmounts: item.ingredient.nutrientAmounts?.map((entry) => ({
+              ...entry,
+              amount:
+                typeof entry.amount === 'number'
+                  ? Number((entry.amount * multiplier).toFixed(2))
+                  : entry.amount,
+            })),
+          }
+        : item.ingredient,
+    })),
+  };
+
+  const measurement = deriveMealMeasurement(scaledDetailedMeal);
+  const measurementLabel =
+    measurement.kind === 'single'
+      ? `${formatMeasurementValue(measurement.baseValue)} ${measurement.family === 'volume' ? 'ml' : 'g'}`
+      : measurement.kind === 'mixed'
+        ? measurement.values
+            .map((entry) =>
+              `${formatMeasurementValue(entry.baseValue)} ${entry.family === 'volume' ? 'ml' : 'g'}`
+            )
+            .join(' + ')
+        : typeof scaledDetailedMeal.totalVolume === 'number' &&
+            scaledDetailedMeal.totalVolume > 0
+          ? `${formatMeasurementValue(scaledDetailedMeal.totalVolume)} ml`
+          : null;
+
+  return {
+    calories: getMealCaloriesSummary(
+      scaledDetailedMeal.mealIngredients,
+      unitLabelsById,
+      unitRecordsById,
+    ),
+    measurement: measurementLabel,
+  };
+}
+
 function getIngredientAgeRangeLabel(
   suitableAgeRange?: DetailedIngredient['suitableAgeRange']
 ) {
@@ -902,30 +967,6 @@ function sanitizeMultiplier(value?: number | null) {
   }
 
   return Math.max(0.1, Number(value.toFixed(2)));
-}
-
-function getScaledMealCalories(meal: Meal, multiplier: number) {
-  return Math.round(meal.calories * sanitizeMultiplier(multiplier));
-}
-
-function getScaledMealVolume(meal: Meal, multiplier: number) {
-  const match = meal.volume.match(/[\d.]+/);
-
-  if (!match) {
-    return meal.volume;
-  }
-
-  const baseValue = Number(match[0]);
-  if (!Number.isFinite(baseValue)) {
-    return meal.volume;
-  }
-
-  const unit = meal.volume.replace(match[0], '').trim();
-  const scaledValue = formatMeasurementValue(
-    baseValue * sanitizeMultiplier(multiplier),
-  );
-
-  return `${scaledValue}${unit ? ` ${unit}` : ''}`.trim();
 }
 
 const MealLibraryDetailOverlay = ({
@@ -2300,6 +2341,7 @@ const MealsView: React.FC = () => {
       ),
     [selectedMealsForSlot]
   );
+
   useEffect(() => {
     setMultiplierDrafts((current) => {
       const next: Record<string, string> = {};
@@ -2341,6 +2383,50 @@ const MealsView: React.FC = () => {
 
     return Array.from(selectedById.values());
   }, [MEALS, activeSlot, selectedMealsForSlot]);
+
+  useEffect(() => {
+    const visibleMealIds = mealsForActiveSlot
+      .map((meal) => meal.id)
+      .filter((mealId) => mealId && !viewPlanMealDetails[mealId]);
+
+    if (visibleMealIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadVisibleMealDetails = async () => {
+      const results = await Promise.allSettled(
+        visibleMealIds.map(async (mealId) => {
+          const response = await api.get<DetailedMeal>(`/meal/find-one/${mealId}`);
+          return [mealId, response.data] as const;
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setViewPlanMealDetails((current) => {
+        const next = { ...current };
+
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            const [mealId, detailedMeal] = result.value;
+            next[mealId] = detailedMeal;
+          }
+        });
+
+        return next;
+      });
+    };
+
+    void loadVisibleMealDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mealsForActiveSlot, viewPlanMealDetails]);
 
   const commonAllergens = useMemo(() => {
     const defaults = ['Milk', 'Eggs', 'Peanuts', 'Tree Nuts', 'Fish', 'Shellfish', 'Soy', 'Wheat'];
@@ -2530,14 +2616,24 @@ const MealsView: React.FC = () => {
     dietTypeFilter,
     sortBy,
   ]);
+  const getRealMealSummary = (mealId: string, multiplier: number) =>
+    getDetailedMealSummary(
+      viewPlanMealDetails[mealId],
+      sanitizeMultiplier(multiplier),
+      unitLabelsById,
+      unitRecordsById,
+    );
 
   const currentCals = useMemo(
     () =>
       selectedMealsForDay.reduce(
-        (sum, selection) => sum + selection.meal.calories * selection.multiplier,
+        (sum, selection) => {
+          const summary = getRealMealSummary(selection.meal.id, selection.multiplier);
+          return sum + (summary.calories?.amount || 0);
+        },
         0
       ),
-    [selectedMealsForDay]
+    [getRealMealSummary, selectedMealsForDay]
   );
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const selectedChild = useMemo(
@@ -3154,44 +3250,12 @@ const MealsView: React.FC = () => {
         };
       }
 
-      const scaledDetailedMeal: DetailedMeal = {
-        ...detailedMeal,
-        totalVolume:
-          typeof detailedMeal.totalVolume === 'number'
-            ? Number((detailedMeal.totalVolume * multiplier).toFixed(2))
-            : detailedMeal.totalVolume,
-        mealIngredients: detailedMeal.mealIngredients?.map((item) => ({
-          ...item,
-          quantity:
-            typeof item.quantity === 'number'
-              ? Number((item.quantity * multiplier).toFixed(2))
-              : item.quantity,
-        })),
-      };
-
-      const measurement = deriveMealMeasurement(scaledDetailedMeal);
-      const measurementLabel =
-        measurement.kind === 'single'
-          ? `${formatMeasurementValue(measurement.baseValue)} ${measurement.family === 'volume' ? 'ml' : 'g'}`
-          : measurement.kind === 'mixed'
-            ? measurement.values
-                .map((entry) =>
-                  `${formatMeasurementValue(entry.baseValue)} ${entry.family === 'volume' ? 'ml' : 'g'}`
-                )
-                .join(' + ')
-            : typeof scaledDetailedMeal.totalVolume === 'number'
-              ? `${formatMeasurementValue(scaledDetailedMeal.totalVolume)} ml`
-              : null;
-      const calories = getMealCaloriesSummary(
-        scaledDetailedMeal.mealIngredients,
+      return getDetailedMealSummary(
+        detailedMeal,
+        multiplier,
         unitLabelsById,
         unitRecordsById,
       );
-
-      return {
-        calories,
-        measurement: measurementLabel,
-      };
     };
     const slotEntries = mealSlots.map((slot) => {
       const mealsForSlot = (selectedPlan?.meals || []).filter((meal) => {
@@ -3629,6 +3693,7 @@ const MealsView: React.FC = () => {
                     const selectedEntry = selectedMealsForSlotMap.get(meal.id);
                     const isSelected = Boolean(selectedEntry);
                     const displayMultiplier = selectedEntry?.multiplier ?? 1;
+                    const summary = getRealMealSummary(meal.id, displayMultiplier);
 
                     return (
                       <div
@@ -3652,9 +3717,12 @@ const MealsView: React.FC = () => {
                             <div className="min-w-0 flex-1">
                               <h6 className="font-bold text-slate-800">{meal.name}</h6>
                               <p className="text-[10px] font-bold uppercase text-slate-400">
-                                {getScaledMealCalories(meal, displayMultiplier)} kcal
-                                {' • '}
-                                {getScaledMealVolume(meal, displayMultiplier)}
+                                {summary.calories
+                                  ? `${formatMeasurementValue(summary.calories.amount)} ${summary.calories.unitLabel}`
+                                  : ''}
+                                {summary.measurement
+                                  ? `${summary.calories ? ' • ' : ''}${summary.measurement}`
+                                  : ''}
                               </p>
                             </div>
                           </button>
