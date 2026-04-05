@@ -615,6 +615,52 @@ function convertNutrientAmount(
   return baseAmount / toUnit.conversionToBase;
 }
 
+function getMealCaloriesSummary(
+  mealIngredients: DetailedMeal['mealIngredients'] | undefined,
+  unitLabelsById: Record<string, string>,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  let totalAmount = 0;
+  let baseUnitId: string | null = null;
+  let unitLabel = '';
+
+  mealIngredients?.forEach((item) => {
+    (item.ingredient?.nutrientAmounts || []).forEach((entry) => {
+      const nutrientName = entry.nutrient?.name?.trim().toLowerCase();
+      if (nutrientName !== 'calories' && nutrientName !== 'calorie') {
+        return;
+      }
+
+      const amount = entry.amount || 0;
+      const unitId = getNutrientUnitId(entry.nutrient);
+      const resolvedLabel = getNutrientUnitLabel(entry.nutrient, unitLabelsById);
+
+      if (baseUnitId && unitId && baseUnitId !== unitId) {
+        totalAmount += convertNutrientAmount(
+          amount,
+          unitId,
+          baseUnitId,
+          unitRecordsById,
+        );
+      } else {
+        totalAmount += amount;
+        baseUnitId = baseUnitId || unitId;
+      }
+
+      unitLabel = unitLabel || resolvedLabel || '';
+    });
+  });
+
+  if (!baseUnitId && !unitLabel && totalAmount === 0) {
+    return null;
+  }
+
+  return {
+    amount: totalAmount,
+    unitLabel: unitLabel || 'kcal',
+  };
+}
+
 function getIngredientAgeRangeLabel(
   suitableAgeRange?: DetailedIngredient['suitableAgeRange']
 ) {
@@ -1021,6 +1067,11 @@ const MealLibraryDetailOverlay = ({
     [scaledMeal, unitLabelsById, unitRecordsById]
   );
 
+  const calorieSummary = useMemo(
+    () => getMealCaloriesSummary(scaledMeal?.mealIngredients, unitLabelsById, unitRecordsById),
+    [scaledMeal?.mealIngredients, unitLabelsById, unitRecordsById]
+  );
+
   const ingredientDisplayRows = useMemo(
     () =>
       (scaledMeal?.mealIngredients || []).map((item, index) => {
@@ -1158,10 +1209,14 @@ const MealLibraryDetailOverlay = ({
                 ) : null}
               </div>
               <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-black text-[#76A13B]">
-                  {Math.round((scaledMeal.totalVolume || 0) * 1.3) || 200} kcal
-                </span>
-                <span className="text-slate-300">•</span>
+                {calorieSummary ? (
+                  <>
+                    <span className="font-black text-[#76A13B]">
+                      {formatMeasurementValue(calorieSummary.amount)} {calorieSummary.unitLabel}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                  </>
+                ) : null}
                 {measurement.kind === 'single' ? (
                   <>
                     <span className="font-medium text-slate-400">{formattedMeasurement}</span>
@@ -2031,6 +2086,7 @@ const MealsView: React.FC = () => {
   const [dietTypeFilter, setDietTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedMealsByDay, setSelectedMealsByDay] = useState<MealsByDay>({});
+  const [multiplierDrafts, setMultiplierDrafts] = useState<Record<string, string>>({});
   const [selectedLibraryMeal, setSelectedLibraryMeal] = useState<DetailedMeal | null>(null);
   const [selectedLibraryMealMultiplier, setSelectedLibraryMealMultiplier] = useState(1);
   const [mealDetailLoading, setMealDetailLoading] = useState(false);
@@ -2047,6 +2103,7 @@ const MealsView: React.FC = () => {
   const [activeViewPlan, setActiveViewPlan] = useState<BackendMealPlan | null>(null);
   const [activeViewDay, setActiveViewDay] = useState<string | null>(null);
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
+  const [viewPlanMealDetails, setViewPlanMealDetails] = useState<Record<string, DetailedMeal>>({});
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editingPlanGroupKey, setEditingPlanGroupKey] = useState<string | null>(null);
   const [deletingPlanGroupKey, setDeletingPlanGroupKey] = useState<string | null>(null);
@@ -2243,6 +2300,27 @@ const MealsView: React.FC = () => {
       ),
     [selectedMealsForSlot]
   );
+  useEffect(() => {
+    setMultiplierDrafts((current) => {
+      const next: Record<string, string> = {};
+
+      selectedMealsForSlot.forEach((selection) => {
+        const key = selection.meal.id;
+        next[key] = current[key] ?? String(selection.multiplier ?? 1);
+      });
+
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      if (
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => current[key] === next[key])
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [selectedMealsForSlot]);
   const mealsForActiveSlot = useMemo(() => {
     const slotMeals = MEALS.filter((meal) => meal.type === activeSlot);
     const selectedById = new Map<string, Meal>(
@@ -2772,6 +2850,37 @@ const MealsView: React.FC = () => {
     setActiveViewReadOnly(getPlanSource(plan) === 'nutritionist');
     setPlansError(null);
     setPlansSuccess(null);
+
+    const relatedPlans = getRelatedPlans(plan);
+    const missingMealIds = Array.from(
+      new Set(
+        relatedPlans
+          .flatMap((candidate) => candidate.meals || [])
+          .map((meal) => meal.id)
+          .filter((mealId) => mealId && !viewPlanMealDetails[mealId])
+      )
+    );
+
+    if (missingMealIds.length > 0) {
+      void Promise.allSettled(
+        missingMealIds.map(async (mealId) => {
+          const response = await api.get<DetailedMeal>(`/meal/find-one/${mealId}`);
+          return { id: mealId, meal: response.data };
+        })
+      ).then((results) => {
+        setViewPlanMealDetails((current) => {
+          const next = { ...current };
+
+          results.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              next[result.value.id] = result.value.meal;
+            }
+          });
+
+          return next;
+        });
+      });
+    }
   };
 
   const requestDeletePlan = (plan: BackendMealPlan) => {
@@ -3031,6 +3140,59 @@ const MealsView: React.FC = () => {
         plan.expert.role ||
         'Nutritionist'
       : 'Nutritionist';
+    const getCachedMealSummary = (meal: BackendPlanMeal) => {
+      const detailedMeal = viewPlanMealDetails[meal.id];
+      const multiplier = sanitizeMultiplier(meal.multiplier);
+
+      if (!detailedMeal) {
+        return {
+          calories: null as { amount: number; unitLabel: string } | null,
+          measurement:
+            meal.totalVolume != null
+              ? `${formatMeasurementValue((meal.totalVolume ?? 0) * multiplier)} ml`
+              : null,
+        };
+      }
+
+      const scaledDetailedMeal: DetailedMeal = {
+        ...detailedMeal,
+        totalVolume:
+          typeof detailedMeal.totalVolume === 'number'
+            ? Number((detailedMeal.totalVolume * multiplier).toFixed(2))
+            : detailedMeal.totalVolume,
+        mealIngredients: detailedMeal.mealIngredients?.map((item) => ({
+          ...item,
+          quantity:
+            typeof item.quantity === 'number'
+              ? Number((item.quantity * multiplier).toFixed(2))
+              : item.quantity,
+        })),
+      };
+
+      const measurement = deriveMealMeasurement(scaledDetailedMeal);
+      const measurementLabel =
+        measurement.kind === 'single'
+          ? `${formatMeasurementValue(measurement.baseValue)} ${measurement.family === 'volume' ? 'ml' : 'g'}`
+          : measurement.kind === 'mixed'
+            ? measurement.values
+                .map((entry) =>
+                  `${formatMeasurementValue(entry.baseValue)} ${entry.family === 'volume' ? 'ml' : 'g'}`
+                )
+                .join(' + ')
+            : typeof scaledDetailedMeal.totalVolume === 'number'
+              ? `${formatMeasurementValue(scaledDetailedMeal.totalVolume)} ml`
+              : null;
+      const calories = getMealCaloriesSummary(
+        scaledDetailedMeal.mealIngredients,
+        unitLabelsById,
+        unitRecordsById,
+      );
+
+      return {
+        calories,
+        measurement: measurementLabel,
+      };
+    };
     const slotEntries = mealSlots.map((slot) => {
       const mealsForSlot = (selectedPlan?.meals || []).filter((meal) => {
         const times = selectedPlan?.mealTimes?.[meal.id] || [];
@@ -3120,39 +3282,43 @@ const MealsView: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {meals.map((meal) => (
-                    <div
-                      key={meal.id}
-                      className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm flex items-center gap-4"
-                    >
-                      <button
-                        onClick={() =>
-                          void openMealDetail(
-                            meal.id,
-                            sanitizeMultiplier(meal.multiplier),
-                          )
-                        }
-                        className="flex flex-1 items-center gap-4 text-left"
-                      >
-                        <img
-                          src={getMealImage(meal)}
-                          alt={meal.name || 'Meal'}
-                          className="w-16 h-16 rounded-2xl object-cover"
-                        />
-                        <div className="min-w-0">
-                          <h5 className="font-bold text-slate-800 truncate">
-                            {meal.name || 'Meal'}
-                          </h5>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            x{sanitizeMultiplier(meal.multiplier)} •{' '}
-                            {formatMeasurementValue(
-                              (meal.totalVolume ?? 0) *
+                    (() => {
+                      const summary = getCachedMealSummary(meal);
+
+                      return (
+                        <div
+                          key={meal.id}
+                          className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm flex items-center gap-4"
+                        >
+                          <button
+                            onClick={() =>
+                              void openMealDetail(
+                                meal.id,
                                 sanitizeMultiplier(meal.multiplier),
-                            )}
-                            ml
-                          </p>
+                              )
+                            }
+                            className="flex flex-1 items-center gap-4 text-left"
+                          >
+                            <img
+                              src={getMealImage(meal)}
+                              alt={meal.name || 'Meal'}
+                              className="w-16 h-16 rounded-2xl object-cover"
+                            />
+                            <div className="min-w-0">
+                              <h5 className="font-bold text-slate-800 truncate">
+                                {meal.name || 'Meal'}
+                              </h5>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                {summary.calories
+                                  ? `${formatMeasurementValue(summary.calories.amount)} ${summary.calories.unitLabel}`
+                                  : ''}
+                                {summary.measurement ? ` • ${summary.measurement}` : ''}
+                              </p>
+                            </div>
+                          </button>
                         </div>
-                      </button>
-                    </div>
+                      );
+                    })()
                   ))}
                 </div>
               )}
@@ -3534,12 +3700,28 @@ const MealsView: React.FC = () => {
                                 Portion Multiplier:
                               </label>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 min={0.1}
                                 step={0.25}
-                                value={displayMultiplier}
+                                value={multiplierDrafts[meal.id] ?? String(displayMultiplier)}
                                 onChange={(event) => {
-                                  const parsedValue = Number(event.target.value);
+                                  const nextValue = event.target.value;
+                                  setMultiplierDrafts((current) => ({
+                                    ...current,
+                                    [meal.id]: nextValue,
+                                  }));
+
+                                  const normalizedValue = nextValue.replace(',', '.').trim();
+                                  if (!normalizedValue || normalizedValue === '.' || normalizedValue === '-') {
+                                    return;
+                                  }
+
+                                  const parsedValue = Number(normalizedValue);
+                                  if (!Number.isFinite(parsedValue)) {
+                                    return;
+                                  }
+
                                   setSelectedMealsByDay((prev) => ({
                                     ...prev,
                                     [selectedDay]: {
@@ -3549,6 +3731,33 @@ const MealsView: React.FC = () => {
                                           ? {
                                               ...entry,
                                               multiplier: sanitizeMultiplier(parsedValue),
+                                            }
+                                          : entry
+                                      ),
+                                    },
+                                  }));
+                                }}
+                                onBlur={(event) => {
+                                  const normalizedValue = event.target.value.replace(',', '.').trim();
+                                  const parsedValue = Number(normalizedValue);
+                                  const finalValue = Number.isFinite(parsedValue)
+                                    ? sanitizeMultiplier(parsedValue)
+                                    : displayMultiplier;
+
+                                  setMultiplierDrafts((current) => ({
+                                    ...current,
+                                    [meal.id]: String(finalValue),
+                                  }));
+
+                                  setSelectedMealsByDay((prev) => ({
+                                    ...prev,
+                                    [selectedDay]: {
+                                      ...(prev[selectedDay] ?? {}),
+                                      [activeSlot]: selectedMealsForSlot.map((entry) =>
+                                        entry.meal.id === meal.id
+                                          ? {
+                                              ...entry,
+                                              multiplier: finalValue,
                                             }
                                           : entry
                                       ),
