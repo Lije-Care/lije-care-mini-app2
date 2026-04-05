@@ -1845,8 +1845,8 @@ const IngredientLibraryDetailOverlay = ({
                                   : nutrient.unit;
 
                                 return (
-                                  <>
-                                    {formatMeasurementValue(convertedAmount)}{' '}
+                                  <div className="inline-flex max-w-full items-center gap-2 whitespace-nowrap">
+                                    <span>{formatMeasurementValue(convertedAmount)}</span>
                                     {nutrient.compatibleUnits.length > 1 ? (
                                       <select
                                         value={selectedUnitId}
@@ -1856,7 +1856,7 @@ const IngredientLibraryDetailOverlay = ({
                                             [nutrient.key]: event.target.value,
                                           }))
                                         }
-                                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-500 outline-none"
+                                        className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-500 outline-none"
                                       >
                                         {nutrient.compatibleUnits.map((unit) => (
                                           <option key={unit.id} value={unit.id}>
@@ -1865,9 +1865,9 @@ const IngredientLibraryDetailOverlay = ({
                                         ))}
                                       </select>
                                     ) : (
-                                      selectedUnitLabel
+                                      <span>{selectedUnitLabel}</span>
                                     )}
-                                  </>
+                                  </div>
                                 );
                               })()}
                             </td>
