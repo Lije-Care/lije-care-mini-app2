@@ -7,6 +7,34 @@ import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon, AssessmentIcon, Tras
 import type { Meal } from '@/design-system/types';
 import api from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { calculateNutrients } from '@/utils/calculateNutrients';
+
+type UnitLookupRecord = {
+  id: string;
+  name?: string | null;
+  abbreviation?: string | null;
+  symbol?: string | null;
+  shortName?: string | null;
+  type?: string | null;
+  conversionToBase?: number | null;
+};
+
+type UnitLookupResponse = {
+  data?: UnitLookupRecord[];
+};
+
+const SYNTHETIC_UNIT_RECORDS: UnitLookupRecord[] = [
+  { id: 'synthetic-mass-g', name: 'gram', abbreviation: 'g', type: 'mass', conversionToBase: 1 },
+  { id: 'synthetic-mass-kg', name: 'kilogram', abbreviation: 'kg', type: 'mass', conversionToBase: 1000 },
+  { id: 'synthetic-mass-cup', name: 'cup', abbreviation: 'cup', type: 'mass', conversionToBase: 240 },
+  { id: 'synthetic-mass-tbsp', name: 'tablespoon', abbreviation: 'tbsp', type: 'mass', conversionToBase: 15 },
+  { id: 'synthetic-mass-tsp', name: 'teaspoon', abbreviation: 'tsp', type: 'mass', conversionToBase: 5 },
+  { id: 'synthetic-volume-ml', name: 'milliliter', abbreviation: 'ml', type: 'volume', conversionToBase: 1 },
+  { id: 'synthetic-volume-l', name: 'liter', abbreviation: 'L', type: 'volume', conversionToBase: 1000 },
+  { id: 'synthetic-volume-cup', name: 'cup', abbreviation: 'cup', type: 'volume', conversionToBase: 240 },
+  { id: 'synthetic-volume-tbsp', name: 'tablespoon', abbreviation: 'tbsp', type: 'volume', conversionToBase: 15 },
+  { id: 'synthetic-volume-tsp', name: 'teaspoon', abbreviation: 'tsp', type: 'volume', conversionToBase: 5 },
+];
 
 type BackendMealPlan = {
   id: string;
@@ -28,6 +56,7 @@ type BackendMealPlan = {
     name?: string;
     imageUrl?: string | null;
     totalVolume?: number;
+    multiplier?: number;
   }>;
   expert?: {
     firstName?: string;
@@ -37,6 +66,19 @@ type BackendMealPlan = {
 };
 
 type BackendPlanMeal = NonNullable<BackendMealPlan['meals']>[number];
+
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
+
+type DayKey = typeof WEEK_DAYS[number];
+type MealSlot = typeof MEAL_SLOTS[number];
+type PlannedMealSelection = {
+  meal: Meal;
+  multiplier: number;
+};
+type MealsByDay = Partial<
+  Record<DayKey, Partial<Record<MealSlot, PlannedMealSelection[]>>>
+>;
 
 const SPECIALIST_ROLES = new Set([
   'NUTRITIONIST',
@@ -248,8 +290,13 @@ type DetailedMeal = {
     ingredient?: {
       id: string;
       name?: string;
+      density?: number | null;
       portionUnit?: {
+        id?: string | null;
+        name?: string | null;
         abbreviation?: string | null;
+        type?: string | null;
+        conversionToBase?: number | null;
       } | null;
       nutrientAmounts?: Array<{
         id: string;
@@ -257,7 +304,18 @@ type DetailedMeal = {
         nutrient?: {
           id: string;
           name?: string;
-          unit?: string | null;
+          unit?:
+            | string
+            | {
+                id?: string | null;
+                name?: string | null;
+                abbreviation?: string | null;
+                symbol?: string | null;
+                shortName?: string | null;
+              }
+            | null;
+          abbreviation?: string | null;
+          symbol?: string | null;
         } | null;
       }>;
     } | null;
@@ -297,6 +355,7 @@ type DetailedIngredient = {
       unit?:
         | string
         | {
+            id?: string | null;
             name?: string | null;
             abbreviation?: string | null;
             symbol?: string | null;
@@ -322,7 +381,8 @@ function getNutrientUnitLabel(
       | null;
     abbreviation?: string | null;
     symbol?: string | null;
-  } | null
+  } | null,
+  unitLabelsById?: Record<string, string>
 ) {
   if (!nutrient) {
     return '';
@@ -338,7 +398,12 @@ function getNutrientUnitLabel(
   };
 
   if (typeof nutrient.unit === 'string') {
-    return sanitizeUnitLabel(nutrient.unit);
+    const directLabel = sanitizeUnitLabel(nutrient.unit);
+    if (directLabel) {
+      return directLabel;
+    }
+
+    return unitLabelsById?.[nutrient.unit.trim()] || '';
   }
 
   return (
@@ -350,6 +415,204 @@ function getNutrientUnitLabel(
     sanitizeUnitLabel(nutrient.symbol) ||
     ''
   );
+}
+
+function getUnitDisplayLabel(unit?: {
+  name?: string | null;
+  abbreviation?: string | null;
+  symbol?: string | null;
+  shortName?: string | null;
+} | null) {
+  return (
+    unit?.abbreviation?.trim() ||
+    unit?.symbol?.trim() ||
+    unit?.shortName?.trim() ||
+    unit?.name?.trim() ||
+    ''
+  );
+}
+
+function getNutrientUnitId(
+  nutrient?: {
+    unit?:
+      | string
+      | {
+          id?: string | null;
+        }
+      | null;
+  } | null
+) {
+  if (!nutrient?.unit) {
+    return null;
+  }
+
+  if (typeof nutrient.unit === 'string') {
+    const trimmed = nutrient.unit.trim();
+    return looksLikeId(trimmed) ? trimmed : null;
+  }
+
+  return nutrient.unit.id?.trim() || null;
+}
+
+function getUnitRecordIdByLabel(
+  label: string | null | undefined,
+  unitRecordsById: Record<string, UnitLookupRecord>,
+  preferredType?: string | null
+) {
+  if (!label) {
+    return null;
+  }
+
+  const normalizedLabel = label.trim().toLowerCase();
+  if (!normalizedLabel) {
+    return null;
+  }
+
+  const matched = Object.values(unitRecordsById).find((unit) => {
+    const aliases = [
+      unit.abbreviation,
+      unit.symbol,
+      unit.shortName,
+      unit.name,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+    const typeMatches = preferredType
+      ? unit.type?.toLowerCase() === preferredType.toLowerCase()
+      : true;
+
+    return typeMatches && aliases.includes(normalizedLabel);
+  });
+
+  return matched?.id || null;
+}
+
+function getCompatibleUnits(
+  unitId: string | null | undefined,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  if (!unitId) {
+    return [];
+  }
+
+  const currentUnit = unitRecordsById[unitId];
+  if (!currentUnit?.type) {
+    return currentUnit ? [currentUnit] : [];
+  }
+
+  const preferredLabelsByType: Record<string, string[]> = {
+    mass: ['g', 'kg', 'cup', 'tbsp', 'tsp'],
+    volume: ['ml', 'l', 'cup', 'tbsp', 'tsp'],
+  };
+
+  const preferredLabels =
+    preferredLabelsByType[currentUnit.type.toLowerCase()] || [];
+
+  const getNormalizedUnitAliases = (unit: UnitLookupRecord) =>
+    [
+      unit.abbreviation,
+      unit.symbol,
+      unit.shortName,
+      unit.name,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+  if (preferredLabels.length > 0) {
+    const preferredUnits = preferredLabels
+      .map((label) =>
+        Object.values(unitRecordsById).find((unit) =>
+          getNormalizedUnitAliases(unit).includes(label)
+        )
+      )
+      .filter(
+        (unit): unit is UnitLookupRecord =>
+          Boolean(
+            unit &&
+              typeof unit.conversionToBase === 'number' &&
+              unit.conversionToBase > 0
+          )
+      );
+
+    if (preferredUnits.length > 0) {
+      return preferredUnits;
+    }
+  }
+
+  return Object.values(unitRecordsById)
+    .filter(
+      (unit) =>
+        unit.type === currentUnit.type &&
+        typeof unit.conversionToBase === 'number' &&
+        unit.conversionToBase > 0
+    )
+    .sort((a, b) => (a.conversionToBase || 0) - (b.conversionToBase || 0));
+}
+
+function getFixedIngredientUnits(
+  unitType: string | null | undefined,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  const normalizedType = unitType?.toLowerCase();
+  const preferredLabels =
+    normalizedType === 'mass'
+      ? ['g', 'kg', 'cup', 'tbsp', 'tsp']
+      : normalizedType === 'volume'
+        ? ['ml', 'l', 'cup', 'tbsp', 'tsp']
+        : [];
+
+  if (preferredLabels.length === 0) {
+    return [];
+  }
+
+  return preferredLabels
+    .map((label) =>
+      Object.values(unitRecordsById).find((unit) => {
+        const aliases = [
+          unit.abbreviation,
+          unit.symbol,
+          unit.shortName,
+          unit.name,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).trim().toLowerCase());
+
+        return aliases.includes(label);
+      })
+    )
+    .filter(
+      (unit): unit is UnitLookupRecord =>
+        Boolean(
+          unit &&
+            typeof unit.conversionToBase === 'number' &&
+            unit.conversionToBase > 0
+        )
+    );
+}
+
+function convertNutrientAmount(
+  amount: number,
+  fromUnitId: string,
+  toUnitId: string,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  const fromUnit = unitRecordsById[fromUnitId];
+  const toUnit = unitRecordsById[toUnitId];
+
+  if (
+    !fromUnit ||
+    !toUnit ||
+    typeof fromUnit.conversionToBase !== 'number' ||
+    typeof toUnit.conversionToBase !== 'number' ||
+    fromUnit.conversionToBase <= 0 ||
+    toUnit.conversionToBase <= 0
+  ) {
+    return amount;
+  }
+
+  const baseAmount = amount * fromUnit.conversionToBase;
+  return baseAmount / toUnit.conversionToBase;
 }
 
 function getIngredientAgeRangeLabel(
@@ -468,37 +731,390 @@ function getDisplayLabel(value?: string | null, fallback = 'Nutrient') {
   return value;
 }
 
+const VOLUME_UNITS = [
+  { value: 'ml', label: 'ML', factor: 1 },
+  { value: 'l', label: 'L', factor: 1000 },
+  { value: 'cup', label: 'Cup', factor: 240 },
+  { value: 'tbsp', label: 'Tbsp', factor: 15 },
+  { value: 'tsp', label: 'Tsp', factor: 5 },
+] as const;
+
+const KITCHEN_VOLUME_UNITS = [
+  { value: 'cup', label: 'Cup', factor: 240 },
+  { value: 'tbsp', label: 'Tbsp', factor: 15 },
+  { value: 'tsp', label: 'Tsp', factor: 5 },
+] as const;
+
+const MASS_UNITS = [
+  { value: 'g', label: 'G', factor: 1 },
+  { value: 'kg', label: 'Kg', factor: 1000 },
+] as const;
+
+type MeasurementFamily = 'volume' | 'mass';
+
+type MealMeasurement =
+  | {
+      kind: 'single';
+      family: MeasurementFamily;
+      baseValue: number;
+      kitchenVolumeBase?: number | null;
+    }
+  | {
+      kind: 'mixed';
+      values: Array<{ family: MeasurementFamily; baseValue: number }>;
+    }
+  | {
+      kind: 'none';
+    };
+
+function deriveMealMeasurement(meal?: DetailedMeal | null): MealMeasurement {
+  if (!meal) {
+    return { kind: 'none' };
+  }
+
+  if (typeof meal.totalVolume === 'number' && meal.totalVolume > 0) {
+    return {
+      kind: 'single',
+      family: 'volume',
+      baseValue: meal.totalVolume,
+    };
+  }
+
+  let volumeBase = 0;
+  let massBase = 0;
+  let kitchenVolumeBase = 0;
+  let canConvertMassToKitchenVolume = true;
+
+  meal.mealIngredients?.forEach((item) => {
+    const ingredient = item.ingredient;
+    const unitType = ingredient?.portionUnit?.type?.toLowerCase();
+    const quantity = item.quantity ?? 0;
+    const conversionToBase = ingredient?.portionUnit?.conversionToBase ?? 1;
+    const baseAmount = quantity * conversionToBase;
+
+    if (!baseAmount) {
+      return;
+    }
+
+    if (unitType === 'volume') {
+      volumeBase += baseAmount;
+      return;
+    }
+
+    if (unitType === 'mass') {
+      massBase += baseAmount;
+      if (ingredient?.density && ingredient.density > 0) {
+        kitchenVolumeBase += baseAmount / ingredient.density;
+      } else {
+        canConvertMassToKitchenVolume = false;
+      }
+    }
+  });
+
+  if (volumeBase > 0 && massBase === 0) {
+    return {
+      kind: 'single',
+      family: 'volume',
+      baseValue: volumeBase,
+      kitchenVolumeBase: volumeBase,
+    };
+  }
+
+  if (massBase > 0 && volumeBase === 0) {
+    return {
+      kind: 'single',
+      family: 'mass',
+      baseValue: massBase,
+      kitchenVolumeBase: canConvertMassToKitchenVolume ? kitchenVolumeBase : null,
+    };
+  }
+
+  if (volumeBase > 0 && massBase > 0) {
+    return {
+      kind: 'mixed',
+      values: [
+        { family: 'volume', baseValue: volumeBase },
+        { family: 'mass', baseValue: massBase },
+      ],
+    };
+  }
+
+  return { kind: 'none' };
+}
+
+function formatMeasurementValue(value: number) {
+  if (Number.isInteger(value)) {
+    return value.toString();
+  }
+
+  return value.toFixed(value >= 10 ? 1 : 2).replace(/\.0+$/, '');
+}
+
+function sanitizeMultiplier(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.max(0.1, Number(value.toFixed(2)));
+}
+
+function getScaledMealCalories(meal: Meal, multiplier: number) {
+  return Math.round(meal.calories * sanitizeMultiplier(multiplier));
+}
+
+function getScaledMealVolume(meal: Meal, multiplier: number) {
+  const match = meal.volume.match(/[\d.]+/);
+
+  if (!match) {
+    return meal.volume;
+  }
+
+  const baseValue = Number(match[0]);
+  if (!Number.isFinite(baseValue)) {
+    return meal.volume;
+  }
+
+  const unit = meal.volume.replace(match[0], '').trim();
+  const scaledValue = formatMeasurementValue(
+    baseValue * sanitizeMultiplier(multiplier),
+  );
+
+  return `${scaledValue}${unit ? ` ${unit}` : ''}`.trim();
+}
+
 const MealLibraryDetailOverlay = ({
   meal,
+  multiplier,
   loading,
   error,
   onClose,
+  unitLabelsById,
+  unitRecordsById,
 }: {
   meal: DetailedMeal | null;
+  multiplier: number;
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  unitLabelsById: Record<string, string>;
+  unitRecordsById: Record<string, UnitLookupRecord>;
 }) => {
-  if (!meal && !loading && !error) return null;
+  const [displayUnit, setDisplayUnit] = useState<
+    | (typeof VOLUME_UNITS)[number]['value']
+    | (typeof MASS_UNITS)[number]['value']
+    | (typeof KITCHEN_VOLUME_UNITS)[number]['value']
+  >('ml');
+  const [detailTab, setDetailTab] = useState<'ingredients' | 'directions'>('ingredients');
+  const [selectedNutrientUnits, setSelectedNutrientUnits] = useState<Record<string, string>>({});
+  const [selectedIngredientUnits, setSelectedIngredientUnits] = useState<Record<string, string>>({});
 
-  const directions = meal?.direction
-    ? meal.direction
+  const scaledMeal = useMemo(() => {
+    if (!meal) {
+      return null;
+    }
+
+    return {
+      ...meal,
+      totalVolume:
+        typeof meal.totalVolume === 'number'
+          ? Number((meal.totalVolume * multiplier).toFixed(2))
+          : meal.totalVolume,
+      mealIngredients: meal.mealIngredients?.map((item) => ({
+        ...item,
+        quantity:
+          typeof item.quantity === 'number'
+            ? Number((item.quantity * multiplier).toFixed(2))
+            : item.quantity,
+        ingredient: item.ingredient
+          ? {
+              ...item.ingredient,
+              nutrientAmounts: item.ingredient.nutrientAmounts?.map((entry) => ({
+                ...entry,
+                amount:
+                  typeof entry.amount === 'number'
+                    ? Number((entry.amount * multiplier).toFixed(2))
+                    : entry.amount,
+              })),
+            }
+          : item.ingredient,
+      })),
+    };
+  }, [meal, multiplier]);
+
+  const measurement = useMemo(
+    () => deriveMealMeasurement(scaledMeal),
+    [scaledMeal],
+  );
+
+  useEffect(() => {
+    if (measurement.kind === 'single') {
+      setDisplayUnit(measurement.family === 'volume' ? 'ml' : 'g');
+      return;
+    }
+
+    setDisplayUnit('ml');
+  }, [measurement, scaledMeal?.id]);
+
+  if (!scaledMeal && !loading && !error) return null;
+
+  const directions = scaledMeal?.direction
+    ? scaledMeal.direction
         .split('.')
         .map((step) => step.trim())
         .filter(Boolean)
     : [];
 
-  const nutrients = meal?.mealIngredients?.flatMap((item) =>
-    (item.ingredient?.nutrientAmounts || []).map((entry) => {
-      const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
-      return {
-        key: `${item.id}-${entry.id}`,
-        name: nutrientName,
-        amount: entry.amount,
-        unit: getDisplayLabel(entry.nutrient?.unit, ''),
-      };
-    })
-  ) || [];
+  useEffect(() => {
+    if (scaledMeal?.mealIngredients?.length) {
+      setDetailTab('ingredients');
+      return;
+    }
+
+    if (directions.length > 0) {
+      setDetailTab('directions');
+    }
+  }, [directions.length, scaledMeal?.id, scaledMeal?.mealIngredients?.length]);
+
+  const nutrients = useMemo(
+    () => {
+      const nutrientTotals = new Map<string, {
+        key: string;
+        name: string;
+        amount: number;
+        unit: string;
+        baseUnitId: string | null;
+        compatibleUnits: UnitLookupRecord[];
+      }>();
+
+      scaledMeal?.mealIngredients?.forEach((item) => {
+        (item.ingredient?.nutrientAmounts || []).forEach((entry) => {
+          const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
+          const baseUnitId = getNutrientUnitId(entry.nutrient);
+          const compatibleUnits = getCompatibleUnits(baseUnitId, unitRecordsById);
+          const current = nutrientTotals.get(nutrientName);
+          const normalizedAmount = entry.amount || 0;
+          const mergedAmount =
+            current?.baseUnitId && baseUnitId && current.baseUnitId !== baseUnitId
+              ? current.amount +
+                convertNutrientAmount(
+                  normalizedAmount,
+                  baseUnitId,
+                  current.baseUnitId,
+                  unitRecordsById,
+                )
+              : (current?.amount || 0) + normalizedAmount;
+
+          nutrientTotals.set(nutrientName, {
+            key: current?.key || nutrientName.toLowerCase().replace(/\s+/g, '-'),
+            name: nutrientName,
+            amount: mergedAmount,
+            unit: getNutrientUnitLabel(entry.nutrient, unitLabelsById) || current?.unit || '',
+            baseUnitId: current?.baseUnitId || baseUnitId,
+            compatibleUnits:
+              current?.compatibleUnits?.length ? current.compatibleUnits : compatibleUnits,
+          });
+        });
+      });
+
+      return Array.from(nutrientTotals.values());
+    },
+    [scaledMeal, unitLabelsById, unitRecordsById]
+  );
+
+  const ingredientDisplayRows = useMemo(
+    () =>
+      (scaledMeal?.mealIngredients || []).map((item, index) => {
+        const portionUnit = item.ingredient?.portionUnit;
+        const baseUnitId =
+          portionUnit?.id ||
+          getUnitRecordIdByLabel(
+            portionUnit?.abbreviation || portionUnit?.name,
+            unitRecordsById,
+            portionUnit?.type,
+          );
+        const fixedUnits = getFixedIngredientUnits(
+          portionUnit?.type,
+          unitRecordsById,
+        );
+        const compatibleUnits =
+          fixedUnits.length > 0
+            ? fixedUnits
+            : getCompatibleUnits(baseUnitId, unitRecordsById);
+
+        return {
+          ...item,
+          order: index + 1,
+          baseUnitId,
+          compatibleUnits,
+        };
+      }),
+    [scaledMeal, unitRecordsById]
+  );
+
+  useEffect(() => {
+    setSelectedNutrientUnits((current) => {
+      const next: Record<string, string> = {};
+
+      nutrients.forEach((nutrient) => {
+        if (nutrient.baseUnitId) {
+          next[nutrient.key] = current[nutrient.key] || nutrient.baseUnitId;
+        }
+      });
+
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      if (
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => current[key] === next[key])
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [nutrients]);
+
+  useEffect(() => {
+    setSelectedIngredientUnits((current) => {
+      const next: Record<string, string> = {};
+
+      ingredientDisplayRows.forEach((item) => {
+        if (item.baseUnitId) {
+          next[item.id] = current[item.id] || item.baseUnitId;
+        }
+      });
+
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      if (
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => current[key] === next[key])
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [ingredientDisplayRows]);
+  const selectedUnits =
+    measurement.kind === 'single' && measurement.family === 'mass'
+      ? [
+          ...MASS_UNITS,
+          ...(measurement.kitchenVolumeBase ? KITCHEN_VOLUME_UNITS : []),
+        ]
+      : VOLUME_UNITS;
+  const selectedUnit = selectedUnits.find((unit) => unit.value === displayUnit) || selectedUnits[0];
+  const formattedMeasurement =
+    measurement.kind === 'single'
+      ? formatMeasurementValue(
+          measurement.family === 'mass' &&
+            ('value' in selectedUnit
+              ? KITCHEN_VOLUME_UNITS.some((unit) => unit.value === selectedUnit.value)
+              : false)
+            ? (measurement.kitchenVolumeBase ?? 0) / selectedUnit.factor
+            : measurement.baseValue / selectedUnit.factor
+        )
+      : null;
 
   return (
     <div className="fixed inset-0 z-[140] mx-auto max-w-md overflow-y-auto bg-white shadow-2xl">
@@ -522,34 +1138,68 @@ const MealLibraryDetailOverlay = ({
           <div className="rounded-[2.5rem] border border-rose-100 bg-rose-50 p-10 text-center shadow-sm">
             <p className="text-sm font-bold text-rose-500">{error}</p>
           </div>
-        ) : meal ? (
+        ) : scaledMeal ? (
           <div className="space-y-8">
             <div className="relative h-64 overflow-hidden rounded-[2.5rem] shadow-xl">
               <img
-                src={meal.imageUrl || `https://picsum.photos/seed/${meal.id}/600/400`}
+                src={scaledMeal.imageUrl || `https://picsum.photos/seed/${scaledMeal.id}/600/400`}
                 className="h-full w-full object-cover"
-                alt={meal.name}
+                alt={scaledMeal.name}
               />
             </div>
 
             <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
-              <h2 className="mb-2 text-2xl font-black text-slate-800">{meal.name}</h2>
-              <div className="mb-6 flex items-center gap-2 text-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="text-2xl font-black text-slate-800">{scaledMeal.name}</h2>
+                {multiplier !== 1 ? (
+                  <span className="rounded-full border border-[#DCE7C8] bg-[#F8FBF1] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#76A13B]">
+                    x{formatMeasurementValue(multiplier)}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-black text-[#76A13B]">
-                  {Math.round((meal.totalVolume || 0) * 1.3) || 200} kcal
+                  {Math.round((scaledMeal.totalVolume || 0) * 1.3) || 200} kcal
                 </span>
                 <span className="text-slate-300">•</span>
-                <span className="font-medium text-slate-400">
-                  {meal.totalVolume ? `${meal.totalVolume} ml` : 'Volume N/A'}
-                </span>
+                {measurement.kind === 'single' ? (
+                  <>
+                    <span className="font-medium text-slate-400">{formattedMeasurement}</span>
+                    <select
+                      value={displayUnit}
+                      onChange={(event) =>
+                        setDisplayUnit(
+                          event.target.value as
+                            | (typeof VOLUME_UNITS)[number]['value']
+                            | (typeof MASS_UNITS)[number]['value']
+                        )
+                      }
+                      className="rounded-full border border-[#DCE7C8] bg-[#F8FBF1] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#76A13B] outline-none"
+                    >
+                      {selectedUnits.map((unit) => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : measurement.kind === 'mixed' ? (
+                  <span className="font-medium text-slate-400">
+                    {measurement.values
+                      .map((entry) => `${formatMeasurementValue(entry.baseValue)} ${entry.family === 'volume' ? 'ml' : 'g'}`)
+                      .join(' + ')}
+                  </span>
+                ) : (
+                  <span className="font-medium text-slate-400">Measurement N/A</span>
+                )}
               </div>
 
-              {meal.description && (
+              {scaledMeal.description && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Description
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.description}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.description}</p>
                 </div>
               )}
 
@@ -565,12 +1215,12 @@ const MealLibraryDetailOverlay = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     <tr>
-                      <td className="px-4 py-4 font-bold text-slate-600">{formatMealAgeGroup(meal.ageGroup)}</td>
-                      <td className="px-4 py-4 font-bold text-slate-600">{meal.mealType || 'N/A'}</td>
+                      <td className="px-4 py-4 font-bold text-slate-600">{formatMealAgeGroup(scaledMeal.ageGroup)}</td>
+                      <td className="px-4 py-4 font-bold text-slate-600">{scaledMeal.mealType || 'N/A'}</td>
                       <td className="px-4 py-4 font-bold text-slate-600">
-                        {meal.mealTimes?.join(', ') || 'N/A'}
+                        {scaledMeal.mealTimes?.join(', ') || 'N/A'}
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-600">{meal.prepTime || 'N/A'}</td>
+                      <td className="px-4 py-4 font-bold text-slate-600">{scaledMeal.prepTime || 'N/A'}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -583,12 +1233,12 @@ const MealLibraryDetailOverlay = ({
                   </label>
                   <span
                     className={`rounded-lg border px-3 py-1.5 text-[10px] font-black ${
-                      meal.choking
+                      scaledMeal.choking
                         ? 'border-rose-100 bg-rose-50 text-rose-500'
                         : 'border-emerald-100 bg-emerald-50 text-emerald-500'
                     }`}
                   >
-                    {meal.choking ? 'Yes' : 'No'}
+                    {scaledMeal.choking ? 'Yes' : 'No'}
                   </span>
                 </div>
                 <div>
@@ -597,104 +1247,185 @@ const MealLibraryDetailOverlay = ({
                   </label>
                   <span
                     className={`rounded-lg border px-3 py-1.5 text-[10px] font-black ${
-                      meal.allergen
+                      scaledMeal.allergen
                         ? 'border-rose-100 bg-rose-50 text-rose-500'
                         : 'border-emerald-100 bg-emerald-50 text-emerald-500'
                     }`}
                   >
-                    {meal.allergen ? 'Yes' : 'No'}
+                    {scaledMeal.allergen ? 'Yes' : 'No'}
                   </span>
                 </div>
               </div>
 
-              {meal.allergenDescription && (
+              {scaledMeal.allergenDescription && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Allergen Detail
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.allergenDescription}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.allergenDescription}</p>
                 </div>
               )}
 
-              {meal.intoleranceDescription && (
+              {scaledMeal.intoleranceDescription && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Intolerance
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.intoleranceDescription}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.intoleranceDescription}</p>
                 </div>
               )}
 
-              {meal.modificationNote && (
+              {scaledMeal.modificationNote && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Modification Note
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.modificationNote}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.modificationNote}</p>
                 </div>
               )}
 
-              {meal.drugInteraction && (
+              {scaledMeal.drugInteraction && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Drug Interaction
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.drugInteraction}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.drugInteraction}</p>
                 </div>
               )}
 
-              {meal.mealIngredients && meal.mealIngredients.length > 0 && (
+              {(scaledMeal.mealIngredients?.length || directions.length > 0) && (
                 <div className="mb-8">
-                  <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Ingredients
-                  </label>
-                  <div className="space-y-3">
-                    {meal.mealIngredients.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
+                  <div className="mb-5 rounded-[1.75rem] bg-slate-100 p-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setDetailTab('ingredients')}
+                        className={`rounded-[1.2rem] px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${
+                          detailTab === 'ingredients'
+                            ? 'bg-white text-[#76A13B] shadow-sm'
+                            : 'text-slate-400'
+                        }`}
                       >
-                        <span className="font-bold text-slate-700">
-                          {item.ingredient?.name || 'Ingredient'}
-                        </span>
-                        <span className="text-sm font-medium text-slate-400">
-                          {item.quantity ?? ''}{' '}
-                          {item.ingredient?.portionUnit?.abbreviation || ''}
-                        </span>
-                      </div>
-                    ))}
+                        Ingredients
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailTab('directions')}
+                        className={`rounded-[1.2rem] px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${
+                          detailTab === 'directions'
+                            ? 'bg-white text-[#76A13B] shadow-sm'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        Directions
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {directions.length > 0 && (
-                <div className="mb-8">
-                  <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Directions
-                  </label>
-                  <div className="space-y-4">
-                    {directions.map((step, index) => (
-                      <div key={`${index}-${step}`} className="flex gap-4">
-                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#F9C846]/10 text-[10px] font-black text-[#76A13B]">
-                          {index + 1}
+                  {detailTab === 'ingredients' ? (
+                    ingredientDisplayRows.length > 0 ? (
+                      <div className="space-y-3">
+                        {ingredientDisplayRows.map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-[1.75rem] border border-slate-100 bg-slate-50 px-5 py-4"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="min-w-0 text-base font-black text-slate-700">
+                                {item.ingredient?.name || 'Ingredient'}
+                              </span>
+                              <div className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
+                              <span className="font-semibold text-slate-600">
+                                {(() => {
+                                  const quantity = item.quantity ?? 0;
+                                  const selectedUnitId =
+                                    selectedIngredientUnits[item.id] || item.baseUnitId || '';
+                                  const convertedQuantity =
+                                    item.baseUnitId && selectedUnitId
+                                      ? convertNutrientAmount(
+                                          quantity,
+                                          item.baseUnitId,
+                                          selectedUnitId,
+                                          unitRecordsById,
+                                        )
+                                      : quantity;
+
+                                  return formatMeasurementValue(convertedQuantity);
+                                })()}
+                              </span>
+                              {item.compatibleUnits.length > 1 ? (
+                                <select
+                                  value={selectedIngredientUnits[item.id] || item.baseUnitId || ''}
+                                  onChange={(event) =>
+                                    setSelectedIngredientUnits((current) => ({
+                                      ...current,
+                                      [item.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="min-w-[4.5rem] border-0 bg-transparent px-0 py-0 text-sm font-semibold text-slate-500 outline-none"
+                                >
+                                  {item.compatibleUnits.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>
+                                      {getUnitDisplayLabel(unit)}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="font-semibold text-slate-500">
+                                  {item.baseUnitId
+                                    ? getUnitDisplayLabel(unitRecordsById[item.baseUnitId])
+                                    : item.ingredient?.portionUnit?.abbreviation ||
+                                      item.ingredient?.portionUnit?.name ||
+                                      ''}
+                                </span>
+                              )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-sm font-medium text-slate-400">
+                        No ingredients available.
+                      </div>
+                    )
+                  ) : directions.length > 0 ? (
+                    <div className="space-y-4">
+                      {directions.map((step, index) => (
+                        <div
+                          key={`${index}-${step}`}
+                          className="rounded-[1.75rem] border border-slate-100 bg-slate-50 px-5 py-4"
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <span className="text-base font-black text-slate-700">
+                              Step {index + 1}
+                            </span>
+                            <span className="text-sm font-bold text-slate-400">
+                              {index + 1}/{directions.length}
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed text-slate-600">{step}</p>
                         </div>
-                        <p className="text-sm leading-relaxed text-slate-600">{step}</p>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-sm font-medium text-slate-400">
+                      No directions available.
+                    </div>
+                  )}
                 </div>
               )}
 
-              {meal.howToStore && (
+              {scaledMeal.howToStore && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     How to Store
                   </label>
-                  <p className="text-sm leading-relaxed text-slate-600">{meal.howToStore}</p>
+                  <p className="text-sm leading-relaxed text-slate-600">{scaledMeal.howToStore}</p>
                 </div>
               )}
 
-              {getEmbeddableVideoUrl(meal.videoUrl) && (
+              {getEmbeddableVideoUrl(scaledMeal.videoUrl) && (
                 <div className="mb-8">
                   <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Cooking Video
@@ -703,7 +1434,7 @@ const MealLibraryDetailOverlay = ({
                     <iframe
                       width="100%"
                       height="100%"
-                      src={getEmbeddableVideoUrl(meal.videoUrl)}
+                      src={getEmbeddableVideoUrl(scaledMeal.videoUrl)}
                       title="Cooking Video"
                       frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -731,7 +1462,50 @@ const MealLibraryDetailOverlay = ({
                           <tr key={nutrient.key}>
                             <td className="px-4 py-3 font-bold text-slate-600">{nutrient.name}</td>
                             <td className="px-4 py-3 font-bold text-sky-500">
-                              {nutrient.amount ?? 'N/A'} {nutrient.unit}
+                              {nutrient.amount == null
+                                ? 'N/A'
+                                : (() => {
+                                    const selectedUnitId =
+                                      selectedNutrientUnits[nutrient.key] || nutrient.baseUnitId || '';
+                                    const convertedAmount =
+                                      nutrient.baseUnitId && selectedUnitId
+                                        ? convertNutrientAmount(
+                                            nutrient.amount,
+                                            nutrient.baseUnitId,
+                                            selectedUnitId,
+                                            unitRecordsById,
+                                          )
+                                        : nutrient.amount;
+                                    const selectedUnitLabel = selectedUnitId
+                                      ? getUnitDisplayLabel(unitRecordsById[selectedUnitId])
+                                      : nutrient.unit;
+
+                                    return (
+                                      <>
+                                        {formatMeasurementValue(convertedAmount)}{' '}
+                                        {nutrient.compatibleUnits.length > 1 ? (
+                                          <select
+                                            value={selectedUnitId}
+                                            onChange={(event) =>
+                                              setSelectedNutrientUnits((current) => ({
+                                                ...current,
+                                                [nutrient.key]: event.target.value,
+                                              }))
+                                            }
+                                            className="rounded-lg border border-sky-100 bg-white px-2 py-1 text-xs font-bold text-sky-600 outline-none"
+                                          >
+                                            {nutrient.compatibleUnits.map((unit) => (
+                                              <option key={unit.id} value={unit.id}>
+                                                {getUnitDisplayLabel(unit)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          selectedUnitLabel
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                             </td>
                           </tr>
                         ))}
@@ -753,30 +1527,80 @@ const IngredientLibraryDetailOverlay = ({
   loading,
   error,
   onClose,
+  unitLabelsById,
+  unitRecordsById,
 }: {
   ingredient: DetailedIngredient | null;
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  unitLabelsById: Record<string, string>;
+  unitRecordsById: Record<string, UnitLookupRecord>;
 }) => {
-  if (!ingredient && !loading && !error) return null;
+  const [selectedNutrientUnits, setSelectedNutrientUnits] = useState<Record<string, string>>({});
+  const nutrients = useMemo(() => {
+    const nutrientTotals = new Map<string, {
+      key: string;
+      amount: number;
+      unit: string;
+      baseUnitId: string | null;
+      compatibleUnits: UnitLookupRecord[];
+    }>();
 
-  const nutrientTotals = new Map<string, { amount: number; unit: string }>();
+    (ingredient?.nutrientAmounts || []).forEach((entry) => {
+      const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
+      const baseUnitId = getNutrientUnitId(entry.nutrient);
+      const compatibleUnits = getCompatibleUnits(baseUnitId, unitRecordsById);
+      const current = nutrientTotals.get(nutrientName);
+      const normalizedAmount = entry.amount || 0;
+      const mergedAmount =
+        current?.baseUnitId && baseUnitId && current.baseUnitId !== baseUnitId
+          ? current.amount + convertNutrientAmount(normalizedAmount, baseUnitId, current.baseUnitId, unitRecordsById)
+          : (current?.amount || 0) + normalizedAmount;
 
-  (ingredient?.nutrientAmounts || []).forEach((entry) => {
-    const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
-    const current = nutrientTotals.get(nutrientName);
-    nutrientTotals.set(nutrientName, {
-      amount: (current?.amount || 0) + (entry.amount || 0),
-      unit: getNutrientUnitLabel(entry.nutrient) || current?.unit || '',
+      nutrientTotals.set(nutrientName, {
+        key: current?.key || `${nutrientName}-${baseUnitId || 'unitless'}`,
+        amount: mergedAmount,
+        unit: getNutrientUnitLabel(entry.nutrient, unitLabelsById) || current?.unit || '',
+        baseUnitId: current?.baseUnitId || baseUnitId,
+        compatibleUnits: current?.compatibleUnits?.length ? current.compatibleUnits : compatibleUnits,
+      });
     });
-  });
 
-  const nutrients = Array.from(nutrientTotals.entries()).map(([name, value]) => ({
-    name,
-    amount: value.amount,
-    unit: value.unit,
-  }));
+    return Array.from(nutrientTotals.entries()).map(([name, value]) => ({
+      name,
+      key: value.key,
+      amount: value.amount,
+      unit: value.unit,
+      baseUnitId: value.baseUnitId,
+      compatibleUnits: value.compatibleUnits,
+    }));
+  }, [ingredient, unitLabelsById, unitRecordsById]);
+
+  useEffect(() => {
+    setSelectedNutrientUnits((current) => {
+      const next: Record<string, string> = {};
+
+      nutrients.forEach((nutrient) => {
+        if (nutrient.baseUnitId) {
+          next[nutrient.key] = current[nutrient.key] || nutrient.baseUnitId;
+        }
+      });
+
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      if (
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => current[key] === next[key])
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [nutrients]);
+
+  if (!ingredient && !loading && !error) return null;
 
   const portionUnit = ingredient?.portionUnit?.abbreviation || ingredient?.portionUnit?.name || '';
   const portionLabel =
@@ -905,10 +1729,51 @@ const IngredientLibraryDetailOverlay = ({
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {nutrients.map((nutrient) => (
-                          <tr key={nutrient.name}>
+                          <tr key={nutrient.key}>
                             <td className="px-6 py-5 text-base font-bold text-slate-700">{nutrient.name}</td>
                             <td className="px-6 py-5 text-base font-medium text-slate-400">
-                              {nutrient.amount.toFixed(2)} {nutrient.unit}
+                              {(() => {
+                                const selectedUnitId =
+                                  selectedNutrientUnits[nutrient.key] || nutrient.baseUnitId || '';
+                                const convertedAmount =
+                                  nutrient.baseUnitId && selectedUnitId
+                                    ? convertNutrientAmount(
+                                        nutrient.amount,
+                                        nutrient.baseUnitId,
+                                        selectedUnitId,
+                                        unitRecordsById,
+                                      )
+                                    : nutrient.amount;
+                                const selectedUnitLabel = selectedUnitId
+                                  ? getUnitDisplayLabel(unitRecordsById[selectedUnitId])
+                                  : nutrient.unit;
+
+                                return (
+                                  <>
+                                    {formatMeasurementValue(convertedAmount)}{' '}
+                                    {nutrient.compatibleUnits.length > 1 ? (
+                                      <select
+                                        value={selectedUnitId}
+                                        onChange={(event) =>
+                                          setSelectedNutrientUnits((current) => ({
+                                            ...current,
+                                            [nutrient.key]: event.target.value,
+                                          }))
+                                        }
+                                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-500 outline-none"
+                                      >
+                                        {nutrient.compatibleUnits.map((unit) => (
+                                          <option key={unit.id} value={unit.id}>
+                                            {getUnitDisplayLabel(unit)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      selectedUnitLabel
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))}
@@ -1154,8 +2019,8 @@ const MealsView: React.FC = () => {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [creationStep, setCreationStep] = useState<1 | 2>(1);
   const [planName, setPlanName] = useState('');
-  const [selectedDay, setSelectedDay] = useState('Mon');
-  const [activeSlot, setActiveSlot] = useState<string | null>('Breakfast');
+  const [selectedDay, setSelectedDay] = useState<DayKey>('Mon');
+  const [activeSlot, setActiveSlot] = useState<MealSlot>('Breakfast');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('recent');
@@ -1165,13 +2030,15 @@ const MealsView: React.FC = () => {
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
   const [dietTypeFilter, setDietTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [selectedMealsForSlot, setSelectedMealsForSlot] = useState<Meal[]>([]);
+  const [selectedMealsByDay, setSelectedMealsByDay] = useState<MealsByDay>({});
   const [selectedLibraryMeal, setSelectedLibraryMeal] = useState<DetailedMeal | null>(null);
+  const [selectedLibraryMealMultiplier, setSelectedLibraryMealMultiplier] = useState(1);
   const [mealDetailLoading, setMealDetailLoading] = useState(false);
   const [mealDetailError, setMealDetailError] = useState<string | null>(null);
   const [selectedLibraryIngredient, setSelectedLibraryIngredient] = useState<DetailedIngredient | null>(null);
   const [ingredientDetailLoading, setIngredientDetailLoading] = useState(false);
   const [ingredientDetailError, setIngredientDetailError] = useState<string | null>(null);
+  const [unitRecordsById, setUnitRecordsById] = useState<Record<string, UnitLookupRecord>>({});
   const [mealPlans, setMealPlans] = useState<BackendMealPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [plansError, setPlansError] = useState<string | null>(null);
@@ -1195,10 +2062,61 @@ const MealsView: React.FC = () => {
     }
   }, []);
 
+  const unitLabelsById = useMemo(
+    () =>
+      Object.values(unitRecordsById).reduce<Record<string, string>>((acc, unit) => {
+        const label = getUnitDisplayLabel(unit);
+        if (unit.id && label) {
+          acc[unit.id] = label;
+        }
+        return acc;
+      }, {}),
+    [unitRecordsById]
+  );
+
   useEffect(() => {
     dispatch(fetchMeals());
     dispatch(fetchIngredients());
   }, [dispatch]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUnits = async () => {
+      try {
+        const response = await api.get<UnitLookupResponse>('/unit/find-all', {
+          params: {
+            page: 1,
+            limit: 200,
+          },
+        });
+
+        if (!active) {
+          return;
+        }
+
+        const nextUnitRecords = [...(response.data?.data || []), ...SYNTHETIC_UNIT_RECORDS].reduce<
+          Record<string, UnitLookupRecord>
+        >((acc, unit) => {
+          if (unit.id) {
+            acc[unit.id] = unit;
+          }
+
+          return acc;
+        }, {});
+
+        setUnitRecordsById(nextUnitRecords);
+      } catch (error) {
+        console.error('Failed to load unit labels', error);
+      }
+    };
+
+    void loadUnits();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (children.length > 0) return;
@@ -1310,10 +2228,41 @@ const MealsView: React.FC = () => {
 
   // Use transformed data or fallback to empty arrays
   const MEALS = transformedMeals.length > 0 ? transformedMeals.map(({ raw: _raw, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal) : [];
+  const selectedMealsForSlot = useMemo(
+    () => selectedMealsByDay[selectedDay]?.[activeSlot] ?? [],
+    [activeSlot, selectedDay, selectedMealsByDay]
+  );
+  const selectedMealsForDay = useMemo(
+    () => Object.values(selectedMealsByDay[selectedDay] ?? {}).flat(),
+    [selectedDay, selectedMealsByDay]
+  );
+  const selectedMealsForSlotMap = useMemo(
+    () =>
+      new Map(
+        selectedMealsForSlot.map((selection) => [selection.meal.id, selection])
+      ),
+    [selectedMealsForSlot]
+  );
   const mealsForActiveSlot = useMemo(() => {
-    if (!activeSlot) return MEALS;
-    return MEALS.filter((meal) => meal.type === activeSlot);
-  }, [MEALS, activeSlot]);
+    const slotMeals = MEALS.filter((meal) => meal.type === activeSlot);
+    const selectedById = new Map<string, Meal>(
+      selectedMealsForSlot.map((selection) => [
+        selection.meal.id,
+        {
+          ...selection.meal,
+          type: activeSlot,
+        },
+      ])
+    );
+
+    slotMeals.forEach((meal) => {
+      if (!selectedById.has(meal.id)) {
+        selectedById.set(meal.id, meal);
+      }
+    });
+
+    return Array.from(selectedById.values());
+  }, [MEALS, activeSlot, selectedMealsForSlot]);
 
   const commonAllergens = useMemo(() => {
     const defaults = ['Milk', 'Eggs', 'Peanuts', 'Tree Nuts', 'Fish', 'Shellfish', 'Soy', 'Wheat'];
@@ -1504,46 +2453,13 @@ const MealsView: React.FC = () => {
     sortBy,
   ]);
 
-  const currentCals = selectedMealsForSlot.reduce((sum, m) => sum + m.calories, 0);
-  const nutrientProgressItems = useMemo(
-    () => [
-      {
-        key: 'calorie',
-        label: 'Calorie',
-        current: currentCals,
-        target: 1500,
-        unit: '',
-      },
-      {
-        key: 'carbohydrate',
-        label: 'Carbohydrate',
-        current: Math.round(currentCals * 0.125),
-        target: 200,
-        unit: '',
-      },
-      {
-        key: 'protein',
-        label: 'Protein',
-        current: Math.round(currentCals * 0.04),
-        target: 50,
-        unit: '',
-      },
-      {
-        key: 'fat',
-        label: 'Fat',
-        current: Math.round(currentCals * 0.033),
-        target: 50,
-        unit: '',
-      },
-      {
-        key: 'iron',
-        label: 'Iron',
-        current: Math.round(currentCals * 0.01),
-        target: 15,
-        unit: '',
-      },
-    ],
-    [currentCals]
+  const currentCals = useMemo(
+    () =>
+      selectedMealsForDay.reduce(
+        (sum, selection) => sum + selection.meal.calories * selection.multiplier,
+        0
+      ),
+    [selectedMealsForDay]
   );
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const selectedChild = useMemo(
@@ -1554,6 +2470,88 @@ const MealsView: React.FC = () => {
     [children, favoriteChildId]
   );
   const selectedChildId = selectedChild?.id ?? null;
+  const childNutritionTargets = useMemo(() => {
+    if (
+      !selectedChild?.weight ||
+      !selectedChild?.height ||
+      !selectedChild?.gender ||
+      !selectedChild?.date_of_birth
+    ) {
+      return null;
+    }
+
+    return calculateNutrients(
+      selectedChild.weight,
+      selectedChild.height,
+      selectedChild.gender,
+      selectedChild.date_of_birth,
+      selectedChild.activity_level ?? 'Moderate',
+    );
+  }, [selectedChild]);
+  const nutrientProgressItems = useMemo(
+    () =>
+      childNutritionTargets
+        ? [
+            {
+              key: 'calorie',
+              label: 'Calorie',
+              current: Math.round(currentCals),
+              target: childNutritionTargets.calories,
+              unit: '',
+            },
+            {
+              key: 'carbohydrate',
+              label: 'Carbohydrate',
+              current: Math.round(currentCals * 0.125),
+              target: Math.round(childNutritionTargets.carbs),
+              unit: '',
+            },
+            {
+              key: 'protein',
+              label: 'Protein',
+              current: Math.round(currentCals * 0.04),
+              target: Math.round(childNutritionTargets.protein),
+              unit: '',
+            },
+            {
+              key: 'fat',
+              label: 'Fat',
+              current: Math.round(currentCals * 0.033),
+              target: Math.round(childNutritionTargets.fat),
+              unit: '',
+            },
+            {
+              key: 'iron',
+              label: 'Iron',
+              current: Math.round(currentCals * 0.01),
+              target: Math.round(childNutritionTargets.iron),
+              unit: '',
+            },
+            {
+              key: 'calcium',
+              label: 'Calcium',
+              current: Math.round(currentCals * 0.53),
+              target: Math.round(childNutritionTargets.calcium),
+              unit: '',
+            },
+            {
+              key: 'zinc',
+              label: 'Zinc',
+              current: Math.round(currentCals * 0.007),
+              target: Math.round(childNutritionTargets.zinc),
+              unit: '',
+            },
+            {
+              key: 'vita',
+              label: 'Vit A',
+              current: Math.round(currentCals * 0.27),
+              target: Math.round(childNutritionTargets.vitamina),
+              unit: '',
+            },
+          ]
+        : [],
+    [childNutritionTargets, currentCals]
+  );
 
   useEffect(() => {
     if (!selectedChildId) return;
@@ -1620,8 +2618,8 @@ const MealsView: React.FC = () => {
     [mealPlans]
   );
   const displayPlans = planSourceTab === 'parent' ? parentPlans : nutritionistPlans;
-  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-  const mealSlots = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
+  const weekDays = WEEK_DAYS;
+  const mealSlots = MEAL_SLOTS;
 
   const resetPlanBuilder = () => {
     setIsCreatingPlan(false);
@@ -1631,13 +2629,14 @@ const MealsView: React.FC = () => {
     setPlanName('');
     setSelectedDay('Mon');
     setActiveSlot('Breakfast');
-    setSelectedMealsForSlot([]);
+    setSelectedMealsByDay({});
   };
 
-  const openMealDetail = async (mealId: string) => {
+  const openMealDetail = async (mealId: string, multiplier = 1) => {
     setMealDetailLoading(true);
     setMealDetailError(null);
     setSelectedLibraryMeal(null);
+    setSelectedLibraryMealMultiplier(sanitizeMultiplier(multiplier));
 
     try {
       const response = await api.get(`/meal/find-one/${mealId}`);
@@ -1653,6 +2652,7 @@ const MealsView: React.FC = () => {
 
   const closeMealDetail = () => {
     setSelectedLibraryMeal(null);
+    setSelectedLibraryMealMultiplier(1);
     setMealDetailError(null);
     setMealDetailLoading(false);
   };
@@ -1692,54 +2692,76 @@ const MealsView: React.FC = () => {
 
   const mapBackendMealToSelection = (
     meal: BackendPlanMeal,
-    selectedSlot: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'
-  ): Meal => {
+    selectedSlot: MealSlot
+  ): PlannedMealSelection => {
     const matchingMeal = MEALS.find((candidate) => candidate.id === meal.id);
 
     if (matchingMeal) {
       return {
-        ...matchingMeal,
-        type: selectedSlot,
-        image: meal.imageUrl || matchingMeal.image,
-        volume:
-          meal.totalVolume != null ? `${meal.totalVolume}ml` : matchingMeal.volume,
+        meal: {
+          ...matchingMeal,
+          type: selectedSlot,
+          image: meal.imageUrl || matchingMeal.image,
+          volume:
+            meal.totalVolume != null ? `${meal.totalVolume}ml` : matchingMeal.volume,
+        },
+        multiplier: sanitizeMultiplier(meal.multiplier),
       };
     }
 
     return {
-      id: meal.id,
-      name: meal.name || 'Meal',
-      type: selectedSlot,
-      nutrients: [],
-      image: getMealImage(meal),
-      description: '',
-      prepTime: 'N/A',
-      ageGroup: '',
-      ingredients: [],
-      method: [],
-      calories: Math.round((meal.totalVolume ?? 0) * 1.3) || 200,
-      volume: `${meal.totalVolume ?? 0}ml`,
+      meal: {
+        id: meal.id,
+        name: meal.name || 'Meal',
+        type: selectedSlot,
+        nutrients: [],
+        image: getMealImage(meal),
+        description: '',
+        prepTime: 'N/A',
+        ageGroup: '',
+        ingredients: [],
+        method: [],
+        calories: Math.round((meal.totalVolume ?? 0) * 1.3) || 200,
+        volume: `${meal.totalVolume ?? 0}ml`,
+      },
+      multiplier: sanitizeMultiplier(meal.multiplier),
     };
   };
 
+  const buildMealSelectionsForPlan = (plan: BackendMealPlan) =>
+    (plan.meals || []).reduce<Partial<Record<MealSlot, PlannedMealSelection[]>>>((acc, meal) => {
+      const slots = (plan.mealTimes?.[meal.id] || []).filter(
+        (slot): slot is MealSlot => MEAL_SLOTS.includes(slot as MealSlot)
+      );
+
+      slots.forEach((slot) => {
+        acc[slot] = [...(acc[slot] ?? []), mapBackendMealToSelection(meal, slot)];
+      });
+
+      return acc;
+    }, {});
+
   const openEditPlan = (plan: BackendMealPlan) => {
+    const relatedPlans = getRelatedPlans(plan);
+    const selectionsByDay = relatedPlans.reduce<MealsByDay>((acc, relatedPlan) => {
+      const dayKey = getDayKeyFromIsoDate(relatedPlan.meal_date) as DayKey;
+      acc[dayKey] = buildMealSelectionsForPlan(relatedPlan);
+      return acc;
+    }, {});
+    const dayKey = getDayKeyFromIsoDate(plan.meal_date) as DayKey;
+    const selectionsForDay = selectionsByDay[dayKey] ?? {};
     const selectedSlot =
-      (Object.values(plan.mealTimes || {}).flat()[0] as
-        | 'Breakfast'
-        | 'Lunch'
-        | 'Dinner'
-        | 'Snack'
-        | undefined) || 'Lunch';
+      mealSlots.find((slot) => (selectionsForDay[slot] ?? []).length > 0) || 'Breakfast';
 
     setActiveViewPlan(null);
     setIsCreatingPlan(true);
-    setCreationStep(1);
+    setCreationStep(2);
     setEditingPlanId(plan.id);
     setEditingPlanGroupKey(getPlanGroupKey(plan));
     setPlanName(plan.meal_description || '');
-    setSelectedDay(getDayKeyFromIsoDate(plan.meal_date));
+    setSelectedDay(dayKey);
     setActiveSlot(selectedSlot);
-    setSelectedMealsForSlot((plan.meals || []).map((meal) => mapBackendMealToSelection(meal, selectedSlot)));
+    setSelectedMealsByDay(selectionsByDay);
     setPlansError(null);
     setPlansSuccess(null);
   };
@@ -1888,8 +2910,17 @@ const MealsView: React.FC = () => {
       return;
     }
 
-    if (!selectedDay || !activeSlot || selectedMealsForSlot.length === 0) {
-      setPlansError('Select a day, a meal slot, and at least one meal.');
+    const selectedDayMeals = selectedMealsByDay[selectedDay] ?? {};
+    const mealsForPayload = Object.entries(selectedDayMeals).flatMap(([slot, meals]) =>
+      (meals ?? []).map((selection) => ({
+        slot: slot as MealSlot,
+        meal: selection.meal,
+        multiplier: selection.multiplier,
+      }))
+    );
+
+    if (mealsForPayload.length === 0) {
+      setPlansError('Select at least one meal for the chosen day.');
       return;
     }
 
@@ -1897,8 +2928,30 @@ const MealsView: React.FC = () => {
     setPlansError(null);
     setPlansSuccess(null);
 
+    const mealSelectionMap = mealsForPayload.reduce<
+      Record<string, { meal: Meal; mealTimes: Set<MealSlot>; multiplier: number }>
+    >((acc, entry) => {
+      const existing = acc[entry.meal.id];
+
+      if (existing) {
+        existing.mealTimes.add(entry.slot);
+        existing.multiplier += entry.multiplier;
+      } else {
+        acc[entry.meal.id] = {
+          meal: entry.meal,
+          mealTimes: new Set([entry.slot]),
+          multiplier: entry.multiplier,
+        };
+      }
+
+      return acc;
+    }, {});
+
     const mealTimes = Object.fromEntries(
-      selectedMealsForSlot.map((meal) => [meal.id, [activeSlot]])
+      Object.entries(mealSelectionMap).map(([mealId, value]) => [
+        mealId,
+        Array.from(value.mealTimes),
+      ])
     );
 
     const payload = {
@@ -1909,7 +2962,10 @@ const MealsView: React.FC = () => {
       mealTimes,
       meal_date: getNextDateForDay(selectedDay),
       calories: currentCals,
-      meals: selectedMealsForSlot.map((meal) => ({ id: meal.id })),
+      meals: Object.values(mealSelectionMap).map(({ meal, multiplier }) => ({
+        id: meal.id,
+        multiplier: sanitizeMultiplier(multiplier),
+      })),
     };
 
     const matchingDayPlan =
@@ -1922,17 +2978,12 @@ const MealsView: React.FC = () => {
         : null;
 
     try {
-      const response =
+      await (
         editingPlanGroupKey && matchingDayPlan
           ? await api.put(`/meal-plans/update/${matchingDayPlan.id}`, payload)
           : editingPlanId && !editingPlanGroupKey
             ? await api.put(`/meal-plans/update/${editingPlanId}`, payload)
-            : await api.post('/meal-plans/create', payload);
-
-      setMealPlans((prev) =>
-        Array.from(
-          new Map([response.data, ...prev].map((plan) => [plan.id, plan])).values()
-        )
+            : await api.post('/meal-plans/create', payload)
       );
       await refreshMealPlans();
       setPlanSourceTab('parent');
@@ -2073,19 +3124,34 @@ const MealsView: React.FC = () => {
                       key={meal.id}
                       className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm flex items-center gap-4"
                     >
-                      <img
-                        src={getMealImage(meal)}
-                        alt={meal.name || 'Meal'}
-                        className="w-16 h-16 rounded-2xl object-cover"
-                      />
-                      <div className="min-w-0">
-                        <h5 className="font-bold text-slate-800 truncate">
-                          {meal.name || 'Meal'}
-                        </h5>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {selectedPlan?.calories || 0} kcal • {meal.totalVolume ?? 0}ml
-                        </p>
-                      </div>
+                      <button
+                        onClick={() =>
+                          void openMealDetail(
+                            meal.id,
+                            sanitizeMultiplier(meal.multiplier),
+                          )
+                        }
+                        className="flex flex-1 items-center gap-4 text-left"
+                      >
+                        <img
+                          src={getMealImage(meal)}
+                          alt={meal.name || 'Meal'}
+                          className="w-16 h-16 rounded-2xl object-cover"
+                        />
+                        <div className="min-w-0">
+                          <h5 className="font-bold text-slate-800 truncate">
+                            {meal.name || 'Meal'}
+                          </h5>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            x{sanitizeMultiplier(meal.multiplier)} •{' '}
+                            {formatMeasurementValue(
+                              (meal.totalVolume ?? 0) *
+                                sanitizeMultiplier(meal.multiplier),
+                            )}
+                            ml
+                          </p>
+                        </div>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -2113,7 +3179,7 @@ const MealsView: React.FC = () => {
                   setPlanName('');
                   setSelectedDay('Mon');
                   setActiveSlot('Breakfast');
-                  setSelectedMealsForSlot([]);
+                  setSelectedMealsByDay({});
                   setIsCreatingPlan(true);
                 }}
                 className="bg-[#F9C846] text-[#0B1A12] px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
@@ -2175,7 +3241,7 @@ const MealsView: React.FC = () => {
                     setPlanName('');
                     setSelectedDay('Mon');
                     setActiveSlot('Breakfast');
-                    setSelectedMealsForSlot([]);
+                    setSelectedMealsByDay({});
                     setIsCreatingPlan(true);
                   }}
                   className="mt-4 text-sky-500 text-xs font-black uppercase"
@@ -2342,34 +3408,45 @@ const MealsView: React.FC = () => {
                 <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">
                   Nutrient Progress ({selectedDay})
                 </h4>
-                <div className="space-y-6">
-                  {nutrientProgressItems.map((item) => {
-                    const percentage = Math.min(
-                      100,
-                      Math.round((item.current / item.target) * 100)
-                    );
+                {childNutritionTargets ? (
+                  <div className="max-h-80 overflow-y-auto pr-2">
+                    <div className="space-y-4">
+                    {nutrientProgressItems.map((item) => {
+                      const percentage = Math.min(
+                        100,
+                        Math.round((item.current / item.target) * 100)
+                      );
 
-                    return (
-                      <div key={item.key} className="space-y-2">
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                            {item.label}
-                          </span>
-                          <span className="text-xs font-bold text-slate-300">
-                            {item.current} / {item.target}
-                            {item.unit}
-                          </span>
+                      return (
+                        <div
+                          key={item.key}
+                          className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                              {item.label}
+                            </span>
+                            <span className="text-xs font-bold text-slate-300">
+                              {item.current} / {item.target}
+                              {item.unit}
+                            </span>
+                          </div>
+                          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#76A13B] rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-[#76A13B] rounded-full transition-all duration-1000 ease-out"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 px-5 py-6 text-sm font-medium text-slate-300">
+                    Complete the child profile with weight, height, gender, and date of birth to view daily nutrient targets.
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -2383,39 +3460,108 @@ const MealsView: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-4">
                   {mealsForActiveSlot.map((meal) => {
-                    const isSelected = selectedMealsForSlot.some((selectedMeal) => selectedMeal.id === meal.id);
+                    const selectedEntry = selectedMealsForSlotMap.get(meal.id);
+                    const isSelected = Boolean(selectedEntry);
+                    const displayMultiplier = selectedEntry?.multiplier ?? 1;
 
                     return (
-                      <button
+                      <div
                         key={meal.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedMealsForSlot(selectedMealsForSlot.filter((selectedMeal) => selectedMeal.id !== meal.id));
-                          } else {
-                            setSelectedMealsForSlot([...selectedMealsForSlot, meal]);
-                          }
-                        }}
-                        className={`p-4 rounded-[2rem] border-2 text-left flex gap-4 transition-all ${
-                          isSelected ? 'border-[#76A13B] bg-[#76A13B]/5' : 'border-slate-50 bg-white'
+                        className={`rounded-[2rem] border-2 px-4 py-4 transition-all ${
+                          isSelected
+                            ? 'border-[#76A13B] bg-[#FBFDF6] shadow-[0_12px_30px_rgba(118,161,59,0.12)]'
+                            : 'border-slate-100 bg-white'
                         }`}
                       >
-                        <img src={meal.image} className="w-16 h-16 rounded-2xl object-cover" alt={meal.name} />
-                        <div className="flex-1 flex flex-col justify-center">
-                          <h6 className="font-bold text-slate-800">{meal.name}</h6>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">
-                            {meal.calories} kcal • {meal.volume}
-                          </p>
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => void openMealDetail(meal.id, displayMultiplier)}
+                            className="flex flex-1 items-center gap-4 text-left"
+                          >
+                            <img
+                              src={meal.image}
+                              className="h-16 w-16 rounded-2xl object-cover"
+                              alt={meal.name}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <h6 className="font-bold text-slate-800">{meal.name}</h6>
+                              <p className="text-[10px] font-bold uppercase text-slate-400">
+                                {getScaledMealCalories(meal, displayMultiplier)} kcal
+                                {' • '}
+                                {getScaledMealVolume(meal, displayMultiplier)}
+                              </p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedMealsByDay((prev) => ({
+                                  ...prev,
+                                  [selectedDay]: {
+                                    ...(prev[selectedDay] ?? {}),
+                                    [activeSlot]: selectedMealsForSlot.filter(
+                                      (entry) => entry.meal.id !== meal.id,
+                                    ),
+                                  },
+                                }));
+                              } else {
+                                setSelectedMealsByDay((prev) => ({
+                                  ...prev,
+                                  [selectedDay]: {
+                                    ...(prev[selectedDay] ?? {}),
+                                    [activeSlot]: [
+                                      ...selectedMealsForSlot,
+                                      { meal, multiplier: 1 },
+                                    ],
+                                  },
+                                }));
+                              }
+                            }}
+                            aria-label={isSelected ? 'Deselect meal' : 'Select meal'}
+                            className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
+                              isSelected
+                                ? 'border-[#76A13B] bg-[#76A13B] text-white shadow-[0_10px_25px_rgba(118,161,59,0.25)]'
+                                : 'border-slate-200 bg-white text-transparent'
+                            }`}
+                          >
+                            ✓
+                          </button>
                         </div>
-                        <div
-                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center self-center transition-all ${
-                            isSelected
-                              ? 'bg-[#76A13B] border-[#76A13B] text-white shadow-lg shadow-emerald-100'
-                              : 'border-slate-100 text-transparent'
-                          }`}
-                        >
-                          ✓
+                        <div className="mt-3 flex items-end justify-between gap-3">
+                          {isSelected ? (
+                            <div className="flex flex-1 items-center justify-between gap-3 pl-2">
+                              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                Portion Multiplier:
+                              </label>
+                              <input
+                                type="number"
+                                min={0.1}
+                                step={0.25}
+                                value={displayMultiplier}
+                                onChange={(event) => {
+                                  const parsedValue = Number(event.target.value);
+                                  setSelectedMealsByDay((prev) => ({
+                                    ...prev,
+                                    [selectedDay]: {
+                                      ...(prev[selectedDay] ?? {}),
+                                      [activeSlot]: selectedMealsForSlot.map((entry) =>
+                                        entry.meal.id === meal.id
+                                          ? {
+                                              ...entry,
+                                              multiplier: sanitizeMultiplier(parsedValue),
+                                            }
+                                          : entry
+                                      ),
+                                    },
+                                  }));
+                                }}
+                                onClick={(event) => event.stopPropagation()}
+                                className="w-24 rounded-xl border border-[#DCE7C8] bg-white px-3 py-1.5 text-center text-sm font-black text-[#76A13B] outline-none"
+                              />
+                            </div>
+                          ) : null}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                   {activeSlot && mealsForActiveSlot.length === 0 && (
@@ -2430,11 +3576,11 @@ const MealsView: React.FC = () => {
 
               <div className="flex items-center justify-between pt-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {selectedMealsForSlot.length} Meals Total
+                  {selectedMealsForDay.length} Meals Total
                 </p>
                 <button
                   onClick={() => void handleCreatePlan()}
-                  disabled={savingPlan || selectedMealsForSlot.length === 0}
+                  disabled={savingPlan || selectedMealsForDay.length === 0}
                   className="px-8 py-4 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl shadow-emerald-100 disabled:opacity-50"
                 >
                   {savingPlan ? 'Saving...' : editingPlanId ? 'Update Plan' : 'Finish Plan'}
@@ -2537,9 +3683,12 @@ const MealsView: React.FC = () => {
       {(selectedLibraryMeal || mealDetailLoading || mealDetailError) && (
         <MealLibraryDetailOverlay
           meal={selectedLibraryMeal}
+          multiplier={selectedLibraryMealMultiplier}
           loading={mealDetailLoading}
           error={mealDetailError}
           onClose={closeMealDetail}
+          unitLabelsById={unitLabelsById}
+          unitRecordsById={unitRecordsById}
         />
       )}
       {(selectedLibraryIngredient || ingredientDetailLoading || ingredientDetailError) && (
@@ -2548,6 +3697,8 @@ const MealsView: React.FC = () => {
           loading={ingredientDetailLoading}
           error={ingredientDetailError}
           onClose={closeIngredientDetail}
+          unitLabelsById={unitLabelsById}
+          unitRecordsById={unitRecordsById}
         />
       )}
       {pendingDeletePlan && (() => {
