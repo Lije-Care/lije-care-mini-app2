@@ -1,4 +1,4 @@
-import { useLaunchParams } from "@telegram-apps/sdk-react";
+import { backButton, useLaunchParams } from "@telegram-apps/sdk-react";
 import { AppRoot } from "@telegram-apps/telegram-ui";
 import {
   Navigate,
@@ -6,7 +6,9 @@ import {
   Routes,
   HashRouter,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 
 import { routes } from "@/navigation/routes.tsx";
 import { Header, BottomNav } from "@/components/layout";
@@ -58,6 +60,7 @@ const normalizePath = (pathname: string) => {
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isFullyOnboarded } = useAuth();
   const currentPath = normalizePath(location.pathname);
   const isMainTabPath = MAIN_TAB_PATHS.includes(currentPath);
@@ -65,6 +68,32 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const shouldHideNavbar = !isFullyOnboarded || !isMainTabPath;
 
   const shouldHideHeader = !isFullyOnboarded || !isMainTabPath;
+
+  useEffect(() => {
+    if (!backButton.isMounted()) {
+      return;
+    }
+
+    const shouldShowBackButton = !isMainTabPath;
+
+    if (shouldShowBackButton) {
+      backButton.show();
+    } else {
+      backButton.hide();
+    }
+
+    const handleBack = () => {
+      navigate(-1);
+    };
+
+    if (shouldShowBackButton) {
+      backButton.onClick(handleBack);
+    }
+
+    return () => {
+      backButton.offClick(handleBack);
+    };
+  }, [isMainTabPath, navigate]);
 
   return (
     <ProfileOverlayProvider>
