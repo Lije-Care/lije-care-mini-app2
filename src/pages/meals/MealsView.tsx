@@ -2719,6 +2719,7 @@ const MealsView: React.FC = () => {
   const mealSlots = MEAL_SLOTS;
 
   const resetPlanBuilder = () => {
+    setSavingPlan(false);
     setIsCreatingPlan(false);
     setCreationStep(1);
     setEditingPlanId(null);
@@ -2727,6 +2728,20 @@ const MealsView: React.FC = () => {
     setSelectedDay('Mon');
     setActiveSlot('Breakfast');
     setSelectedMealsByDay({});
+  };
+
+  const openNewPlanBuilder = () => {
+    setSavingPlan(false);
+    setPlansError(null);
+    setPlansSuccess(null);
+    setCreationStep(1);
+    setEditingPlanId(null);
+    setEditingPlanGroupKey(null);
+    setPlanName('');
+    setSelectedDay('Mon');
+    setActiveSlot('Breakfast');
+    setSelectedMealsByDay({});
+    setIsCreatingPlan(true);
   };
 
   const openMealDetail = async (mealId: string, multiplier?: number) => {
@@ -2853,6 +2868,7 @@ const MealsView: React.FC = () => {
       mealSlots.find((slot) => (selectionsForDay[slot] ?? []).length > 0) || 'Breakfast';
 
     setActiveViewPlan(null);
+    setSavingPlan(false);
     setIsCreatingPlan(true);
     setCreationStep(2);
     setEditingPlanId(plan.id);
@@ -3108,14 +3124,23 @@ const MealsView: React.FC = () => {
         : null;
 
     try {
-      await (
+      const response = await (
         editingPlanGroupKey && matchingDayPlan
-          ? await api.put(`/meal-plans/update/${matchingDayPlan.id}`, payload)
+          ? api.put(`/meal-plans/update/${matchingDayPlan.id}`, payload)
           : editingPlanId && !editingPlanGroupKey
-            ? await api.put(`/meal-plans/update/${editingPlanId}`, payload)
-            : await api.post('/meal-plans/create', payload)
+            ? api.put(`/meal-plans/update/${editingPlanId}`, payload)
+            : api.post('/meal-plans/create', payload)
       );
-      await refreshMealPlans();
+
+      const savedPlan = response.data as BackendMealPlan;
+      if (savedPlan?.id) {
+        setMealPlans((current) => {
+          const next = current.filter((plan) => plan.id !== savedPlan.id);
+          return [...next, savedPlan];
+        });
+      }
+
+      setSavingPlan(false);
       setPlanSourceTab('parent');
       setPlansSuccess(
         editingPlanGroupKey
@@ -3127,6 +3152,7 @@ const MealsView: React.FC = () => {
             : 'Meal plan saved to My Plans.'
       );
       resetPlanBuilder();
+      void refreshMealPlans();
     } catch (error: any) {
       console.error('Meal plan save failed', {
         payload,
@@ -3404,14 +3430,7 @@ const MealsView: React.FC = () => {
               <h3 className="text-2xl font-black mb-2 leading-tight">Smart Child<br/>Meal Planning</h3>
               <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">Design balanced nutrition tailored to your little one's growth.</p>
               <button
-                onClick={() => {
-                  setCreationStep(1);
-                  setPlanName('');
-                  setSelectedDay('Mon');
-                  setActiveSlot('Breakfast');
-                  setSelectedMealsByDay({});
-                  setIsCreatingPlan(true);
-                }}
+                onClick={openNewPlanBuilder}
                 className="bg-[#F9C846] text-[#0B1A12] px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
               >
               Create New Plan
@@ -3466,14 +3485,7 @@ const MealsView: React.FC = () => {
               <p className="text-slate-400 text-sm font-bold">No plans found here.</p>
               {planSourceTab === 'parent' && (
                 <button
-                  onClick={() => {
-                    setCreationStep(1);
-                    setPlanName('');
-                    setSelectedDay('Mon');
-                    setActiveSlot('Breakfast');
-                    setSelectedMealsByDay({});
-                    setIsCreatingPlan(true);
-                  }}
+                  onClick={openNewPlanBuilder}
                   className="mt-4 text-sky-500 text-xs font-black uppercase"
                 >
                   Start First Plan
