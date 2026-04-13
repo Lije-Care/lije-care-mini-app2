@@ -3394,11 +3394,11 @@ const MealsView: React.FC = () => {
                               alt={meal.name || 'Meal'}
                               className="w-16 h-16 rounded-2xl object-cover"
                             />
-                            <div className="min-w-0">
-                              <h5 className="font-bold text-slate-800 truncate">
+                            <div className="min-w-0 flex-1">
+                              <h5 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
                                 {meal.name || 'Meal'}
                               </h5>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                                 {summary.calories
                                   ? `${formatMeasurementValue(summary.calories.amount)} ${summary.calories.unitLabel}`
                                   : ''}
@@ -3747,8 +3747,10 @@ const MealsView: React.FC = () => {
                               alt={meal.name}
                             />
                             <div className="min-w-0 flex-1">
-                              <h6 className="font-bold text-slate-800">{meal.name}</h6>
-                              <p className="text-[10px] font-bold uppercase text-slate-400">
+                              <h6 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
+                                {meal.name}
+                              </h6>
+                              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                                 {summary.calories
                                   ? `${formatMeasurementValue(summary.calories.amount)} ${summary.calories.unitLabel}`
                                   : ''}
