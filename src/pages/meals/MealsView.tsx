@@ -2068,7 +2068,7 @@ const MealsView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { meals: backendMeals, ingredients: backendIngredients } = useSelector((state: RootState) => state.meals);
-  const { data: children, loading: childrenLoading } = useSelector((state: RootState) => state.children);
+  const { data: children = [], loading: childrenLoading } = useSelector((state: RootState) => state.children);
 
   const [subTab, setSubTab] = useState<'mealLib' | 'foodLib' | 'planning'>('planning');
   const [planSourceTab, setPlanSourceTab] = useState<'parent' | 'nutritionist'>('parent');
@@ -2101,6 +2101,7 @@ const MealsView: React.FC = () => {
   const [plansError, setPlansError] = useState<string | null>(null);
   const [savingPlan, setSavingPlan] = useState(false);
   const [plansSuccess, setPlansSuccess] = useState<string | null>(null);
+  const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
   const [activeViewPlan, setActiveViewPlan] = useState<BackendMealPlan | null>(null);
   const [activeViewDay, setActiveViewDay] = useState<string | null>(null);
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
@@ -2203,6 +2204,7 @@ const MealsView: React.FC = () => {
           openPlanning?: boolean;
           planSourceTab?: 'parent' | 'nutritionist';
           successMessage?: string;
+          selectedChildId?: string;
         }
       | null;
 
@@ -2214,6 +2216,10 @@ const MealsView: React.FC = () => {
 
     if (state.planSourceTab) {
       setPlanSourceTab(state.planSourceTab);
+    }
+
+    if (state.selectedChildId) {
+      setFocusedChildId(state.selectedChildId);
     }
 
     if (state.successMessage) {
@@ -2618,12 +2624,13 @@ const MealsView: React.FC = () => {
     [getRealMealSummary, selectedMealsForDay]
   );
   const favoriteChildId = localStorage.getItem('favorite_child_id');
+  const effectiveChildId = focusedChildId ?? favoriteChildId;
   const selectedChild = useMemo(
     () =>
-      children.find((child) => child.id === favoriteChildId) ??
+      children.find((child) => child.id === effectiveChildId) ??
       children[0] ??
       null,
-    [children, favoriteChildId]
+    [children, effectiveChildId]
   );
   const selectedChildId = selectedChild?.id ?? null;
   const childNutritionTargets = useMemo(() => {
@@ -3005,13 +3012,15 @@ const MealsView: React.FC = () => {
   };
 
   async function refreshMealPlans() {
-    const childIds = Array.from(
-      new Set(
-        children.map((child) => child.id).filter(Boolean).concat(
-          selectedChildId ? [selectedChildId] : []
-        )
-      )
-    );
+    const childIds = focusedChildId
+      ? [focusedChildId]
+      : Array.from(
+          new Set(
+            children.map((child) => child.id).filter(Boolean).concat(
+              selectedChildId ? [selectedChildId] : []
+            )
+          )
+        );
 
     if (!childIds.length) {
       setMealPlans([]);

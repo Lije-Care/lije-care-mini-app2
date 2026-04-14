@@ -224,7 +224,15 @@ const ChildrenListPage: React.FC = () => {
                         <button
                           className="bg-black text-gray-100 rounded-lg px-2 py-1 text-sm fw-700 hover:bg-teal-400 transition"
                           onClick={() => {
-                            navigate(`/mealplansummary/${child?.id}`);
+                            localStorage.setItem(FAVORITE_CHILD_KEY, child.id);
+                            setFavoriteChildId(child.id);
+                            navigate("/meals", {
+                              state: {
+                                openPlanning: true,
+                                planSourceTab: "nutritionist",
+                                selectedChildId: child.id,
+                              },
+                            });
                           }}
                         >
                           {t("View meal plans")}
