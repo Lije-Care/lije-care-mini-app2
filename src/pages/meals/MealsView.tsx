@@ -3222,11 +3222,6 @@ const MealsView: React.FC = () => {
             planChildProfile.activity_level ?? 'Moderate',
           )
         : null;
-    const specialistName = plan.expert
-      ? `${plan.expert.firstName || ''} ${plan.expert.lastName || ''}`.trim() ||
-        plan.expert.role ||
-        'Nutritionist'
-      : 'Nutritionist';
     const getCachedMealSummary = (meal: BackendPlanMeal) => {
       const detailedMeal = viewPlanMealDetails[meal.id];
       const multiplier = sanitizeMultiplier(meal.multiplier);
@@ -3292,9 +3287,7 @@ const MealsView: React.FC = () => {
             </h3>
           </div>
           {isReadOnlyPlan ? (
-            <div className="min-w-12 rounded-2xl bg-slate-100 px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-              View
-            </div>
+            <div className="min-w-12" />
           ) : (
             <button
               onClick={() => openEditPlan(selectedPlan ?? plan)}
@@ -3304,13 +3297,6 @@ const MealsView: React.FC = () => {
             </button>
           )}
         </div>
-
-        {isReadOnlyPlan && (
-          <div className="rounded-[1.5rem] border border-slate-100 bg-white px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prepared By</p>
-            <p className="mt-1 text-sm font-bold text-slate-800">{specialistName}</p>
-          </div>
-        )}
 
         <div className="flex gap-2 overflow-x-auto hide-scrollbar">
           {weekDays.map((day) => (
