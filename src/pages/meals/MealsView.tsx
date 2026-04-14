@@ -81,10 +81,29 @@ type MealsByDay = Partial<
 >;
 
 const SPECIALIST_ROLES = new Set([
+  'SUPER_ADMIN',
   'NUTRITIONIST',
   'PEDIATRICIAN',
   'CULINARIAN',
 ]);
+
+function normalizeMealSlot(value?: string | null): MealSlot | null {
+  const normalized = value?.trim().toUpperCase();
+
+  switch (normalized) {
+    case 'BREAKFAST':
+      return 'Breakfast';
+    case 'LUNCH':
+      return 'Lunch';
+    case 'DINNER':
+      return 'Dinner';
+    case 'SNACK':
+    case 'SNACKS':
+      return 'Snack';
+    default:
+      return null;
+  }
+}
 
 type LibrarySubTab = 'mealLib' | 'foodLib';
 type SortBy = 'recent' | 'alpha';
@@ -2230,13 +2249,8 @@ const MealsView: React.FC = () => {
   }, [location.pathname, location.state, navigate]);
 
   // Helper to map meal time to valid type
-  const getMealType = (mealTime: string | undefined): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' => {
-    const time = (mealTime || '').toLowerCase();
-    if (time.includes('breakfast')) return 'Breakfast';
-    if (time.includes('lunch')) return 'Lunch';
-    if (time.includes('dinner')) return 'Dinner';
-    return 'Snack';
-  };
+  const getMealType = (mealTime: string | undefined): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' =>
+    normalizeMealSlot(mealTime) || 'Snack';
 
   // Transform backend meals to match UI format
   const transformedMeals = backendMeals.map(m => ({
@@ -2851,9 +2865,9 @@ const MealsView: React.FC = () => {
 
   const buildMealSelectionsForPlan = (plan: BackendMealPlan) =>
     (plan.meals || []).reduce<Partial<Record<MealSlot, PlannedMealSelection[]>>>((acc, meal) => {
-      const slots = (plan.mealTimes?.[meal.id] || []).filter(
-        (slot): slot is MealSlot => MEAL_SLOTS.includes(slot as MealSlot)
-      );
+      const slots = (plan.mealTimes?.[meal.id] || [])
+        .map((slot) => normalizeMealSlot(slot))
+        .filter((slot): slot is MealSlot => slot !== null);
 
       slots.forEach((slot) => {
         acc[slot] = [...(acc[slot] ?? []), mapBackendMealToSelection(meal, slot)];
