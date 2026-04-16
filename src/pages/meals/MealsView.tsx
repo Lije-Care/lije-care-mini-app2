@@ -759,7 +759,8 @@ function getDetailedMealSummary(
   detailedMeal: DetailedMeal | null | undefined,
   multiplier: number,
   unitLabelsById: Record<string, string>,
-  unitRecordsById: Record<string, UnitLookupRecord>
+  unitRecordsById: Record<string, UnitLookupRecord>,
+  options?: { preferVolumeLabel?: boolean }
 ) {
   if (!detailedMeal) {
     return {
@@ -784,19 +785,31 @@ function getDetailedMealSummary(
   };
 
   const measurement = deriveMealMeasurement(scaledDetailedMeal);
+  const volumeMeasurementLabel =
+    typeof scaledDetailedMeal.totalVolume === 'number' &&
+    scaledDetailedMeal.totalVolume > 0
+      ? `${formatMeasurementValue(scaledDetailedMeal.totalVolume)} ml`
+      : null;
+  const computedVolumeMeasurementLabel =
+    measurement.kind === 'single' && measurement.displayAsVolume
+      ? `${formatMeasurementValue(measurement.kitchenVolumeBase ?? measurement.baseValue)} ml`
+      : null;
   const measurementLabel =
-    measurement.kind === 'single'
-      ? `${formatMeasurementValue(measurement.baseValue)} ${measurement.family === 'volume' ? 'ml' : 'g'}`
+    options?.preferVolumeLabel && (volumeMeasurementLabel || computedVolumeMeasurementLabel)
+      ? volumeMeasurementLabel || computedVolumeMeasurementLabel
+      : measurement.kind === 'single'
+      ? `${formatMeasurementValue(
+          measurement.displayAsVolume
+            ? (measurement.kitchenVolumeBase ?? measurement.baseValue)
+            : measurement.baseValue
+        )} ${measurement.family === 'volume' || measurement.displayAsVolume ? 'ml' : 'g'}`
       : measurement.kind === 'mixed'
         ? measurement.values
             .map((entry) =>
               `${formatMeasurementValue(entry.baseValue)} ${entry.family === 'volume' ? 'ml' : 'g'}`
             )
             .join(' + ')
-        : typeof scaledDetailedMeal.totalVolume === 'number' &&
-            scaledDetailedMeal.totalVolume > 0
-          ? `${formatMeasurementValue(scaledDetailedMeal.totalVolume)} ml`
-          : null;
+        : volumeMeasurementLabel;
 
   return {
     calories: getMealCaloriesSummary(
@@ -2624,6 +2637,7 @@ const MealsView: React.FC = () => {
       sanitizeMultiplier(multiplier),
       unitLabelsById,
       unitRecordsById,
+      { preferVolumeLabel: true },
     );
 
   const currentCals = useMemo(
@@ -3241,6 +3255,7 @@ const MealsView: React.FC = () => {
         multiplier,
         unitLabelsById,
         unitRecordsById,
+        { preferVolumeLabel: true },
       );
     };
     const slotEntries = mealSlots.map((slot) => {
