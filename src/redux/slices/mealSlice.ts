@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import api from "@/api/axios";
+import api, { getPreferredLanguage } from "@/api/axios";
 
 interface Meal {
   id: string;
@@ -50,6 +50,22 @@ interface MealState {
   mealsLoading: boolean;
   ingredientsLoading: boolean;
   error: string | null;
+  mealsPagination: {
+    total: number;
+    lastPage: number;
+    currentPage: number;
+    perPage: number;
+    prev: number | null;
+    next: number | null;
+  } | null;
+  ingredientsPagination: {
+    total: number;
+    lastPage: number;
+    currentPage: number;
+    perPage: number;
+    prev: number | null;
+    next: number | null;
+  } | null;
 }
 
 const initialState: MealState = {
@@ -58,16 +74,42 @@ const initialState: MealState = {
   mealsLoading: false,
   ingredientsLoading: false,
   error: null,
+  mealsPagination: null,
+  ingredientsPagination: null,
 };
 
 export const fetchMeals = createAsyncThunk<
-  Meal[],
-  void,
+  {
+    data: Meal[];
+    pagination: MealState["mealsPagination"];
+    append: boolean;
+  },
+  {
+    page?: number;
+    limit?: number;
+    search?: string;
+    append?: boolean;
+  } | void,
   { rejectValue: string }
->("meals/fetchAll", async (_, thunkAPI) => {
+>("meals/fetchAll", async (params, thunkAPI) => {
   try {
-    const response = await api.get("/meal/find-all");
-    return response.data.data || response.data;
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 10;
+    const search = params?.search?.trim();
+    const response = await api.get("/meal/find-all", {
+      params: {
+        page,
+        limit,
+        lang: getPreferredLanguage(),
+        ...(search ? { search } : {}),
+      },
+    });
+
+    return {
+      data: response.data.data || response.data,
+      pagination: response.data.meta || null,
+      append: params?.append ?? page > 1,
+    };
   } catch (error: any) {
     return thunkAPI.rejectWithValue(
       error.response?.data?.message || "Failed to fetch meals"
@@ -76,13 +118,36 @@ export const fetchMeals = createAsyncThunk<
 });
 
 export const fetchIngredients = createAsyncThunk<
-  Ingredient[],
-  void,
+  {
+    data: Ingredient[];
+    pagination: MealState["ingredientsPagination"];
+    append: boolean;
+  },
+  {
+    page?: number;
+    limit?: number;
+    search?: string;
+    append?: boolean;
+  } | void,
   { rejectValue: string }
->("meals/fetchIngredients", async (_, thunkAPI) => {
+>("meals/fetchIngredients", async (params, thunkAPI) => {
   try {
-    const response = await api.get("/ingredient/find-all");
-    return response.data.data || response.data;
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 10;
+    const search = params?.search?.trim();
+    const response = await api.get("/ingredient/find-all", {
+      params: {
+        page,
+        limit,
+        ...(search ? { search } : {}),
+      },
+    });
+
+    return {
+      data: response.data.data || response.data,
+      pagination: response.data.meta || null,
+      append: params?.append ?? page > 1,
+    };
   } catch (error: any) {
     return thunkAPI.rejectWithValue(
       error.response?.data?.message || "Failed to fetch ingredients"
@@ -103,9 +168,27 @@ const mealSlice = createSlice({
       })
       .addCase(
         fetchMeals.fulfilled,
-        (state, action: PayloadAction<Meal[]>) => {
+        (
+          state,
+          action: PayloadAction<{
+            data: Meal[];
+            pagination: MealState["mealsPagination"];
+            append: boolean;
+          }>
+        ) => {
           state.mealsLoading = false;
-          state.meals = action.payload;
+          state.mealsPagination = action.payload.pagination;
+
+          if (action.payload.append) {
+            const existingIds = new Set(state.meals.map((meal) => meal.id));
+            const nextMeals = action.payload.data.filter(
+              (meal) => !existingIds.has(meal.id)
+            );
+            state.meals = [...state.meals, ...nextMeals];
+            return;
+          }
+
+          state.meals = action.payload.data;
         }
       )
       .addCase(fetchMeals.rejected, (state, action) => {
@@ -119,9 +202,29 @@ const mealSlice = createSlice({
       })
       .addCase(
         fetchIngredients.fulfilled,
-        (state, action: PayloadAction<Ingredient[]>) => {
+        (
+          state,
+          action: PayloadAction<{
+            data: Ingredient[];
+            pagination: MealState["ingredientsPagination"];
+            append: boolean;
+          }>
+        ) => {
           state.ingredientsLoading = false;
-          state.ingredients = action.payload;
+          state.ingredientsPagination = action.payload.pagination;
+
+          if (action.payload.append) {
+            const existingIds = new Set(
+              state.ingredients.map((ingredient) => ingredient.id)
+            );
+            const nextIngredients = action.payload.data.filter(
+              (ingredient) => !existingIds.has(ingredient.id)
+            );
+            state.ingredients = [...state.ingredients, ...nextIngredients];
+            return;
+          }
+
+          state.ingredients = action.payload.data;
         }
       )
       .addCase(fetchIngredients.rejected, (state, action) => {

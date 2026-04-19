@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import api from "@/api/axios";
+import api, { getPreferredLanguage } from "@/api/axios";
 import { Placeholder } from "@telegram-apps/telegram-ui";
 import { useNavigate, useParams } from "react-router-dom";
 import { Page } from "@/components/Page";
@@ -47,7 +47,7 @@ type MealPlan = {
 };
 
 const ChildMealPlanSummary = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [mealPlans, setMealPlans] = useState<any[] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,9 @@ const ChildMealPlanSummary = () => {
 
   const fetchMealDetails = async (mealPlanId: string) => {
     try {
-      const res = await api.get(`/meal-plans/find-one/${mealPlanId}`);
+      const res = await api.get(
+        `/meal-plans/find-one/${mealPlanId}?lang=${i18n.language || getPreferredLanguage()}`
+      );
       return res.data;
     } catch (err) {
       console.error("Error fetching meal detail:", err);
@@ -99,7 +101,9 @@ const ChildMealPlanSummary = () => {
   useEffect(() => {
     if (!childId) return;
     api
-      .get(`/meal-plans/by-child/${childId}`)
+      .get(
+        `/meal-plans/by-child/${childId}?lang=${i18n.language || getPreferredLanguage()}`
+      )
       .then(async (response) => {
         const basicPlans = response.data?.data ?? [];
         const detailedPlans = await Promise.all(
@@ -125,7 +129,7 @@ const ChildMealPlanSummary = () => {
         console.error("Error fetching meal plans:", err);
         setMealPlans([]);
       });
-  }, [childId]);
+  }, [childId, i18n.language]);
 
   const uniqueDates = useMemo(() => {
     if (!mealPlans) return [];

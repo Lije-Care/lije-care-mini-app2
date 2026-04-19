@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import api from "@/api/axios";
+import api, { getPreferredLanguage } from "@/api/axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -15,7 +15,7 @@ type SelectedMeal = {
 };
 
 const MealLibraryComponent = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [meals, setMeals] = useState<any[]>([]);
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [selectedMeals, setSelectedMeals] = useState<SelectedMeal[]>([]);
@@ -121,7 +121,9 @@ const MealLibraryComponent = () => {
   useEffect(() => {
     const fetchMeals = async () => {
       try {
-        const res = await api.get("meal/find-all?skip=0&limit=1000");
+        const res = await api.get(
+          `meal/find-all?skip=0&limit=1000&lang=${i18n.language || getPreferredLanguage()}`
+        );
         const responseData = Array.isArray(res.data)
           ? res.data
           : res.data?.data;
@@ -134,17 +136,21 @@ const MealLibraryComponent = () => {
       }
     };
     fetchMeals();
-  }, [t]);
+  }, [t, i18n.language]);
   useEffect(() => {
     if (!paramId) return;
     const fetchAllMealPlans = async () => {
       try {
-        const response = await api.get(`/meal-plans/by-child/${paramId}`);
+        const response = await api.get(
+          `/meal-plans/by-child/${paramId}?lang=${i18n.language || getPreferredLanguage()}`
+        );
         const basicPlans = response.data?.data ?? [];
         const detailedPlans = await Promise.all(
           basicPlans.map(async (plan: any) => {
             try {
-              const res = await api.get(`/meal-plans/find-one/${plan.id}`);
+              const res = await api.get(
+                `/meal-plans/find-one/${plan.id}?lang=${i18n.language || getPreferredLanguage()}`
+              );
               return res.data;
             } catch (err) {
               console.error(`Error fetching detail for plan ${plan.id}:`, err);
@@ -170,7 +176,7 @@ const MealLibraryComponent = () => {
       }
     };
     fetchAllMealPlans();
-  }, [paramId]);
+  }, [paramId, i18n.language]);
   useEffect(() => {
     if (meals.length > 0 && !activeTab) {
       const uniqueTimes = Array.from(

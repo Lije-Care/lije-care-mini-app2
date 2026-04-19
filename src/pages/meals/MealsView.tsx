@@ -5,9 +5,10 @@ import { fetchMeals, fetchIngredients } from '@/redux/slices/mealSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon, AssessmentIcon, TrashIcon } from '@/design-system/icons';
 import type { Meal } from '@/design-system/types';
-import api from '@/api/axios';
+import api, { getPreferredLanguage } from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { calculateNutrients } from '@/utils/calculateNutrients';
+import { useTranslation } from 'react-i18next';
 
 type UnitLookupRecord = {
   id: string;
@@ -2099,7 +2100,15 @@ const MealsView: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { meals: backendMeals, ingredients: backendIngredients } = useSelector((state: RootState) => state.meals);
+  const { i18n } = useTranslation();
+  const {
+    meals: backendMeals,
+    ingredients: backendIngredients,
+    mealsPagination,
+    mealsLoading,
+    ingredientsPagination,
+    ingredientsLoading,
+  } = useSelector((state: RootState) => state.meals);
   const { data: children = [], loading: childrenLoading } = useSelector((state: RootState) => state.children);
 
   const [subTab, setSubTab] = useState<'mealLib' | 'foodLib' | 'planning'>('planning');
@@ -2110,6 +2119,8 @@ const MealsView: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<DayKey>('Mon');
   const [activeSlot, setActiveSlot] = useState<MealSlot>('Breakfast');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedMealSearch, setDebouncedMealSearch] = useState('');
+  const [debouncedIngredientSearch, setDebouncedIngredientSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('recent');
   const [ageFilter, setAgeFilter] = useState('all');
@@ -2134,6 +2145,12 @@ const MealsView: React.FC = () => {
   const [savingPlan, setSavingPlan] = useState(false);
   const [plansSuccess, setPlansSuccess] = useState<string | null>(null);
   const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
+  const mealCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const ingredientCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const previousVisibleMealIdsRef = useRef<string[]>([]);
+  const previousVisibleIngredientIdsRef = useRef<string[]>([]);
+  const shouldScrollToLoadedMealsRef = useRef(false);
+  const shouldScrollToLoadedIngredientsRef = useRef(false);
   const [activeViewPlan, setActiveViewPlan] = useState<BackendMealPlan | null>(null);
   const [activeViewDay, setActiveViewDay] = useState<string | null>(null);
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
@@ -2167,9 +2184,22 @@ const MealsView: React.FC = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchMeals());
-    dispatch(fetchIngredients());
-  }, [dispatch]);
+    const timeoutId = window.setTimeout(() => {
+      const nextSearch = searchQuery.trim();
+      setDebouncedMealSearch(nextSearch);
+      setDebouncedIngredientSearch(nextSearch);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    dispatch(fetchMeals({ page: 1, limit: 10, search: debouncedMealSearch }));
+  }, [debouncedMealSearch, dispatch, i18n.language]);
+
+  useEffect(() => {
+    dispatch(fetchIngredients({ page: 1, limit: 10, search: debouncedIngredientSearch }));
+  }, [debouncedIngredientSearch, dispatch]);
 
   useEffect(() => {
     let active = true;
@@ -2392,7 +2422,9 @@ const MealsView: React.FC = () => {
     const loadVisibleMealDetails = async () => {
       const results = await Promise.allSettled(
         visibleMealIds.map(async (mealId) => {
-          const response = await api.get<DetailedMeal>(`/meal/find-one/${mealId}`);
+          const response = await api.get<DetailedMeal>(
+            `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
+          );
           return [mealId, response.data] as const;
         })
       );
@@ -2420,7 +2452,7 @@ const MealsView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [baseMealsForActiveSlot, viewPlanMealDetails]);
+  }, [baseMealsForActiveSlot, i18n.language, viewPlanMealDetails]);
 
   const commonAllergens = useMemo(() => {
     const defaults = ['Milk', 'Eggs', 'Peanuts', 'Tree Nuts', 'Fish', 'Shellfish', 'Soy', 'Wheat'];
@@ -2443,15 +2475,6 @@ const MealsView: React.FC = () => {
 
   const filteredMeals = useMemo(() => {
     let result = [...transformedMeals];
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((meal) =>
-        meal.name.toLowerCase().includes(query) ||
-        meal.description.toLowerCase().includes(query) ||
-        meal.derivedAllergens.some((allergen) => allergen.toLowerCase().includes(query))
-      );
-    }
 
     if (ageFilter !== 'all') {
       const maxMonths = getAgeFilterLimitInMonths(ageFilter);
@@ -2498,7 +2521,6 @@ const MealsView: React.FC = () => {
     return result.map(({ raw: _raw, minAgeMonths: _minAgeMonths, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal);
   }, [
     transformedMeals,
-    searchQuery,
     ageFilter,
     mealTypeFilter,
     excludedAllergens,
@@ -2507,6 +2529,35 @@ const MealsView: React.FC = () => {
     categoryFilter,
     sortBy,
   ]);
+  const canLoadMoreMeals = Boolean(mealsPagination?.next);
+
+  useEffect(() => {
+    if (!shouldScrollToLoadedMealsRef.current || mealsLoading) {
+      previousVisibleMealIdsRef.current = filteredMeals.map((meal) => meal.id);
+      return;
+    }
+
+    const previousVisibleMealIds = new Set(previousVisibleMealIdsRef.current);
+    const firstNewVisibleMeal = filteredMeals.find(
+      (meal) => !previousVisibleMealIds.has(meal.id)
+    );
+
+    previousVisibleMealIdsRef.current = filteredMeals.map((meal) => meal.id);
+    shouldScrollToLoadedMealsRef.current = false;
+
+    if (!firstNewVisibleMeal) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      mealCardRefs.current[firstNewVisibleMeal.id]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, [filteredMeals, mealsLoading]);
+
+  const canLoadMoreIngredients = Boolean(ingredientsPagination?.next);
 
   const plannerMealsForActiveSlot = useMemo(() => {
     const slotFilteredMeals = filteredMeals.filter((meal) => meal.type === activeSlot);
@@ -2529,30 +2580,24 @@ const MealsView: React.FC = () => {
     return Array.from(selectedById.values());
   }, [activeSlot, filteredMeals, selectedMealsForSlot]);
 
+  const handleLoadMoreMeals = () => {
+    if (!mealsPagination?.next || mealsLoading) {
+      return;
+    }
+
+    shouldScrollToLoadedMealsRef.current = true;
+    dispatch(
+      fetchMeals({
+        page: mealsPagination.next,
+        limit: mealsPagination.perPage,
+        search: debouncedMealSearch,
+        append: true,
+      })
+    );
+  };
+
   const filteredIngredients = useMemo(() => {
     let result = [...transformedIngredients];
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (ingredient) => {
-          const haystack = [
-            ingredient.name,
-            ingredient.raw.foodGroup,
-            ingredient.raw.allergenDescription || '',
-            ingredient.raw.intoleranceDescription || '',
-          ]
-            .join(' ')
-            .toLowerCase();
-
-          const queryKeywords = getIngredientTypeKeywords(query);
-          return (
-            haystack.includes(query) ||
-            queryKeywords.some((keyword) => haystack.includes(keyword))
-          );
-        }
-      );
-    }
 
     if (ageFilter !== 'all') {
       const match = ageFilter.match(/\d+/);
@@ -2622,7 +2667,6 @@ const MealsView: React.FC = () => {
     return result.map(({ raw: _raw, derivedType: _derivedType, derivedDietType: _derivedDietType, ...ingredient }) => ingredient);
   }, [
     transformedIngredients,
-    searchQuery,
     ageFilter,
     ingredientTypeFilter,
     ingredientTypeKeywords,
@@ -2631,6 +2675,54 @@ const MealsView: React.FC = () => {
     dietTypeFilter,
     sortBy,
   ]);
+
+  useEffect(() => {
+    if (!shouldScrollToLoadedIngredientsRef.current || ingredientsLoading) {
+      previousVisibleIngredientIdsRef.current = filteredIngredients.map(
+        (ingredient) => ingredient.id
+      );
+      return;
+    }
+
+    const previousVisibleIngredientIds = new Set(
+      previousVisibleIngredientIdsRef.current
+    );
+    const firstNewVisibleIngredient = filteredIngredients.find(
+      (ingredient) => !previousVisibleIngredientIds.has(ingredient.id)
+    );
+
+    previousVisibleIngredientIdsRef.current = filteredIngredients.map(
+      (ingredient) => ingredient.id
+    );
+    shouldScrollToLoadedIngredientsRef.current = false;
+
+    if (!firstNewVisibleIngredient) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      ingredientCardRefs.current[firstNewVisibleIngredient.id]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, [filteredIngredients, ingredientsLoading]);
+
+  const handleLoadMoreIngredients = () => {
+    if (!ingredientsPagination?.next || ingredientsLoading) {
+      return;
+    }
+
+    shouldScrollToLoadedIngredientsRef.current = true;
+    dispatch(
+      fetchIngredients({
+        page: ingredientsPagination.next,
+        limit: ingredientsPagination.perPage,
+        search: debouncedIngredientSearch,
+        append: true,
+      })
+    );
+  };
   const getRealMealSummary = (mealId: string, multiplier: number) =>
     getDetailedMealSummary(
       viewPlanMealDetails[mealId],
@@ -2788,7 +2880,9 @@ const MealsView: React.FC = () => {
     );
 
     try {
-      const response = await api.get(`/meal/find-one/${mealId}`);
+      const response = await api.get(
+        `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
+      );
       setSelectedLibraryMeal(response.data);
     } catch (error: any) {
       setMealDetailError(
@@ -2936,7 +3030,9 @@ const MealsView: React.FC = () => {
     if (missingMealIds.length > 0) {
       void Promise.allSettled(
         missingMealIds.map(async (mealId) => {
-          const response = await api.get<DetailedMeal>(`/meal/find-one/${mealId}`);
+          const response = await api.get<DetailedMeal>(
+            `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
+          );
           return { id: mealId, meal: response.data };
         })
       ).then((results) => {
@@ -3060,7 +3156,9 @@ const MealsView: React.FC = () => {
 
     try {
       const responses = await Promise.all(
-        childIds.map((childId) => api.get(`/meal-plans/by-child/${childId}`))
+        childIds.map((childId) =>
+          api.get(`/meal-plans/by-child/${childId}?lang=${i18n.language || getPreferredLanguage()}`)
+        )
       );
 
       const fetchedPlans = responses.flatMap(
@@ -3907,6 +4005,16 @@ const MealsView: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {canLoadMoreMeals ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadMoreMeals}
+                    disabled={mealsLoading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {mealsLoading ? 'Loading more...' : 'Load More Meals'}
+                  </button>
+                ) : null}
               </div>
 
               <div className="flex items-center justify-between pt-4">
@@ -3966,48 +4074,78 @@ const MealsView: React.FC = () => {
 
         <div className="grid grid-cols-1 gap-5">
           {subTab === 'mealLib' ? (
-          filteredMeals.map(meal => (
-            <button
-              key={meal.id}
-              type="button"
-              onClick={() => void openMealDetail(meal.id)}
-              className="cursor-pointer bg-white rounded-[2.5rem] p-5 flex gap-5 border border-slate-50 shadow-sm transition-transform active:scale-95 text-left"
-            >
-              <img src={meal.image} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0" alt={meal.name} />
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="flex justify-between items-start mb-1">
-                  <h5 className="font-bold text-slate-800 text-base">{meal.name}</h5>
-                  <span className="text-[9px] font-black bg-sky-50 text-sky-500 px-2 py-0.5 rounded uppercase">{meal.ageGroup}</span>
+          <>
+            {filteredMeals.map(meal => (
+              <button
+                key={meal.id}
+                ref={(node) => {
+                  mealCardRefs.current[meal.id] = node;
+                }}
+                type="button"
+                onClick={() => void openMealDetail(meal.id)}
+                className="cursor-pointer bg-white rounded-[2.5rem] p-5 flex gap-5 border border-slate-50 shadow-sm transition-transform active:scale-95 text-left"
+              >
+                <img src={meal.image} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0" alt={meal.name} />
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="flex justify-between items-start mb-1">
+                    <h5 className="font-bold text-slate-800 text-base">{meal.name}</h5>
+                    <span className="text-[9px] font-black bg-sky-50 text-sky-500 px-2 py-0.5 rounded uppercase">{meal.ageGroup}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{meal.description}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {meal.nutrients.map(n => (
+                      <span key={n} className="text-[8px] font-black uppercase bg-slate-50 text-slate-400 px-2 py-1 rounded-md border border-slate-100">{n}</span>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{meal.description}</p>
-                <div className="flex flex-wrap gap-1">
-                  {meal.nutrients.map(n => (
-                    <span key={n} className="text-[8px] font-black uppercase bg-slate-50 text-slate-400 px-2 py-1 rounded-md border border-slate-100">{n}</span>
-                  ))}
-                </div>
-              </div>
-            </button>
-          ))
+              </button>
+            ))}
+            {canLoadMoreMeals ? (
+              <button
+                type="button"
+                onClick={handleLoadMoreMeals}
+                disabled={mealsLoading}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {mealsLoading ? 'Loading more...' : 'Load More Meals'}
+              </button>
+            ) : null}
+          </>
         ) : (
-          filteredIngredients.map(food => (
-            <button
-              key={food.id}
-              type="button"
-              onClick={() => void openIngredientDetail(food.id)}
-              className="cursor-pointer bg-white rounded-[2.5rem] p-4 flex gap-5 border border-slate-50 shadow-sm text-left transition-transform active:scale-95"
-            >
-              <img src={food.image} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" alt={food.name} />
-              <div className="flex-1 flex flex-col justify-center">
-                <h5 className="font-bold text-slate-800">{food.name}</h5>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Per {food.portion} • {food.calories} kcal</p>
-                <div className="flex gap-1">
-                  {food.nutrients.map(n => (
-                    <span key={n.name} className="text-[9px] font-black bg-emerald-50 text-emerald-500 px-2 py-0.5 rounded uppercase tracking-wider">{n.name}: {n.amount}</span>
-                  ))}
+          <>
+            {filteredIngredients.map(food => (
+              <button
+                key={food.id}
+                ref={(node) => {
+                  ingredientCardRefs.current[food.id] = node;
+                }}
+                type="button"
+                onClick={() => void openIngredientDetail(food.id)}
+                className="cursor-pointer bg-white rounded-[2.5rem] p-4 flex gap-5 border border-slate-50 shadow-sm text-left transition-transform active:scale-95"
+              >
+                <img src={food.image} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" alt={food.name} />
+                <div className="flex-1 flex flex-col justify-center">
+                  <h5 className="font-bold text-slate-800">{food.name}</h5>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Per {food.portion} • {food.calories} kcal</p>
+                  <div className="flex gap-1">
+                    {food.nutrients.map(n => (
+                      <span key={n.name} className="text-[9px] font-black bg-emerald-50 text-emerald-500 px-2 py-0.5 rounded uppercase tracking-wider">{n.name}: {n.amount}</span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))
+              </button>
+            ))}
+            {canLoadMoreIngredients ? (
+              <button
+                type="button"
+                onClick={handleLoadMoreIngredients}
+                disabled={ingredientsLoading}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {ingredientsLoading ? 'Loading more...' : 'Load More Ingredients'}
+              </button>
+            ) : null}
+          </>
         )}
       </div>
     </div>

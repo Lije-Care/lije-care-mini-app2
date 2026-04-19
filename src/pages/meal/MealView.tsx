@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "@/api/axios";
+import api, { getPreferredLanguage } from "@/api/axios";
 import {
   Title,
   Text,
@@ -23,7 +23,9 @@ const MealDetails: React.FC = () => {
   useEffect(() => {
     const fetchMealPlan = async () => {
       try {
-        const res = await api.get(`/meal-plans/find-one/${id}`);
+        const res = await api.get(
+          `/meal-plans/find-one/${id}?lang=${getPreferredLanguage()}`
+        );
         setData(res.data);
       } catch (err: any) {
         setError(err?.response?.data?.message || "Something went wrong");

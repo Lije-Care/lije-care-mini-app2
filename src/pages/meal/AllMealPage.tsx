@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import api from "@/api/axios";
+import api, { getPreferredLanguage } from "@/api/axios";
 import fallback from "@/assets/meal.png";
 import { useTranslation } from "react-i18next";
 import { Eye } from "lucide-react";
 
 const AllMealPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [meals, setMeals] = useState<any[]>([]);
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [selectedMeals] = useState<{ meal: any; multiplier: number }[]>([]);
@@ -18,7 +18,9 @@ const AllMealPage = () => {
   useEffect(() => {
     const fetchMeals = async () => {
       try {
-        const res = await api.get(`meal/find-all?skip=${1}&limit=${1000}`);
+        const res = await api.get(
+          `meal/find-all?skip=${1}&limit=${1000}&lang=${i18n.language || getPreferredLanguage()}`
+        );
         const responseData = Array.isArray(res.data)
           ? res.data
           : res.data?.data;
@@ -33,7 +35,7 @@ const AllMealPage = () => {
       }
     };
     fetchMeals();
-  }, [t]);
+  }, [t, i18n.language]);
 
   useEffect(() => {
     if (meals.length > 0 && !activeTab) {

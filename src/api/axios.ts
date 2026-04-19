@@ -4,6 +4,9 @@ const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
 
+export const getPreferredLanguage = () =>
+  localStorage.getItem("user-language") || "en";
+
 // Add a request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
