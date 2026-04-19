@@ -2350,6 +2350,13 @@ const MealsView: React.FC = () => {
 
   // Use transformed data or fallback to empty arrays
   const MEALS = transformedMeals.length > 0 ? transformedMeals.map(({ raw: _raw, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal) : [];
+  const transformedMealsById = useMemo(
+    () =>
+      new Map(
+        transformedMeals.map((meal) => [meal.id, meal] as const)
+      ),
+    [transformedMeals]
+  );
   const selectedMealsForSlot = useMemo(
     () => selectedMealsByDay[selectedDay]?.[activeSlot] ?? [],
     [activeSlot, selectedDay, selectedMealsByDay]
@@ -2387,73 +2394,6 @@ const MealsView: React.FC = () => {
       return next;
     });
   }, [selectedMealsForSlot]);
-  const baseMealsForActiveSlot = useMemo(() => {
-    const slotMeals = MEALS.filter((meal) => meal.type === activeSlot);
-    const selectedById = new Map<string, Meal>(
-      selectedMealsForSlot.map((selection) => [
-        selection.meal.id,
-        {
-          ...selection.meal,
-          type: activeSlot,
-        },
-      ])
-    );
-
-    slotMeals.forEach((meal) => {
-      if (!selectedById.has(meal.id)) {
-        selectedById.set(meal.id, meal);
-      }
-    });
-
-    return Array.from(selectedById.values());
-  }, [MEALS, activeSlot, selectedMealsForSlot]);
-
-  useEffect(() => {
-    const visibleMealIds = baseMealsForActiveSlot
-      .map((meal) => meal.id)
-      .filter((mealId) => mealId && !viewPlanMealDetails[mealId]);
-
-    if (visibleMealIds.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadVisibleMealDetails = async () => {
-      const results = await Promise.allSettled(
-        visibleMealIds.map(async (mealId) => {
-          const response = await api.get<DetailedMeal>(
-            `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
-          );
-          return [mealId, response.data] as const;
-        })
-      );
-
-      if (cancelled) {
-        return;
-      }
-
-      setViewPlanMealDetails((current) => {
-        const next = { ...current };
-
-        results.forEach((result) => {
-          if (result.status === 'fulfilled') {
-            const [mealId, detailedMeal] = result.value;
-            next[mealId] = detailedMeal;
-          }
-        });
-
-        return next;
-      });
-    };
-
-    void loadVisibleMealDetails();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [baseMealsForActiveSlot, i18n.language, viewPlanMealDetails]);
-
   const commonAllergens = useMemo(() => {
     const defaults = ['Milk', 'Eggs', 'Peanuts', 'Tree Nuts', 'Fish', 'Shellfish', 'Soy', 'Wheat'];
     const backendValues = transformedMeals.flatMap((meal) => meal.derivedAllergens);
@@ -2723,14 +2663,37 @@ const MealsView: React.FC = () => {
       })
     );
   };
-  const getRealMealSummary = (mealId: string, multiplier: number) =>
-    getDetailedMealSummary(
-      viewPlanMealDetails[mealId],
-      sanitizeMultiplier(multiplier),
-      unitLabelsById,
-      unitRecordsById,
-      { preferVolumeLabel: true },
-    );
+  const getRealMealSummary = (mealId: string, multiplier: number) => {
+    const sanitizedMultiplier = sanitizeMultiplier(multiplier);
+    const detailedMeal = viewPlanMealDetails[mealId];
+
+    if (detailedMeal) {
+      return getDetailedMealSummary(
+        detailedMeal,
+        sanitizedMultiplier,
+        unitLabelsById,
+        unitRecordsById,
+        { preferVolumeLabel: true },
+      );
+    }
+
+    const fallbackMeal = transformedMealsById.get(mealId);
+    const totalVolume = fallbackMeal?.raw.totalVolume;
+    const estimatedCalories = fallbackMeal?.calories
+      ? Number((fallbackMeal.calories * sanitizedMultiplier).toFixed(0))
+      : null;
+
+    return {
+      calories:
+        estimatedCalories != null
+          ? { amount: estimatedCalories, unitLabel: 'kcal' }
+          : null,
+      measurement:
+        typeof totalVolume === 'number' && totalVolume > 0
+          ? `${formatMeasurementValue(totalVolume * sanitizedMultiplier)} ml`
+          : null,
+    };
+  };
 
   const currentCals = useMemo(
     () =>
@@ -2884,6 +2847,10 @@ const MealsView: React.FC = () => {
         `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
       );
       setSelectedLibraryMeal(response.data);
+      setViewPlanMealDetails((current) => ({
+        ...current,
+        [mealId]: response.data,
+      }));
     } catch (error: any) {
       setMealDetailError(
         error?.response?.data?.message || 'Failed to load meal details.'

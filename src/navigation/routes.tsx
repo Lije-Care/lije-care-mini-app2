@@ -1,28 +1,31 @@
-import type { ComponentType, JSX } from "react";
+import { lazy, type ComponentType, type JSX, type LazyExoticComponent } from "react";
 import { Navigate } from "react-router-dom";
 
-// Existing pages
-import { BookDoctorsPage } from "@/pages/BookDoctorsPage.tsx";
-import PaymentScreen from "@/components/Templates/PaymentScreen";
-import PaymentSuccessScreen from "@/pages/PaymentSuccessScreen";
-import MealPlanPage from "@/pages/meal/MealPlanPage";
-import ConsultationBookingPage from "@/pages/ConsultationBookingPage";
-import ChildProfilePage from "@/pages/ChildProfilePage";
-import ChildrenListPage from "@/pages/ChildrenListPage";
-import ProductDetailPage from "@/pages/ecommerce/products/ProductDetailPage";
-import CheckoutPage from "@/pages/ecommerce/checkout/CheckoutPage";
-
-// New pages with new design
-import HomeDashboard from "@/pages/home/HomeDashboard";
-import AssessmentView from "@/pages/assessment/AssessmentView";
-import MealsView from "@/pages/meals/MealsView";
-import ShopView from "@/pages/shop/ShopView";
-import CallCenterView from "@/pages/Consultation/CallCenterView";
-import Onboarding from "@/pages/onboarding";
+const BookDoctorsPage = lazy(() =>
+  import("@/pages/BookDoctorsPage.tsx").then((module) => ({
+    default: module.BookDoctorsPage,
+  }))
+);
+const PaymentScreen = lazy(() => import("@/components/Templates/PaymentScreen"));
+const PaymentSuccessScreen = lazy(() => import("@/pages/PaymentSuccessScreen"));
+const MealPlanPage = lazy(() => import("@/pages/meal/MealPlanPage"));
+const ConsultationBookingPage = lazy(() => import("@/pages/ConsultationBookingPage"));
+const ChildProfilePage = lazy(() => import("@/pages/ChildProfilePage"));
+const ChildrenListPage = lazy(() => import("@/pages/ChildrenListPage"));
+const ProductDetailPage = lazy(() => import("@/pages/ecommerce/products/ProductDetailPage"));
+const CheckoutPage = lazy(() => import("@/pages/ecommerce/checkout/CheckoutPage"));
+const HomeDashboard = lazy(() => import("@/pages/home/HomeDashboard"));
+const AssessmentView = lazy(() => import("@/pages/assessment/AssessmentView"));
+const MealsView = lazy(() => import("@/pages/meals/MealsView"));
+const ShopView = lazy(() => import("@/pages/shop/ShopView"));
+const CallCenterView = lazy(() => import("@/pages/Consultation/CallCenterView"));
+const Onboarding = lazy(() => import("@/pages/onboarding"));
 
 interface Route {
   path: string;
-  Component: ComponentType;
+  Component:
+    | ComponentType
+    | LazyExoticComponent<ComponentType<any>>;
   protected?: boolean;
   title?: string;
   icon?: JSX.Element;

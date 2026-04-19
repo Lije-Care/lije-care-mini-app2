@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 import { routes } from "@/navigation/routes.tsx";
 import { Header, BottomNav } from "@/components/layout";
@@ -18,31 +18,28 @@ import { ProfileOverlayProvider } from "@/context/ProfileOverlayContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import ProfileOverlay from "@/components/ProfileOverlay";
 
-// Existing pages (keeping for compatibility)
-import MealComponent from "@/pages/meal/MealPlan";
-import MealPlanSummary from "@/pages/meal/MealPlanSummary";
-import EditMealPlan from "@/pages/meal/EditMealPLan";
-import VideoCall from "@/pages/Consultation/VideoCall";
-import MealDetails from "@/pages/meal/MealView";
-import ArticlesPage from "@/pages/knowledgebase/ArticleSlider";
-import ArticleDetail from "@/pages/knowledgebase/ArticleDetail";
-import AddChildPage from "./AddChildPage";
-import DoctorDetailPage from "@/pages/DoctorDetailPage";
-import MyAppointments from "@/pages/MyAppointments";
-import ChatScreen from "@/pages/Consultation/ChatScreen";
-import NotificationsPage from "@/pages/NotificationsPage";
-import ChildMealPlanSummery from "@/pages/meal/ChildMealPlanSummery";
-import PaymentForm from "./PaymentForm";
-import PaymentStatus from "./PaymentStatus";
-import BookingCheckout from "./booking/BookingCheckout";
-import PackageList from "./booking/PackageList";
-import BookingSuccess from "./booking/BookingSuccess";
-import ConsultationTab from "@/pages/ConsultationBookingPage";
-
-// New pages
-import AssessmentView from "@/pages/assessment/AssessmentView";
-import MealsView from "@/pages/meals/MealsView";
-import Onboarding from "@/pages/onboarding";
+const MealComponent = lazy(() => import("@/pages/meal/MealPlan"));
+const MealPlanSummary = lazy(() => import("@/pages/meal/MealPlanSummary"));
+const EditMealPlan = lazy(() => import("@/pages/meal/EditMealPLan"));
+const VideoCall = lazy(() => import("@/pages/Consultation/VideoCall"));
+const MealDetails = lazy(() => import("@/pages/meal/MealView"));
+const ArticlesPage = lazy(() => import("@/pages/knowledgebase/ArticleSlider"));
+const ArticleDetail = lazy(() => import("@/pages/knowledgebase/ArticleDetail"));
+const AddChildPage = lazy(() => import("./AddChildPage"));
+const DoctorDetailPage = lazy(() => import("@/pages/DoctorDetailPage"));
+const MyAppointments = lazy(() => import("@/pages/MyAppointments"));
+const ChatScreen = lazy(() => import("@/pages/Consultation/ChatScreen"));
+const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
+const ChildMealPlanSummery = lazy(() => import("@/pages/meal/ChildMealPlanSummery"));
+const PaymentForm = lazy(() => import("./PaymentForm"));
+const PaymentStatus = lazy(() => import("./PaymentStatus"));
+const BookingCheckout = lazy(() => import("./booking/BookingCheckout"));
+const PackageList = lazy(() => import("./booking/PackageList"));
+const BookingSuccess = lazy(() => import("./booking/BookingSuccess"));
+const ConsultationTab = lazy(() => import("@/pages/ConsultationBookingPage"));
+const AssessmentView = lazy(() => import("@/pages/assessment/AssessmentView"));
+const MealsView = lazy(() => import("@/pages/meals/MealsView"));
+const Onboarding = lazy(() => import("@/pages/onboarding"));
 
 // Main tab destinations — only these show the bottom nav and header
 const MAIN_TAB_PATHS = [
@@ -123,7 +120,14 @@ export function App() {
       <HashRouter>
         <AuthProvider>
           <Layout>
-            <Routes>
+            <Suspense
+              fallback={
+                <div className="flex min-h-[40vh] items-center justify-center px-6 text-sm font-medium text-slate-500">
+                  Loading...
+                </div>
+              }
+            >
+              <Routes>
               {/* Onboarding route - outside AuthGate */}
               <Route path="/onboarding" element={<Onboarding />} />
 
@@ -356,8 +360,9 @@ export function App() {
                 }
               />
 
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Suspense>
           </Layout>
         </AuthProvider>
       </HashRouter>
