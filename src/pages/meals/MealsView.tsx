@@ -3176,88 +3176,143 @@ const MealsView: React.FC = () => {
     setPlansError(null);
     setPlansSuccess(null);
 
-    const mealSelectionMap = mealsForPayload.reduce<
-      Record<string, { meal: Meal; mealTimes: Set<MealSlot>; multiplier: number }>
-    >((acc, entry) => {
-      const existing = acc[entry.meal.id];
-
-      if (existing) {
-        existing.mealTimes.add(entry.slot);
-        existing.multiplier += entry.multiplier;
-      } else {
-        acc[entry.meal.id] = {
-          meal: entry.meal,
-          mealTimes: new Set([entry.slot]),
-          multiplier: entry.multiplier,
-        };
-      }
-
-      return acc;
-    }, {});
-
-    const mealTimes = Object.fromEntries(
-      Object.entries(mealSelectionMap).map(([mealId, value]) => [
-        mealId,
-        Array.from(value.mealTimes),
-      ])
-    );
-
-    const payload = {
-      expertId: currentUserId ?? selectedChildId,
-      childId: selectedChildId,
-      source: 'parent',
-      meal_description: planName.trim(),
-      mealTimes,
-      meal_date: getNextDateForDay(selectedDay),
-      calories: currentCals,
-      meals: Object.values(mealSelectionMap).map(({ meal, multiplier }) => ({
-        id: meal.id,
-        multiplier: sanitizeMultiplier(multiplier),
-      })),
-    };
-
-    const matchingDayPlan =
-      editingPlanGroupKey
-        ? mealPlans.find(
-            (plan) =>
-              getPlanGroupKey(plan) === editingPlanGroupKey &&
-              getDayKeyFromIsoDate(plan.meal_date) === selectedDay
-          )
-        : null;
-
     try {
-      const response = await (
-        editingPlanGroupKey && matchingDayPlan
-          ? api.put(`/meal-plans/update/${matchingDayPlan.id}`, payload)
-          : editingPlanId && !editingPlanGroupKey
-            ? api.put(`/meal-plans/update/${editingPlanId}`, payload)
-            : api.post('/meal-plans/create', payload)
-      );
+      const populatedDayEntries = weekDays
+        .map((day) => {
+          const dayMeals = selectedMealsByDay[day] ?? {};
+          const mealsForDay = Object.entries(dayMeals).flatMap(([slot, meals]) =>
+            (meals ?? []).map((selection) => ({
+              slot: slot as MealSlot,
+              meal: selection.meal,
+              multiplier: sanitizeMultiplier(selection.multiplier),
+            }))
+          );
 
-      const savedPlan = response.data as BackendMealPlan;
-      if (savedPlan?.id) {
-        setMealPlans((current) => {
-          const next = current.filter((plan) => plan.id !== savedPlan.id);
-          return [...next, savedPlan];
-        });
+          if (!mealsForDay.length) {
+            return null;
+          }
+
+          const mealSelectionMap = mealsForDay.reduce<
+            Record<string, { meal: Meal; mealTimes: Set<MealSlot>; multiplier: number }>
+          >((acc, entry) => {
+            const existing = acc[entry.meal.id];
+
+            if (existing) {
+              existing.mealTimes.add(entry.slot);
+              existing.multiplier += entry.multiplier;
+            } else {
+              acc[entry.meal.id] = {
+                meal: entry.meal,
+                mealTimes: new Set([entry.slot]),
+                multiplier: entry.multiplier,
+              };
+            }
+
+            return acc;
+          }, {});
+
+          const normalizedMeals = Object.values(mealSelectionMap).map(
+            ({ meal, multiplier }) => ({
+              id: meal.id,
+              multiplier: sanitizeMultiplier(multiplier),
+            })
+          );
+
+          const mealTimes = Object.fromEntries(
+            Object.entries(mealSelectionMap).map(([mealId, value]) => [
+              mealId,
+              Array.from(value.mealTimes),
+            ])
+          );
+
+          const dayCalories = mealsForDay.reduce((sum, selection) => {
+            const summary = getRealMealSummary(selection.meal.id, selection.multiplier);
+            return sum + (summary.calories?.amount || 0);
+          }, 0);
+
+          const matchingDayPlan = editingPlanGroupKey
+            ? mealPlans.find(
+                (plan) =>
+                  getPlanGroupKey(plan) === editingPlanGroupKey &&
+                  getDayKeyFromIsoDate(plan.meal_date) === day
+              )
+            : null;
+
+          return {
+            day,
+            matchingDayPlan,
+            payload: {
+              expertId: currentUserId ?? selectedChildId,
+              childId: selectedChildId,
+              source: 'parent',
+              meal_description: planName.trim(),
+              mealTimes,
+              meal_date: getNextDateForDay(day),
+              calories: Math.round(dayCalories),
+              meals: normalizedMeals,
+            },
+          };
+        })
+        .filter(
+          (
+            entry
+          ): entry is {
+            day: DayKey;
+            matchingDayPlan: BackendMealPlan | undefined;
+            payload: {
+              expertId: string;
+              childId: string;
+              source: 'parent';
+              meal_description: string;
+              mealTimes: Record<string, MealSlot[]>;
+              meal_date: string;
+              calories: number;
+              meals: { id: string; multiplier: number }[];
+            };
+          } => Boolean(entry)
+        );
+
+      if (!populatedDayEntries.length) {
+        setPlansError('Select at least one meal for at least one day.');
+        setSavingPlan(false);
+        return;
       }
+
+      await Promise.all(
+        populatedDayEntries.map(({ matchingDayPlan, payload }, index) => {
+          if (editingPlanGroupKey && matchingDayPlan) {
+            return api.put(`/meal-plans/update/${matchingDayPlan.id}`, payload);
+          }
+
+          if (
+            editingPlanId &&
+            !editingPlanGroupKey &&
+            index === 0 &&
+            populatedDayEntries.length === 1
+          ) {
+            return api.put(`/meal-plans/update/${editingPlanId}`, payload);
+          }
+
+          return api.post('/meal-plans/create', payload);
+        })
+      );
 
       setSavingPlan(false);
       setPlanSourceTab('parent');
       setPlansSuccess(
         editingPlanGroupKey
-          ? matchingDayPlan
-            ? 'Meal plan updated.'
-            : 'New day added to your meal plan.'
+          ? 'Meal plan updated.'
           : editingPlanId
             ? 'Meal plan updated.'
-            : 'Meal plan saved to My Plans.'
+            : populatedDayEntries.length === 1
+              ? 'Meal plan saved to My Plans.'
+              : `${populatedDayEntries.length} days saved to My Plans.`
       );
       resetPlanBuilder();
       void refreshMealPlans();
     } catch (error: any) {
       console.error('Meal plan save failed', {
-        payload,
+        selectedMealsByDay,
         response: error?.response?.data,
       });
       const message = error?.response?.data?.message;
