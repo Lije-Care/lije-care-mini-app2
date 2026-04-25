@@ -2161,8 +2161,10 @@ const MealsView: React.FC = () => {
   const [savingPlan, setSavingPlan] = useState(false);
   const [plansSuccess, setPlansSuccess] = useState<string | null>(null);
   const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
-  const mealCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const ingredientCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const mealCardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const ingredientCardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const plannerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const librarySearchInputRef = useRef<HTMLInputElement | null>(null);
   const previousVisibleMealIdsRef = useRef<string[]>([]);
   const previousVisibleIngredientIdsRef = useRef<string[]>([]);
   const shouldScrollToLoadedMealsRef = useRef(false);
@@ -2216,6 +2218,42 @@ const MealsView: React.FC = () => {
   useEffect(() => {
     dispatch(fetchIngredients({ page: 1, limit: 10, search: debouncedIngredientSearch }));
   }, [debouncedIngredientSearch, dispatch, i18n.language]);
+
+  const insertSearchText = (text: string, input: HTMLInputElement | null) => {
+    if (!text) {
+      return;
+    }
+
+    const selectionStart = input?.selectionStart;
+    const selectionEnd = input?.selectionEnd;
+
+    setSearchQuery((currentValue) => {
+      const nextSelectionStart = selectionStart ?? currentValue.length;
+      const nextSelectionEnd = selectionEnd ?? currentValue.length;
+      return `${currentValue.slice(0, nextSelectionStart)}${text}${currentValue.slice(nextSelectionEnd)}`;
+    });
+
+    requestAnimationFrame(() => {
+      if (!input) {
+        return;
+      }
+
+      const cursorPosition = (selectionStart ?? input.value.length) + text.length;
+      input.focus();
+      input.setSelectionRange(cursorPosition, cursorPosition);
+    });
+  };
+
+  const handleSearchPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = event.clipboardData?.getData('text');
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    insertSearchText(pastedText, event.currentTarget);
+  };
 
   useEffect(() => {
     let active = true;
@@ -2470,8 +2508,6 @@ const MealsView: React.FC = () => {
 
     if (sortBy === 'alpha') {
       result.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      result.sort((a, b) => (b.raw.createdAt || '').localeCompare(a.raw.createdAt || ''));
     }
 
     return result.map(({ raw: _raw, minAgeMonths: _minAgeMonths, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal);
@@ -2486,32 +2522,6 @@ const MealsView: React.FC = () => {
     sortBy,
   ]);
   const canLoadMoreMeals = Boolean(mealsPagination?.next);
-
-  useEffect(() => {
-    if (!shouldScrollToLoadedMealsRef.current || mealsLoading) {
-      previousVisibleMealIdsRef.current = filteredMeals.map((meal) => meal.id);
-      return;
-    }
-
-    const previousVisibleMealIds = new Set(previousVisibleMealIdsRef.current);
-    const firstNewVisibleMeal = filteredMeals.find(
-      (meal) => !previousVisibleMealIds.has(meal.id)
-    );
-
-    previousVisibleMealIdsRef.current = filteredMeals.map((meal) => meal.id);
-    shouldScrollToLoadedMealsRef.current = false;
-
-    if (!firstNewVisibleMeal) {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      mealCardRefs.current[firstNewVisibleMeal.id]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    });
-  }, [filteredMeals, mealsLoading]);
 
   const canLoadMoreIngredients = Boolean(ingredientsPagination?.next);
 
@@ -2535,6 +2545,42 @@ const MealsView: React.FC = () => {
 
     return Array.from(selectedById.values());
   }, [activeSlot, filteredMeals, selectedMealsForSlot]);
+
+  const visibleMealIds = useMemo(
+    () =>
+      subTab === 'planning'
+        ? plannerMealsForActiveSlot.map((meal) => meal.id)
+        : subTab === 'mealLib'
+          ? filteredMeals.map((meal) => meal.id)
+          : [],
+    [filteredMeals, plannerMealsForActiveSlot, subTab]
+  );
+
+  useEffect(() => {
+    if (!shouldScrollToLoadedMealsRef.current || mealsLoading) {
+      previousVisibleMealIdsRef.current = visibleMealIds;
+      return;
+    }
+
+    const previousVisibleMealIds = new Set(previousVisibleMealIdsRef.current);
+    const firstNewVisibleMealId = visibleMealIds.find(
+      (mealId) => !previousVisibleMealIds.has(mealId)
+    );
+
+    previousVisibleMealIdsRef.current = visibleMealIds;
+    shouldScrollToLoadedMealsRef.current = false;
+
+    if (!firstNewVisibleMealId) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      mealCardRefs.current[firstNewVisibleMealId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, [mealsLoading, visibleMealIds]);
 
   const handleLoadMoreMeals = () => {
     if (!mealsPagination?.next || mealsLoading) {
@@ -2616,8 +2662,6 @@ const MealsView: React.FC = () => {
 
     if (sortBy === 'alpha') {
       result.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      result.sort((a, b) => (b.raw.createdAt || '').localeCompare(a.raw.createdAt || ''));
     }
 
     return result.map(({ raw: _raw, derivedType: _derivedType, derivedDietType: _derivedDietType, ...ingredient }) => ingredient);
@@ -2632,37 +2676,36 @@ const MealsView: React.FC = () => {
     sortBy,
   ]);
 
+  const visibleIngredientIds = useMemo(
+    () => (subTab === 'foodLib' ? filteredIngredients.map((ingredient) => ingredient.id) : []),
+    [filteredIngredients, subTab]
+  );
+
   useEffect(() => {
     if (!shouldScrollToLoadedIngredientsRef.current || ingredientsLoading) {
-      previousVisibleIngredientIdsRef.current = filteredIngredients.map(
-        (ingredient) => ingredient.id
-      );
+      previousVisibleIngredientIdsRef.current = visibleIngredientIds;
       return;
     }
 
-    const previousVisibleIngredientIds = new Set(
-      previousVisibleIngredientIdsRef.current
-    );
-    const firstNewVisibleIngredient = filteredIngredients.find(
-      (ingredient) => !previousVisibleIngredientIds.has(ingredient.id)
+    const previousVisibleIngredientIds = new Set(previousVisibleIngredientIdsRef.current);
+    const firstNewVisibleIngredientId = visibleIngredientIds.find(
+      (ingredientId) => !previousVisibleIngredientIds.has(ingredientId)
     );
 
-    previousVisibleIngredientIdsRef.current = filteredIngredients.map(
-      (ingredient) => ingredient.id
-    );
+    previousVisibleIngredientIdsRef.current = visibleIngredientIds;
     shouldScrollToLoadedIngredientsRef.current = false;
 
-    if (!firstNewVisibleIngredient) {
+    if (!firstNewVisibleIngredientId) {
       return;
     }
 
     window.requestAnimationFrame(() => {
-      ingredientCardRefs.current[firstNewVisibleIngredient.id]?.scrollIntoView({
+      ingredientCardRefs.current[firstNewVisibleIngredientId]?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       });
     });
-  }, [filteredIngredients, ingredientsLoading]);
+  }, [ingredientsLoading, visibleIngredientIds]);
 
   const handleLoadMoreIngredients = () => {
     if (!ingredientsPagination?.next || ingredientsLoading) {
@@ -3866,11 +3909,18 @@ const MealsView: React.FC = () => {
                   <div className="relative flex-1">
                     <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                     <input
+                      ref={plannerSearchInputRef}
                       type="text"
                       placeholder={`Search ${activeSlot.toLowerCase()} meals...`}
                       className="w-full rounded-2xl border border-slate-100 bg-white py-4 pl-12 pr-4 text-sm font-medium text-slate-800 outline-none focus:border-sky-300 placeholder:text-slate-300 caret-slate-700"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onPaste={handleSearchPaste}
+                      enterKeyHint="search"
+                      inputMode="search"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                     />
                   </div>
                   <button
@@ -3892,6 +3942,9 @@ const MealsView: React.FC = () => {
                     return (
                       <div
                         key={meal.id}
+                        ref={(node) => {
+                          mealCardRefs.current[meal.id] = node;
+                        }}
                         className={`rounded-[2rem] border-2 px-4 py-4 transition-all ${
                           isSelected
                             ? 'border-[#76A13B] bg-[#FBFDF6] shadow-[0_12px_30px_rgba(118,161,59,0.12)]'
@@ -4097,11 +4150,18 @@ const MealsView: React.FC = () => {
         <div className="flex-1 relative">
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
           <input
+            ref={librarySearchInputRef}
             type="text"
             placeholder={t('Search by name, allergy...')}
             className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium text-slate-800 placeholder:text-slate-300 caret-slate-700"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            onPaste={handleSearchPaste}
+            enterKeyHint="search"
+            inputMode="search"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
           />
         </div>
         <button
