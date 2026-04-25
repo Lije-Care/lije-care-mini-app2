@@ -139,6 +139,7 @@ export const fetchIngredients = createAsyncThunk<
       params: {
         page,
         limit,
+        lang: getPreferredLanguage(),
         ...(search ? { search } : {}),
       },
     });

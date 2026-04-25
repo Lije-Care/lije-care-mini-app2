@@ -823,19 +823,25 @@ function getDetailedMealSummary(
 }
 
 function getIngredientAgeRangeLabel(
-  suitableAgeRange?: DetailedIngredient['suitableAgeRange']
+  suitableAgeRange: DetailedIngredient['suitableAgeRange'] | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
 ) {
   const parsedRange = parseSuitableAgeRange(suitableAgeRange);
 
   if (!parsedRange || parsedRange.minMonths == null) {
-    return 'N/A';
+    return t('N/A');
   }
 
   if (!parsedRange.maxMonths) {
-    return `${parsedRange.minMonths}+ months`;
+    return t('Ingredient age range open ended', {
+      minMonths: parsedRange.minMonths,
+    });
   }
 
-  return `${parsedRange.minMonths} - ${parsedRange.maxMonths} months`;
+  return t('Ingredient age range bounded', {
+    minMonths: parsedRange.minMonths,
+    maxMonths: parsedRange.maxMonths,
+  });
 }
 
 function parseSuitableAgeRange(
@@ -857,19 +863,28 @@ function parseSuitableAgeRange(
 }
 
 function getIngredientDescription(
-  ingredient?: DetailedIngredient | null,
-  ageRangeLabel?: string
+  ingredient: DetailedIngredient | null | undefined,
+  ageRangeLabel: string,
+  t: (key: string, options?: Record<string, unknown>) => string
 ) {
   if (!ingredient) {
     return '';
   }
 
-  const foodGroup = ingredient.foodGroup?.toLowerCase() || 'food';
-  const ageText = ageRangeLabel && ageRangeLabel !== 'N/A'
-    ? ` It is suitable for ${ageRangeLabel}.`
-    : '';
+  const foodGroup = ingredient.foodGroup?.toLowerCase() || t('Food').toLowerCase();
 
-  return `${ingredient.name} is a ${foodGroup} ingredient used in balanced meals.${ageText}`;
+  if (ageRangeLabel && ageRangeLabel !== t('N/A')) {
+    return t('Ingredient description with age', {
+      name: ingredient.name,
+      foodGroup,
+      ageRange: ageRangeLabel,
+    });
+  }
+
+  return t('Ingredient description', {
+    name: ingredient.name,
+    foodGroup,
+  });
 }
 
 function parseMealMinAgeMonths(value?: string | number | null) {
@@ -1688,6 +1703,7 @@ const IngredientLibraryDetailOverlay = ({
   unitLabelsById: Record<string, string>;
   unitRecordsById: Record<string, UnitLookupRecord>;
 }) => {
+  const { t } = useTranslation();
   const nutrients = useMemo(() => {
     const nutrientTotals = new Map<string, {
       key: string;
@@ -1733,9 +1749,9 @@ const IngredientLibraryDetailOverlay = ({
   const portionLabel =
     ingredient?.portionSize != null
       ? `${ingredient.portionSize}${portionUnit ? ` ${portionUnit}` : ''}`
-      : 'N/A';
-  const ageRangeLabel = getIngredientAgeRangeLabel(ingredient?.suitableAgeRange);
-  const description = getIngredientDescription(ingredient, ageRangeLabel);
+      : t('N/A');
+  const ageRangeLabel = getIngredientAgeRangeLabel(ingredient?.suitableAgeRange, t);
+  const description = getIngredientDescription(ingredient, ageRangeLabel, t);
   const badgeClassName = (active?: boolean) =>
     active
       ? 'border-rose-100 bg-rose-50 text-rose-500'
@@ -1750,14 +1766,14 @@ const IngredientLibraryDetailOverlay = ({
         >
           <ChevronDownIcon className="rotate-90" />
         </button>
-        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">Ingredient Details</h3>
+        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">{t('Ingredient Details')}</h3>
         <div className="w-10" />
       </div>
 
       <div className="p-6">
         {loading ? (
           <div className="rounded-[2.5rem] border border-slate-100 bg-white p-10 text-center shadow-sm">
-            <p className="text-sm font-bold text-slate-400">Loading ingredient details...</p>
+            <p className="text-sm font-bold text-slate-400">{t('Loading ingredient details...')}</p>
           </div>
         ) : error ? (
           <div className="rounded-[2.5rem] border border-rose-100 bg-rose-50 p-10 text-center shadow-sm">
@@ -1779,7 +1795,7 @@ const IngredientLibraryDetailOverlay = ({
 
               <div className="mb-10">
                 <label className="mb-4 block text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                  Description
+                  {t('Description')}
                 </label>
                 <p className="max-w-[24rem] text-sm leading-9 text-slate-500">
                   {description}
@@ -1789,52 +1805,52 @@ const IngredientLibraryDetailOverlay = ({
               <div className="mb-10 grid grid-cols-2 gap-8">
                 <div>
                   <label className="mb-4 block text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                    Choking Hazard
+                    {t('Choking Hazard')}
                   </label>
                   <span
                     className={`inline-flex rounded-2xl border px-5 py-2 text-sm font-black ${badgeClassName(ingredient.choking)}`}
                   >
-                    {ingredient.choking ? 'Yes' : 'No'}
+                    {ingredient.choking ? t('Yes') : t('No')}
                   </span>
                 </div>
                 <div>
                   <label className="mb-4 block text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                    Allergen
+                    {t('Allergen')}
                   </label>
                   <span
                     className={`inline-flex rounded-2xl border px-5 py-2 text-sm font-black ${badgeClassName(ingredient.allergen)}`}
                   >
-                    {ingredient.allergen ? 'Yes' : 'No'}
+                    {ingredient.allergen ? t('Yes') : t('No')}
                   </span>
                 </div>
               </div>
 
               <div className="mb-10 border-t border-slate-100 pt-10">
                 <label className="mb-6 block text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                  Ingredient Facts
+                  {t('Ingredient Facts')}
                 </label>
                 <div className="grid grid-cols-2 gap-y-5 text-sm text-slate-500">
-                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">Age Range</div>
+                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Age Range')}</div>
                   <div className="text-right font-medium">{ageRangeLabel}</div>
-                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">Portion</div>
+                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Portion')}</div>
                   <div className="text-right font-medium">{portionLabel}</div>
-                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">Density</div>
-                  <div className="text-right font-medium">{ingredient.density ?? 'N/A'}</div>
+                  <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Density')}</div>
+                  <div className="text-right font-medium">{ingredient.density ?? t('N/A')}</div>
                   {!!ingredient.intoleranceDescription && (
                     <>
-                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">Intolerance</div>
+                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Intolerance')}</div>
                       <div className="text-right font-medium">{ingredient.intoleranceDescription}</div>
                     </>
                   )}
                   {!!ingredient.allergenDescription && (
                     <>
-                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">Allergen Detail</div>
+                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Allergen Detail')}</div>
                       <div className="text-right font-medium">{ingredient.allergenDescription}</div>
                     </>
                   )}
                   {!!ingredient.drugInteraction && (
                     <>
-                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">Drug Interaction</div>
+                      <div className="font-black uppercase tracking-[0.18em] text-slate-400">{t('Drug Interaction')}</div>
                       <div className="text-right font-medium">{ingredient.drugInteraction}</div>
                     </>
                   )}
@@ -1844,14 +1860,14 @@ const IngredientLibraryDetailOverlay = ({
               {nutrients.length > 0 && (
                 <div className="border-t border-slate-100 pt-10">
                   <label className="mb-6 block text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                    Nutrient Profile
+                    {t('Nutrient Profile')}
                   </label>
                   <div className="overflow-hidden rounded-[2rem] border border-slate-100">
                     <table className="w-full text-left">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Nutrient</th>
-                          <th className="px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Amount</th>
+                          <th className="px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t('Nutrient')}</th>
+                          <th className="px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t('Amount')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -2100,7 +2116,7 @@ const MealsView: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const {
     meals: backendMeals,
     ingredients: backendIngredients,
@@ -2199,7 +2215,7 @@ const MealsView: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchIngredients({ page: 1, limit: 10, search: debouncedIngredientSearch }));
-  }, [debouncedIngredientSearch, dispatch]);
+  }, [debouncedIngredientSearch, dispatch, i18n.language]);
 
   useEffect(() => {
     let active = true;
@@ -2873,7 +2889,9 @@ const MealsView: React.FC = () => {
     setSelectedLibraryIngredient(null);
 
     try {
-      const response = await api.get(`/ingredient/find-one/${ingredientId}`);
+      const response = await api.get(
+        `/ingredient/find-one/${ingredientId}?lang=${i18n.language || getPreferredLanguage()}`
+      );
       setSelectedLibraryIngredient(response.data);
     } catch (error: any) {
       setIngredientDetailError(
@@ -4065,13 +4083,13 @@ const MealsView: React.FC = () => {
           onClick={() => setSubTab('mealLib')}
           className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'mealLib' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
         >
-          Meal Library
+          {t('Meal Library')}
         </button>
         <button
           onClick={() => setSubTab('foodLib')}
           className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'foodLib' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
         >
-          Food Library
+          {t('Food Library')}
         </button>
       </div>
 
@@ -4080,7 +4098,7 @@ const MealsView: React.FC = () => {
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
           <input
             type="text"
-            placeholder="Search by name, allergy..."
+            placeholder={t('Search by name, allergy...')}
             className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium text-slate-800 placeholder:text-slate-300 caret-slate-700"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
