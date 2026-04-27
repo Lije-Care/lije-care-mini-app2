@@ -9,7 +9,7 @@ export interface CreateChildDto {
     parentId: string;
   }
   
-  export interface Child {
+export interface Child {
     id: string;
     parentId: string;
     name: string;
@@ -23,4 +23,18 @@ export interface CreateChildDto {
     medications: string | null;
     createdAt: string;
     updatedAt: string;
+    growthMetrics?: Array<{
+      id: string;
+      bmi: number;
+      weight?: number | null;
+      height?: number | null;
+      muac?: number | null;
+      createdAt: string;
+      updatedAt: string;
+      childId: string;
+      growth_trends?: string | null;
+      height_for_age?: number | null;
+      weight_for_age?: number | null;
+      weight_for_height?: number | null;
+    }>;
   }

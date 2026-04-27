@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import api from '@/api/axios';
 import { BottomSheet } from '@/components/ui';
 import {
   DEVELOPMENTAL_SUBCATEGORY_LABELS,
@@ -34,6 +35,32 @@ interface CardMetric {
   value: string;
 }
 
+interface GrowthHistoryPoint {
+  label: string;
+  value: number;
+}
+
+interface VaccineDecisionMap {
+  [vaccineId: string]: 'yes' | 'no';
+}
+
+interface VaccineScheduleItem {
+  id: string;
+  name: string;
+  description: string;
+  dueAgeWeeks: number;
+}
+
+interface VaccineCard extends VaccineScheduleItem {
+  dueDate: Date;
+  response?: 'yes' | 'no';
+  isVaccinated: boolean;
+  isOverdue: boolean;
+  isUpcomingReminder: boolean;
+  needsResponse: boolean;
+  canCheck: boolean;
+}
+
 interface AnthropometricCard {
   id: AnthropometricAssessmentId;
   title: string;
@@ -46,34 +73,36 @@ interface AnthropometricCard {
   lastUpdatedText: string;
   displayStatus: string;
   detailText: string;
+  interpretation: string;
+  suggestedAction: string | null;
   whoClassification: string | null;
   zScore: number | null;
-  score: number | null;
-  progress: number;
   tone: AnthropometricTone;
+  growthHistory: GrowthHistoryPoint[];
+  growthUnit: string;
 }
 
 const STATUS_STYLES: Record<
   AnthropometricTone,
   {
-    ring: string;
+    icon: string;
     pill: string;
   }
 > = {
   danger: {
-    ring: 'text-rose-500',
+    icon: 'border-rose-100 bg-rose-50 text-rose-500',
     pill: 'border-rose-200 bg-rose-50 text-rose-500',
   },
   success: {
-    ring: 'text-emerald-500',
+    icon: 'border-emerald-100 bg-emerald-50 text-emerald-500',
     pill: 'border-emerald-200 bg-emerald-50 text-emerald-500',
   },
   warning: {
-    ring: 'text-amber-500',
+    icon: 'border-amber-100 bg-amber-50 text-amber-600',
     pill: 'border-amber-200 bg-amber-50 text-amber-600',
   },
   neutral: {
-    ring: 'text-slate-300',
+    icon: 'border-slate-200 bg-slate-100 text-slate-400',
     pill: 'border-slate-200 bg-slate-100 text-slate-500',
   },
 };
@@ -225,6 +254,85 @@ const formatMetricValue = (value?: number | null, unit?: string) => {
   return unit ? `${value} ${unit}` : `${value}`;
 };
 
+const formatHistoryMonth = (isoDate?: string) => {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', { month: 'short' });
+};
+
+const formatHistoryValue = (value: number) =>
+  Number.isInteger(value) ? value.toString() : value.toFixed(1);
+
+const formatDueDate = (date: Date) =>
+  date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const getGrowthHistoryMeta = (assessmentId: AnthropometricAssessmentId) => {
+  switch (assessmentId) {
+    case 'a1':
+      return { unit: 'kg', getValue: (item: any) => item.weight };
+    case 'a1-2':
+      return { unit: 'cm', getValue: (item: any) => item.height };
+    case 'a1-3':
+      return { unit: 'cm', getValue: (item: any) => item.muac };
+    case 'a1-4':
+      return { unit: 'BMI', getValue: (item: any) => item.bmi };
+    case 'a1-5':
+    default:
+      return { unit: 'kg', getValue: (item: any) => item.weight };
+  }
+};
+
+const buildGrowthHistory = (
+  assessmentId: AnthropometricAssessmentId,
+  growthMetrics?: Array<{
+    weight?: number | null;
+    height?: number | null;
+    muac?: number | null;
+    bmi?: number | null;
+    createdAt: string;
+  }>
+) => {
+  const meta = getGrowthHistoryMeta(assessmentId);
+  if (!growthMetrics?.length) return { unit: meta.unit, points: [] as GrowthHistoryPoint[] };
+
+  const points = growthMetrics
+    .map((entry) => {
+      const rawValue = meta.getValue(entry);
+      return {
+        label: formatHistoryMonth(entry.createdAt),
+        value: typeof rawValue === 'number' && Number.isFinite(rawValue) ? rawValue : null,
+      };
+    })
+    .filter((entry): entry is GrowthHistoryPoint => entry.value !== null && entry.label.length > 0)
+    .slice(-6);
+
+  return { unit: meta.unit, points };
+};
+
+const getInterpretationText = (displayStatus: string, detailText: string, hasResult: boolean) => {
+  if (!hasResult) return 'No interpretation yet. Add measurements to calculate this assessment.';
+  if (displayStatus === 'On Track') return 'This measurement is within the expected range for this child.';
+  if (displayStatus === 'Underweight' || displayStatus === 'Below Range') {
+    return `This measurement is below the expected range. ${detailText}`;
+  }
+  if (displayStatus === 'At Risk') {
+    return `This measurement suggests nutritional risk. ${detailText}`;
+  }
+  return `This measurement is above the expected range. ${detailText}`;
+};
+
+const getSuggestedActionText = (
+  displayStatus: string,
+  detailText: string,
+  hasResult: boolean
+) => {
+  if (!hasResult || displayStatus === 'On Track') return null;
+  return 'Consult nutritionist.';
+};
+
 const getAnswerColor = (answer?: DevAnswer) => {
   switch (answer) {
     case 'yes':
@@ -238,48 +346,88 @@ const getAnswerColor = (answer?: DevAnswer) => {
   }
 };
 
-const ProgressRing: React.FC<{
-  progress: number;
-  score: number | null;
+const StatusIcon: React.FC<{
   tone: AnthropometricTone;
   size?: 'sm' | 'md';
-}> = ({ progress, score, tone, size = 'md' }) => {
+}> = ({ tone, size = 'md' }) => {
   const styles = STATUS_STYLES[tone];
-  const containerClass = size === 'sm' ? 'h-24 w-24' : 'h-28 w-28';
-  const scoreClass = size === 'sm' ? 'text-2xl' : 'text-[1.95rem]';
+  const containerClass = size === 'sm' ? 'h-20 w-20 rounded-[1.5rem]' : 'h-16 w-16 rounded-2xl';
+  const iconClass = size === 'sm' ? 'text-4xl' : 'text-3xl';
+  const icon =
+    tone === 'success' ? '😊' : tone === 'neutral' ? '🙂' : tone === 'warning' ? '😐' : '😟';
 
   return (
-    <div className={`relative ${containerClass} flex items-center justify-center`}>
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-        <circle
-          cx="18"
-          cy="18"
-          r="15.9155"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3.25"
-          className="text-slate-200"
-        />
-        <circle
-          cx="18"
-          cy="18"
-          r="15.9155"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3.25"
-          strokeLinecap="round"
-          strokeDasharray={`${progress}, 100`}
-          className={styles.ring}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className={`${scoreClass} font-black tracking-tight text-slate-700`}>
-          {score ?? '--'}
-        </span>
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-          {score === null ? 'No Data' : 'Score'}
-        </span>
+    <div
+      className={`flex ${containerClass} items-center justify-center border shadow-inner ${styles.icon}`}
+      aria-hidden="true"
+    >
+      <span className={iconClass}>{icon}</span>
+    </div>
+  );
+};
+
+const GrowthProgressChart: React.FC<{
+  points: GrowthHistoryPoint[];
+  unit: string;
+}> = ({ points, unit }) => {
+  if (points.length === 0) {
+    return (
+      <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
+        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+          Growth Progress
+        </p>
+        <p className="text-sm text-slate-500">
+          No growth history yet. Save measurements over time to see progress.
+        </p>
       </div>
+    );
+  }
+
+  const width = 280;
+  const height = 140;
+  const paddingX = 22;
+  const topPadding = 26;
+  const bottomY = 100;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = Math.max(maxValue - minValue, 1);
+  const stepX = points.length === 1 ? 0 : (width - paddingX * 2) / (points.length - 1);
+
+  const coordinates = points.map((point, index) => {
+    const x = paddingX + stepX * index;
+    const y = topPadding + ((maxValue - point.value) / range) * 42;
+    return { ...point, x, y };
+  });
+
+  const pathData = coordinates
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ');
+
+  return (
+    <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
+      <p className="mb-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+        Growth Progress
+      </p>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full" aria-label="Growth progress chart">
+        <line x1={paddingX} y1={bottomY} x2={width - paddingX} y2={bottomY} stroke="#d7dee7" strokeWidth="1.5" />
+        <line x1={paddingX} y1={topPadding - 10} x2={paddingX} y2={bottomY} stroke="#d7dee7" strokeWidth="1.5" />
+        <path d={pathData} fill="none" stroke="#f6c23e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        {coordinates.map((point) => (
+          <g key={`${point.label}-${point.x}`}>
+            <circle cx={point.x} cy={point.y} r="5.5" fill="#f6c23e" stroke="#ffffff" strokeWidth="3" />
+            <text x={point.x} y={point.y - 12} textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">
+              {formatHistoryValue(point.value)}
+            </text>
+            <text x={point.x} y={124} textAnchor="middle" fontSize="10" fontWeight="600" fill="#94a3b8">
+              {point.label}
+            </text>
+          </g>
+        ))}
+        <text x={width - paddingX} y={18} textAnchor="end" fontSize="10" fontWeight="700" fill="#94a3b8">
+          {unit}
+        </text>
+      </svg>
     </div>
   );
 };
@@ -291,13 +439,15 @@ const AssessmentView: React.FC = () => {
   const [selectedAssessmentId, setSelectedAssessmentId] =
     useState<AnthropometricAssessmentId | null>(null);
   const [notificationType, setNotificationType] = useState<
-    'anthropometric' | 'developmental' | null
+    'anthropometric' | 'developmental' | 'vaccine' | null
   >(null);
   const [recommendationModal, setRecommendationModal] = useState<DetailedAssessment | null>(null);
   const [helpAssessment, setHelpAssessment] = useState<string | null>(null);
   const [isAddingData, setIsAddingData] = useState<string | null>(null);
   const [activeHelp, setActiveHelp] = useState<string | null>(null);
   const [measurementValues, setMeasurementValues] = useState<Record<string, string>>({});
+  const [vaccineResponses, setVaccineResponses] = useState<VaccineDecisionMap>({});
+  const [vaccineSchedule, setVaccineSchedule] = useState<VaccineScheduleItem[]>([]);
   const [isSavingMeasurement, setIsSavingMeasurement] = useState(false);
   const [saveMeasurementError, setSaveMeasurementError] = useState<string | null>(null);
 
@@ -322,6 +472,48 @@ const AssessmentView: React.FC = () => {
     () => getDevelopmentalAssessmentsForAge(childAgeInMonths),
     [childAgeInMonths]
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchVaccineSchedule = async () => {
+      try {
+        const response = await api.get<{ data: VaccineScheduleItem[] }>('/immunity/schedule');
+        if (isMounted) {
+          setVaccineSchedule(response.data.data || []);
+        }
+      } catch {
+        if (isMounted) {
+          setVaccineSchedule([]);
+        }
+      }
+    };
+
+    void fetchVaccineSchedule();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeChild?.id || typeof window === 'undefined') {
+      setVaccineResponses({});
+      return;
+    }
+
+    const stored = localStorage.getItem(`vaccine_responses_${activeChild.id}`);
+    if (!stored) {
+      setVaccineResponses({});
+      return;
+    }
+
+    try {
+      setVaccineResponses(JSON.parse(stored));
+    } catch {
+      setVaccineResponses({});
+    }
+  }, [activeChild?.id]);
 
   useEffect(() => {
     if (activeChild?.id) {
@@ -359,6 +551,7 @@ const AssessmentView: React.FC = () => {
 
     return ANTHROPOMETRIC_ASSESSMENTS.map((assessment) => {
       const status = getAnthropometricStatus(assessment.id, activeChild);
+      const growthHistory = buildGrowthHistory(assessment.id, activeChild?.growthMetrics);
 
       const metrics: CardMetric[] =
         assessment.id === 'a1' || assessment.id === 'a1-4'
@@ -381,15 +574,26 @@ const AssessmentView: React.FC = () => {
         lastUpdatedText: formatRelativeTime(childUpdatedAt),
         displayStatus: status.displayLabel,
         detailText: status.detail,
+        interpretation: getInterpretationText(
+          status.displayLabel,
+          status.detail,
+          status.hasResult
+        ),
+        suggestedAction: getSuggestedActionText(
+          status.displayLabel,
+          status.detail,
+          status.hasResult
+        ),
         whoClassification: status.whoClassification,
         zScore: status.zScore,
-        score: status.score,
-        progress: status.progress,
         tone: status.tone,
+        growthHistory: growthHistory.points,
+        growthUnit: growthHistory.unit,
       };
     });
   }, [
     activeChild,
+    activeChild?.growthMetrics,
     activeChild?.height,
     activeChild?.muac,
     activeChild?.updatedAt,
@@ -397,6 +601,41 @@ const AssessmentView: React.FC = () => {
   ]);
 
   const expiredAnthro = anthropometricCards.filter((item) => !item.isRecorded || item.isStale);
+  const vaccineCards = useMemo<VaccineCard[]>(() => {
+    if (!activeChild?.date_of_birth) return [];
+
+    const birthDate = new Date(activeChild.date_of_birth);
+    if (Number.isNaN(birthDate.getTime())) return [];
+
+    const today = startOfDay(new Date());
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+
+    return vaccineSchedule.map((vaccine) => {
+      const dueDate = new Date(birthDate);
+      dueDate.setDate(dueDate.getDate() + vaccine.dueAgeWeeks * 7);
+      const normalizedDueDate = startOfDay(dueDate);
+      const response = vaccineResponses[vaccine.id];
+      const diffMs = normalizedDueDate.getTime() - today.getTime();
+      const isOverdue = diffMs < 0;
+      const isUpcomingReminder = diffMs >= 0 && diffMs <= oneWeekMs;
+      const needsResponse = !response && isOverdue;
+
+      return {
+        ...vaccine,
+        dueDate: normalizedDueDate,
+        response,
+        isVaccinated: response === 'yes',
+        isOverdue,
+        isUpcomingReminder,
+        needsResponse,
+        canCheck: !response && diffMs <= 0,
+      };
+    });
+  }, [activeChild?.date_of_birth, vaccineResponses, vaccineSchedule]);
+  const vaccineAlerts = useMemo(
+    () => vaccineCards.filter((item) => item.needsResponse || item.isUpcomingReminder),
+    [vaccineCards]
+  );
   const unaddressedDev = developmentalAssessments.filter((item) => item.answer === 'no');
   const selectedAssessment =
     selectedAssessmentId &&
@@ -487,6 +726,17 @@ const AssessmentView: React.FC = () => {
     void persistDevelopmentalAnswers(nextAssessments);
   };
 
+  const toggleVaccination = (vaccineId: string, response: 'yes' | 'no') => {
+    if (!activeChild?.id || typeof window === 'undefined') return;
+
+    const nextResponses = {
+      ...vaccineResponses,
+      [vaccineId]: response,
+    };
+    setVaccineResponses(nextResponses);
+    localStorage.setItem(`vaccine_responses_${activeChild.id}`, JSON.stringify(nextResponses));
+  };
+
   return (
     <div className="pb-32 pt-4">
       <div className="mb-8 flex items-end justify-between px-6">
@@ -551,7 +801,7 @@ const AssessmentView: React.FC = () => {
                   </h4>
 
                   <div className="mt-8 flex items-center gap-5">
-                    <ProgressRing progress={item.progress} score={item.score} tone={item.tone} />
+                    <StatusIcon tone={item.tone} />
 
                     <div className="min-w-0 flex-1">
                       <span
@@ -597,6 +847,96 @@ const AssessmentView: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-6 flex items-center justify-between px-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
+              Vaccination Schedule
+            </h3>
+            <button
+              type="button"
+              onClick={() => setNotificationType('vaccine')}
+              className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-emerald-500"
+            >
+              <BellIcon className="h-5 w-5" />
+              {vaccineAlerts.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
+                  {vaccineAlerts.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="hide-scrollbar flex gap-4 overflow-x-auto px-6 snap-x">
+            {vaccineCards.map((vaccine) => (
+              <div
+                key={vaccine.id}
+                className={`flex min-h-[220px] w-64 flex-shrink-0 snap-center flex-col justify-between rounded-[2rem] border-2 p-6 transition-all ${
+                  vaccine.response === 'yes'
+                    ? 'border-emerald-100 bg-emerald-50'
+                    : vaccine.needsResponse
+                      ? 'border-rose-100 bg-rose-50'
+                      : 'border-emerald-100 bg-[#effaf4]'
+                }`}
+              >
+                <div>
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <h4 className="font-bold leading-tight text-slate-800">{vaccine.name}</h4>
+                    <span className="rounded-lg border border-slate-100 bg-white/90 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-slate-400">
+                      {vaccine.dueAgeWeeks === 0 ? 'Birth' : `${vaccine.dueAgeWeeks}W`}
+                    </span>
+                  </div>
+                  <p className="mb-4 text-[10px] font-medium text-slate-500">{vaccine.description}</p>
+                  <p className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    Due: <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
+                  </p>
+                </div>
+
+                {vaccine.canCheck ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="mb-1 text-center text-[10px] font-black uppercase text-[#76A13B]">
+                      Was this vaccine given?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleVaccination(vaccine.id, 'yes')}
+                        className="flex-1 rounded-xl bg-emerald-600 py-3 text-[10px] font-black uppercase text-white shadow-md transition-all active:scale-[0.98]"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleVaccination(vaccine.id, 'no')}
+                        className="flex-1 rounded-xl border border-rose-200 bg-white py-3 text-[10px] font-black uppercase text-rose-500 transition-all active:scale-[0.98]"
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                ) : vaccine.response ? (
+                  <div className="rounded-2xl border border-white/70 bg-white/70 py-4 text-center">
+                    <span
+                      className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                        vaccine.response === 'yes' ? 'text-emerald-600' : 'text-rose-500'
+                      }`}
+                    >
+                      Marked {vaccine.response}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-slate-100 bg-white/70 py-4 text-center">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">
+                      {vaccine.isUpcomingReminder
+                        ? 'Reminder active'
+                        : `Locked until ${formatDueDate(vaccine.dueDate)}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </section>
 
@@ -751,6 +1091,8 @@ const AssessmentView: React.FC = () => {
               <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800">
                 {notificationType === 'anthropometric'
                   ? 'Expired Measurements'
+                  : notificationType === 'vaccine'
+                    ? 'Vaccination Alerts'
                   : 'Unaddressed Concerns'}
               </h3>
               <button
@@ -791,6 +1133,62 @@ const AssessmentView: React.FC = () => {
                 ) : (
                   <p className="py-10 text-center font-bold text-slate-400">
                     All measurements are up to date!
+                  </p>
+                )
+              ) : notificationType === 'vaccine' ? (
+                vaccineAlerts.length > 0 ? (
+                  vaccineAlerts.map((vaccine) => (
+                    <div
+                      key={vaccine.id}
+                      className={`flex items-center justify-between rounded-3xl border p-5 ${
+                        vaccine.needsResponse
+                          ? 'border-rose-100 bg-rose-50'
+                          : 'border-emerald-100 bg-emerald-50'
+                      }`}
+                    >
+                      <div className="pr-4">
+                        <h5 className="font-bold text-slate-800">{vaccine.name}</h5>
+                        <p
+                          className={`text-[10px] font-black uppercase ${
+                            vaccine.needsResponse ? 'text-rose-600' : 'text-emerald-600'
+                          }`}
+                        >
+                          {vaccine.needsResponse
+                            ? `Overdue • ${formatDueDate(vaccine.dueDate)}`
+                            : `Due within 7 days • ${formatDueDate(vaccine.dueDate)}`}
+                        </p>
+                      </div>
+                      {vaccine.canCheck ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleVaccination(vaccine.id, 'yes')}
+                            className="rounded-xl bg-emerald-600 px-4 py-2 text-[10px] font-black uppercase text-white"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleVaccination(vaccine.id, 'no')}
+                            className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-[10px] font-black uppercase text-rose-500"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setNotificationType(null)}
+                          className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-[10px] font-black text-emerald-600"
+                        >
+                          View
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="py-10 text-center font-bold text-slate-400">
+                    No vaccine alerts right now.
                   </p>
                 )
               ) : unaddressedDev.length > 0 ? (
@@ -968,12 +1366,7 @@ const AssessmentView: React.FC = () => {
 
             <div className="mb-6 w-full rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-4 text-left">
-                <ProgressRing
-                  progress={selectedAssessment.progress}
-                  score={selectedAssessment.score}
-                  tone={selectedAssessment.tone}
-                  size="sm"
-                />
+                <StatusIcon tone={selectedAssessment.tone} size="sm" />
                 <div>
                   <span
                     className={`inline-flex rounded-full border px-4 py-2 text-sm font-black uppercase tracking-wide ${
@@ -989,28 +1382,67 @@ const AssessmentView: React.FC = () => {
               </div>
             </div>
 
-            <div className="mb-4 grid w-full grid-cols-2 gap-3 text-left">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  WHO Classification
-                </p>
-                <p className="text-sm font-bold text-slate-800">
-                  {selectedAssessment.whoClassification || 'Waiting for measurements'}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  Z-Score
-                </p>
-                <p className="text-sm font-bold text-slate-800">
-                  {selectedAssessment.zScore !== null
-                    ? selectedAssessment.zScore.toFixed(2)
-                    : '--'}
-                </p>
-              </div>
-            </div>
-
             <div className="mb-8 w-full space-y-4 text-left">
+              <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  Interpretation
+                </p>
+                <p className="text-sm leading-relaxed text-slate-700">
+                  {selectedAssessment.interpretation}
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-sky-100 bg-sky-50 p-5">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-500">
+                  Last Updated
+                </p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {selectedAssessment.lastUpdatedText}
+                </p>
+                {selectedAssessment.isStale && (
+                  <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-600">
+                    <p className="text-xs font-black uppercase tracking-[0.12em]">
+                      Warning
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed">
+                      ⚠️ Measurements taken before a month. Please update for accuracy.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedAssessment.suggestedAction && (
+                <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
+                  <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-lime-600">
+                    Suggested Action
+                  </p>
+                  <p className="text-sm font-semibold italic text-slate-700">
+                    {selectedAssessment.suggestedAction}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    WHO Classification
+                  </p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {selectedAssessment.whoClassification || 'Waiting for measurements'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    Z-Score
+                  </p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {selectedAssessment.zScore !== null
+                      ? selectedAssessment.zScore.toFixed(2)
+                      : '--'}
+                  </p>
+                </div>
+              </div>
+
               {selectedAssessment.metrics.map((metric) => (
                 <div
                   key={metric.label}
@@ -1021,12 +1453,11 @@ const AssessmentView: React.FC = () => {
                 </div>
               ))}
 
-              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                <p className="mb-1 text-xs font-black uppercase text-sky-500">Last Updated</p>
-                <p className="text-sm font-medium text-slate-700">
-                  {selectedAssessment.lastUpdatedText}
-                </p>
-              </div>
+              <GrowthProgressChart
+                points={selectedAssessment.growthHistory}
+                unit={selectedAssessment.growthUnit}
+              />
+
             </div>
 
             <button

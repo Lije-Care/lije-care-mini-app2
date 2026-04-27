@@ -22,6 +22,20 @@ export type Child = {
   medications: string | null;
   createdAt: string;
   updatedAt: string;
+  growthMetrics?: Array<{
+    id: string;
+    bmi: number;
+    weight?: number | null;
+    height?: number | null;
+    muac?: number | null;
+    createdAt: string;
+    updatedAt: string;
+    childId: string;
+    growth_trends?: string | null;
+    height_for_age?: number | null;
+    weight_for_age?: number | null;
+    weight_for_height?: number | null;
+  }>;
 };
 
 interface ChildState {
@@ -162,7 +176,13 @@ const childrenSlice = createSlice({
           (child) => child.id === action.payload.id
         );
         if (index !== -1) {
-          state.data[index] = action.payload;
+          // Some update endpoints return only the changed fields.
+          // Merge into the existing child so derived UI like assessment status
+          // always recalculates from a complete child record.
+          state.data[index] = {
+            ...state.data[index],
+            ...action.payload,
+          };
         }
       });
   },
