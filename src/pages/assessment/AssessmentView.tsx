@@ -326,7 +326,6 @@ const getInterpretationText = (displayStatus: string, detailText: string, hasRes
 
 const getSuggestedActionText = (
   displayStatus: string,
-  detailText: string,
   hasResult: boolean
 ) => {
   if (!hasResult || displayStatus === 'On Track') return null;
@@ -581,7 +580,6 @@ const AssessmentView: React.FC = () => {
         ),
         suggestedAction: getSuggestedActionText(
           status.displayLabel,
-          status.detail,
           status.hasResult
         ),
         whoClassification: status.whoClassification,
