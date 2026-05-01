@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -12,7 +12,7 @@ import {
 } from '@/data/developmentalMilestones';
 import { BellIcon, InfoIcon, PlusIcon } from '@/design-system/icons';
 import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
-import { updateChild } from '@/redux/slices/childSlice';
+import { fetchChildrenByParentId, updateChild } from '@/redux/slices/childSlice';
 import {
   fetchDevelopmentalAssessments,
   saveDevelopmentalAssessmentsBulk,
@@ -40,25 +40,22 @@ interface GrowthHistoryPoint {
   value: number;
 }
 
-interface VaccineDecisionMap {
-  [vaccineId: string]: 'yes' | 'no';
-}
-
 interface VaccineScheduleItem {
   id: string;
   name: string;
   description: string;
-  dueAgeWeeks: number;
+  daysFromBirth: number;
+  dueDate: string;
+  status: 'PENDING' | 'GIVEN' | 'MISSED';
+  isGiven: boolean;
+  isMissed: boolean;
+  isUpcomingReminder: boolean;
+  canCheck: boolean;
+  isLocked: boolean;
 }
 
-interface VaccineCard extends VaccineScheduleItem {
+interface VaccineCard extends Omit<VaccineScheduleItem, 'dueDate'> {
   dueDate: Date;
-  response?: 'yes' | 'no';
-  isVaccinated: boolean;
-  isOverdue: boolean;
-  isUpcomingReminder: boolean;
-  needsResponse: boolean;
-  canCheck: boolean;
 }
 
 interface AnthropometricCard {
@@ -269,6 +266,14 @@ const formatDueDate = (date: Date) =>
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
+const formatVaccineDueAge = (daysFromBirth: number) => {
+  if (daysFromBirth <= 0) return 'Birth';
+  if (daysFromBirth % 365 === 0) return `${daysFromBirth / 365}Y`;
+  if (daysFromBirth % 30 === 0) return `${daysFromBirth / 30}M`;
+  if (daysFromBirth % 7 === 0) return `${daysFromBirth / 7}W`;
+  return `${daysFromBirth}D`;
+};
+
 const getGrowthHistoryMeta = (assessmentId: AnthropometricAssessmentId) => {
   switch (assessmentId) {
     case 'a1':
@@ -445,10 +450,14 @@ const AssessmentView: React.FC = () => {
   const [isAddingData, setIsAddingData] = useState<string | null>(null);
   const [activeHelp, setActiveHelp] = useState<string | null>(null);
   const [measurementValues, setMeasurementValues] = useState<Record<string, string>>({});
-  const [vaccineResponses, setVaccineResponses] = useState<VaccineDecisionMap>({});
   const [vaccineSchedule, setVaccineSchedule] = useState<VaccineScheduleItem[]>([]);
+  const [isLoadingVaccineSchedule, setIsLoadingVaccineSchedule] = useState(true);
+  const [vaccineScheduleError, setVaccineScheduleError] = useState<string | null>(null);
+  const [vaccineScheduleRequestKey, setVaccineScheduleRequestKey] = useState(0);
+  const [updatingVaccineId, setUpdatingVaccineId] = useState<string | null>(null);
   const [isSavingMeasurement, setIsSavingMeasurement] = useState(false);
   const [saveMeasurementError, setSaveMeasurementError] = useState<string | null>(null);
+  const vaccineSectionRef = useRef<HTMLElement | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
@@ -473,17 +482,58 @@ const AssessmentView: React.FC = () => {
   );
 
   useEffect(() => {
+    if (childrenState.data.length > 0) return;
+
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
+
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser?.id) {
+        dispatch(fetchChildrenByParentId(String(parsedUser.id)));
+      }
+    } catch {
+      // Ignore malformed local storage and leave the page in its current state.
+    }
+  }, [childrenState.data.length, dispatch]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const fetchVaccineSchedule = async () => {
-      try {
-        const response = await api.get<{ data: VaccineScheduleItem[] }>('/immunity/schedule');
+      if (!activeChild?.id) {
         if (isMounted) {
-          setVaccineSchedule(response.data.data || []);
+          if (childrenState.loading || childrenState.data.length === 0) {
+            setIsLoadingVaccineSchedule(true);
+          } else {
+            setVaccineSchedule([]);
+            setVaccineScheduleError(null);
+            setIsLoadingVaccineSchedule(false);
+          }
         }
-      } catch {
+        return;
+      }
+
+      try {
         if (isMounted) {
-          setVaccineSchedule([]);
+          setIsLoadingVaccineSchedule(true);
+          setVaccineScheduleError(null);
+        }
+        const response = await api.get<{ data: VaccineScheduleItem[] }>(
+          `/immunity/children/${activeChild.id}/schedule`
+        );
+        if (isMounted) {
+          setVaccineSchedule(Array.isArray(response.data?.data) ? response.data.data : []);
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          setVaccineScheduleError(
+            error?.response?.data?.message || 'Unable to load the vaccination schedule.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVaccineSchedule(false);
         }
       }
     };
@@ -493,26 +543,7 @@ const AssessmentView: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!activeChild?.id || typeof window === 'undefined') {
-      setVaccineResponses({});
-      return;
-    }
-
-    const stored = localStorage.getItem(`vaccine_responses_${activeChild.id}`);
-    if (!stored) {
-      setVaccineResponses({});
-      return;
-    }
-
-    try {
-      setVaccineResponses(JSON.parse(stored));
-    } catch {
-      setVaccineResponses({});
-    }
-  }, [activeChild?.id]);
+  }, [activeChild?.id, childrenState.data.length, childrenState.loading, vaccineScheduleRequestKey]);
 
   useEffect(() => {
     if (activeChild?.id) {
@@ -531,11 +562,20 @@ const AssessmentView: React.FC = () => {
 
   useEffect(() => {
     const nextMeasurementId = (
-      location.state as { openMeasurementId?: string } | null
+      location.state as { openMeasurementId?: string; focusSection?: 'vaccine' } | null
     )?.openMeasurementId;
+    const focusSection = (
+      location.state as { openMeasurementId?: string; focusSection?: 'vaccine' } | null
+    )?.focusSection;
 
     if (nextMeasurementId && MEASUREMENT_FIELDS[nextMeasurementId] && !isAddingData) {
       handleOpenMeasurementEntry(nextMeasurementId);
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
+    if (focusSection === 'vaccine') {
+      vaccineSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [isAddingData, location.pathname, location.state, navigate]);
@@ -600,38 +640,17 @@ const AssessmentView: React.FC = () => {
 
   const expiredAnthro = anthropometricCards.filter((item) => !item.isRecorded || item.isStale);
   const vaccineCards = useMemo<VaccineCard[]>(() => {
-    if (!activeChild?.date_of_birth) return [];
-
-    const birthDate = new Date(activeChild.date_of_birth);
-    if (Number.isNaN(birthDate.getTime())) return [];
-
-    const today = startOfDay(new Date());
-    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-
-    return vaccineSchedule.map((vaccine) => {
-      const dueDate = new Date(birthDate);
-      dueDate.setDate(dueDate.getDate() + vaccine.dueAgeWeeks * 7);
-      const normalizedDueDate = startOfDay(dueDate);
-      const response = vaccineResponses[vaccine.id];
-      const diffMs = normalizedDueDate.getTime() - today.getTime();
-      const isOverdue = diffMs < 0;
-      const isUpcomingReminder = diffMs >= 0 && diffMs <= oneWeekMs;
-      const needsResponse = !response && isOverdue;
-
-      return {
-        ...vaccine,
-        dueDate: normalizedDueDate,
-        response,
-        isVaccinated: response === 'yes',
-        isOverdue,
-        isUpcomingReminder,
-        needsResponse,
-        canCheck: !response && diffMs <= 0,
-      };
-    });
-  }, [activeChild?.date_of_birth, vaccineResponses, vaccineSchedule]);
+    return vaccineSchedule
+      .map((vaccine) => {
+        return {
+          ...vaccine,
+          dueDate: startOfDay(new Date(vaccine.dueDate)),
+        };
+      })
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  }, [vaccineSchedule]);
   const vaccineAlerts = useMemo(
-    () => vaccineCards.filter((item) => item.needsResponse || item.isUpcomingReminder),
+    () => vaccineCards.filter((item) => item.isUpcomingReminder),
     [vaccineCards]
   );
   const unaddressedDev = developmentalAssessments.filter((item) => item.answer === 'no');
@@ -724,15 +743,26 @@ const AssessmentView: React.FC = () => {
     void persistDevelopmentalAnswers(nextAssessments);
   };
 
-  const toggleVaccination = (vaccineId: string, response: 'yes' | 'no') => {
-    if (!activeChild?.id || typeof window === 'undefined') return;
+  const toggleVaccination = async (vaccineId: string, response: 'yes' | 'no') => {
+    if (!activeChild?.id) return;
 
-    const nextResponses = {
-      ...vaccineResponses,
-      [vaccineId]: response,
-    };
-    setVaccineResponses(nextResponses);
-    localStorage.setItem(`vaccine_responses_${activeChild.id}`, JSON.stringify(nextResponses));
+    try {
+      setUpdatingVaccineId(vaccineId);
+      await api.patch(`/immunity/children/${activeChild.id}/schedule/${vaccineId}`, {
+        status: response === 'yes' ? 'GIVEN' : 'MISSED',
+      });
+      setVaccineScheduleRequestKey((current) => current + 1);
+    } catch (error: any) {
+      setVaccineScheduleError(
+        error?.response?.data?.message || 'Unable to update the vaccine status.'
+      );
+    } finally {
+      setUpdatingVaccineId(null);
+    }
+  };
+
+  const retryVaccineScheduleFetch = () => {
+    setVaccineScheduleRequestKey((current) => current + 1);
   };
 
   return (
@@ -745,7 +775,7 @@ const AssessmentView: React.FC = () => {
       </div>
 
       <div className="space-y-12">
-        <section>
+        <section ref={vaccineSectionRef}>
           <div className="mb-4 flex items-center justify-between px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Anthropometric
@@ -867,75 +897,117 @@ const AssessmentView: React.FC = () => {
             </button>
           </div>
 
-          <div className="hide-scrollbar flex gap-4 overflow-x-auto px-6 snap-x">
-            {vaccineCards.map((vaccine) => (
-              <div
-                key={vaccine.id}
-                className={`flex min-h-[220px] w-64 flex-shrink-0 snap-center flex-col justify-between rounded-[2rem] border-2 p-6 transition-all ${
-                  vaccine.response === 'yes'
-                    ? 'border-emerald-100 bg-emerald-50'
-                    : vaccine.needsResponse
-                      ? 'border-rose-100 bg-rose-50'
-                      : 'border-emerald-100 bg-[#effaf4]'
-                }`}
-              >
-                <div>
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <h4 className="font-bold leading-tight text-slate-800">{vaccine.name}</h4>
-                    <span className="rounded-lg border border-slate-100 bg-white/90 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-slate-400">
-                      {vaccine.dueAgeWeeks === 0 ? 'Birth' : `${vaccine.dueAgeWeeks}W`}
-                    </span>
-                  </div>
-                  <p className="mb-4 text-[10px] font-medium text-slate-500">{vaccine.description}</p>
-                  <p className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                    Due: <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
-                  </p>
-                </div>
-
-                {vaccine.canCheck ? (
-                  <div className="flex flex-col gap-2">
-                    <p className="mb-1 text-center text-[10px] font-black uppercase text-[#76A13B]">
-                      Was this vaccine given?
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => toggleVaccination(vaccine.id, 'yes')}
-                        className="flex-1 rounded-xl bg-emerald-600 py-3 text-[10px] font-black uppercase text-white shadow-md transition-all active:scale-[0.98]"
-                      >
-                        Yes
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleVaccination(vaccine.id, 'no')}
-                        className="flex-1 rounded-xl border border-rose-200 bg-white py-3 text-[10px] font-black uppercase text-rose-500 transition-all active:scale-[0.98]"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
-                ) : vaccine.response ? (
-                  <div className="rounded-2xl border border-white/70 bg-white/70 py-4 text-center">
-                    <span
-                      className={`text-[10px] font-black uppercase tracking-[0.16em] ${
-                        vaccine.response === 'yes' ? 'text-emerald-600' : 'text-rose-500'
-                      }`}
-                    >
-                      Marked {vaccine.response}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-100 bg-white/70 py-4 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">
-                      {vaccine.isUpcomingReminder
-                        ? 'Reminder active'
-                        : `Locked until ${formatDueDate(vaccine.dueDate)}`}
-                    </span>
-                  </div>
-                )}
+          {isLoadingVaccineSchedule ? (
+            <div className="px-6">
+              <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-center">
+                <p className="font-bold text-slate-700">Loading vaccination schedule...</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  We&apos;re checking the latest vaccine timeline for this child.
+                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : vaccineScheduleError ? (
+            <div className="px-6">
+              <div className="rounded-[2rem] border border-rose-100 bg-rose-50 px-6 py-8 text-center">
+                <p className="font-bold text-rose-700">Couldn&apos;t load the vaccine schedule.</p>
+                <p className="mt-2 text-sm text-rose-600">{vaccineScheduleError}</p>
+                <button
+                  type="button"
+                  onClick={retryVaccineScheduleFetch}
+                  className="mt-5 rounded-xl bg-rose-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-md transition-all active:scale-[0.98]"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : vaccineCards.length > 0 ? (
+            <div className="hide-scrollbar flex gap-4 overflow-x-auto px-6 snap-x">
+              {vaccineCards.map((vaccine) => (
+                <div
+                  key={vaccine.id}
+                  className={`flex min-h-[220px] w-64 flex-shrink-0 snap-center flex-col justify-between rounded-[2rem] border-2 p-6 transition-all ${
+                    vaccine.isMissed
+                      ? 'border-rose-100 bg-rose-50'
+                      : vaccine.isGiven
+                        ? 'border-emerald-100 bg-[#effaf4]'
+                      : vaccine.isUpcomingReminder
+                        ? 'border-amber-200 bg-amber-50'
+                        : vaccine.canCheck
+                          ? 'border-sky-100 bg-sky-50'
+                          : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <h4 className="font-bold leading-tight text-slate-800">{vaccine.name}</h4>
+                      <span className="rounded-lg border border-slate-100 bg-white/90 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-slate-400">
+                        {formatVaccineDueAge(vaccine.daysFromBirth)}
+                      </span>
+                    </div>
+                    <p className="mb-4 text-[10px] font-medium text-slate-500">{vaccine.description}</p>
+                    <p className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                      Due: <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
+                    </p>
+                  </div>
+
+                  {vaccine.canCheck || vaccine.isMissed || vaccine.isGiven ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="mb-1 text-center text-[10px] font-black uppercase text-[#76A13B]">
+                        Was this vaccine given?
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void toggleVaccination(vaccine.id, 'yes')}
+                          disabled={updatingVaccineId === vaccine.id}
+                          className={`flex-1 rounded-xl py-3 text-[10px] font-black uppercase transition-all active:scale-[0.98] ${
+                            vaccine.isGiven
+                              ? 'bg-emerald-600 text-white shadow-md'
+                              : 'border border-emerald-200 bg-white text-emerald-600'
+                          }`}
+                        >
+                          {updatingVaccineId === vaccine.id ? 'Saving...' : 'Yes'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleVaccination(vaccine.id, 'no')}
+                          disabled={updatingVaccineId === vaccine.id}
+                          className={`flex-1 rounded-xl py-3 text-[10px] font-black uppercase transition-all active:scale-[0.98] ${
+                            vaccine.isMissed
+                              ? 'bg-rose-500 text-white shadow-md'
+                              : 'border border-rose-200 bg-white text-rose-500'
+                          }`}
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-slate-100 bg-white/70 py-4 text-center">
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                          vaccine.isUpcomingReminder ? 'text-amber-600' : 'text-slate-300'
+                        }`}
+                      >
+                        {vaccine.isUpcomingReminder
+                          ? 'Reminder active'
+                          : `Locked until ${formatDueDate(vaccine.dueDate)}`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-6">
+              <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 px-6 py-8 text-center">
+                <p className="font-bold text-emerald-700">No vaccines are scheduled right now.</p>
+                <p className="mt-2 text-sm text-emerald-600">
+                  There are no vaccine schedule entries to show for this child at the moment.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         <section>
@@ -1139,36 +1211,54 @@ const AssessmentView: React.FC = () => {
                     <div
                       key={vaccine.id}
                       className={`flex items-center justify-between rounded-3xl border p-5 ${
-                        vaccine.needsResponse
+                        vaccine.isMissed
                           ? 'border-rose-100 bg-rose-50'
-                          : 'border-emerald-100 bg-emerald-50'
+                          : vaccine.canCheck
+                            ? 'border-sky-100 bg-sky-50'
+                            : 'border-emerald-100 bg-emerald-50'
                       }`}
                     >
                       <div className="pr-4">
                         <h5 className="font-bold text-slate-800">{vaccine.name}</h5>
                         <p
                           className={`text-[10px] font-black uppercase ${
-                            vaccine.needsResponse ? 'text-rose-600' : 'text-emerald-600'
+                            vaccine.isMissed
+                              ? 'text-rose-600'
+                              : vaccine.canCheck
+                                ? 'text-sky-600'
+                                : 'text-emerald-600'
                           }`}
                         >
-                          {vaccine.needsResponse
-                            ? `Overdue • ${formatDueDate(vaccine.dueDate)}`
-                            : `Due within 7 days • ${formatDueDate(vaccine.dueDate)}`}
+                          {vaccine.isMissed
+                            ? `Not given • ${formatDueDate(vaccine.dueDate)}`
+                            : vaccine.canCheck
+                              ? `Due now • ${formatDueDate(vaccine.dueDate)}`
+                              : `Due • ${formatDueDate(vaccine.dueDate)}`}
                         </p>
                       </div>
-                      {vaccine.canCheck ? (
+                      {vaccine.canCheck || vaccine.isMissed ? (
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => toggleVaccination(vaccine.id, 'yes')}
-                            className="rounded-xl bg-emerald-600 px-4 py-2 text-[10px] font-black uppercase text-white"
+                            onClick={() => void toggleVaccination(vaccine.id, 'yes')}
+                            disabled={updatingVaccineId === vaccine.id}
+                            className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${
+                              vaccine.isGiven
+                                ? 'bg-emerald-600 text-white'
+                                : 'border border-emerald-200 bg-white text-emerald-600'
+                            }`}
                           >
                             Yes
                           </button>
                           <button
                             type="button"
-                            onClick={() => toggleVaccination(vaccine.id, 'no')}
-                            className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-[10px] font-black uppercase text-rose-500"
+                            onClick={() => void toggleVaccination(vaccine.id, 'no')}
+                            disabled={updatingVaccineId === vaccine.id}
+                            className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${
+                              vaccine.isMissed
+                                ? 'bg-rose-500 text-white'
+                                : 'border border-rose-200 bg-white text-rose-500'
+                            }`}
                           >
                             No
                           </button>

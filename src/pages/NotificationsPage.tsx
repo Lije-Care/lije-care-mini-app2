@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
+import api from '@/api/axios';
 import { ChevronLeftIcon } from '@/design-system/icons';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchAllNotifications } from '@/redux/slices/notificationSlice';
@@ -14,6 +15,15 @@ interface ExpiredMeasurementItem {
   title: string;
   isRecorded: boolean;
   statusText: string;
+}
+
+interface VaccineAlertItem {
+  id: string;
+  name: string;
+  dueDate: string;
+  isMissed: boolean;
+  isUpcomingReminder: boolean;
+  canCheck: boolean;
 }
 
 const STALE_CUTOFF_DAYS = 30;
@@ -46,6 +56,8 @@ const toStatusText = (lastUpdatedText: string, isRecorded: boolean) => {
 const NotificationsPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const [vaccineAlerts, setVaccineAlerts] = useState<VaccineAlertItem[]>([]);
+  const [isLoadingVaccineAlerts, setIsLoadingVaccineAlerts] = useState(false);
 
   const childrenState = useSelector((state: RootState) => state.children);
   const notificationsState = useSelector((state: RootState) => state.notificartions);
@@ -70,6 +82,49 @@ const NotificationsPage = () => {
   useEffect(() => {
     dispatch(fetchAllNotifications());
   }, [dispatch]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchVaccineAlerts = async () => {
+      if (!activeChild?.id) {
+        if (isMounted) {
+          setVaccineAlerts([]);
+          setIsLoadingVaccineAlerts(false);
+        }
+        return;
+      }
+
+      try {
+        if (isMounted) {
+          setIsLoadingVaccineAlerts(true);
+        }
+        const response = await api.get<{ data: VaccineAlertItem[] }>(
+          `/immunity/children/${activeChild.id}/schedule`
+        );
+        if (!isMounted) return;
+
+        const nextAlerts = (response.data.data || []).filter(
+          (item) => item.isMissed || item.isUpcomingReminder || item.canCheck
+        );
+        setVaccineAlerts(nextAlerts);
+      } catch {
+        if (isMounted) {
+          setVaccineAlerts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVaccineAlerts(false);
+        }
+      }
+    };
+
+    void fetchVaccineAlerts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChild?.id]);
 
   const expiredMeasurements = useMemo<ExpiredMeasurementItem[]>(() => {
     const updatedAt = activeChild?.updatedAt;
@@ -180,6 +235,81 @@ const NotificationsPage = () => {
               <p className="text-lg font-black text-slate-800">All measurements are up to date.</p>
               <p className="mt-2 text-sm font-medium text-slate-500">
                 There is nothing to update right now.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2 className="mb-8 text-[1.8rem] font-black tracking-tight text-slate-800">
+            VACCINATION ALERTS
+          </h2>
+
+          {isLoadingVaccineAlerts ? (
+            <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-center text-sm font-semibold text-slate-500">
+              Loading vaccine alerts...
+            </div>
+          ) : vaccineAlerts.length > 0 ? (
+            <div className="space-y-5">
+              {vaccineAlerts.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between rounded-[2rem] border px-6 py-6 shadow-[0_8px_20px_rgba(15,23,42,0.03)] ${
+                    item.isMissed
+                      ? 'border-rose-100 bg-rose-50'
+                      : 'border-amber-100 bg-[#fff8ea]'
+                  }`}
+                >
+                  <div className="pr-4">
+                    <h3 className="text-[1.35rem] font-black tracking-tight text-slate-800">
+                      {item.name}
+                    </h3>
+                    <p
+                      className={`mt-1 text-xs font-black uppercase tracking-[0.12em] ${
+                        item.isMissed ? 'text-rose-600' : 'text-amber-600'
+                      }`}
+                    >
+                      {item.isMissed
+                        ? `Not given • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                            month: 'numeric',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}`
+                        : item.canCheck
+                          ? `Due now • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                              month: 'numeric',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}`
+                          : `Due within 7 days • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                              month: 'numeric',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}`}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/assessment', {
+                        state: {
+                          focusSection: 'vaccine',
+                        },
+                      })
+                    }
+                    className="rounded-[1.1rem] border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition-transform active:scale-[0.98]"
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[2rem] border border-emerald-100 bg-white px-6 py-8 text-center">
+              <p className="text-lg font-black text-slate-800">No vaccine alerts right now.</p>
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                Upcoming reminders and missed vaccines will appear here.
               </p>
             </div>
           )}
