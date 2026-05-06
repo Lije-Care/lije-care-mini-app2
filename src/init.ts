@@ -3,8 +3,10 @@ import {
   viewport,
   themeParams,
   miniApp,
-  closingBehavior,
-  swipeBehavior,
+  mountClosingBehavior,
+  enableClosingConfirmation,
+  mountSwipeBehavior,
+  disableVerticalSwipes,
   initData,
   $debug,
   init as initSDK,
@@ -34,16 +36,16 @@ export function init(debug: boolean): void {
   // Mount all components used in the project.
   backButton.mount();
   miniApp.mount();
-  closingBehavior.mount();
+  mountClosingBehavior();
   themeParams.mount();
   initData.restore();
-  if (closingBehavior.enableClosingConfirmation.isAvailable()) {
-    closingBehavior.enableClosingConfirmation();
+  if (enableClosingConfirmation.isAvailable()) {
+    enableClosingConfirmation();
   }
-  if (swipeBehavior.mountSwipeBehavior.isAvailable()) {
-    swipeBehavior.mountSwipeBehavior();
-    if (swipeBehavior.disableVerticalSwipes.isAvailable()) {
-      swipeBehavior.disableVerticalSwipes();
+  if (mountSwipeBehavior.isAvailable()) {
+    mountSwipeBehavior();
+    if (disableVerticalSwipes.isAvailable()) {
+      disableVerticalSwipes();
     }
   }
   void viewport
