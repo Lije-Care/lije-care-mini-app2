@@ -25,8 +25,17 @@ const handlers = new Map<string, RegisteredBackHandler>();
 
 let nextOrder = 0;
 let nextId = 0;
+let snapshot: BackStoreSnapshot = {
+  count: 0,
+  hasHandlers: false,
+};
 
 function emitChange() {
+  const count = handlers.size;
+  snapshot = {
+    count,
+    hasHandlers: count > 0,
+  };
   listeners.forEach((listener) => listener());
 }
 
@@ -81,10 +90,5 @@ export function subscribeBackStore(listener: Listener) {
 }
 
 export function getBackStoreSnapshot(): BackStoreSnapshot {
-  const count = handlers.size;
-
-  return {
-    count,
-    hasHandlers: count > 0,
-  };
+  return snapshot;
 }
