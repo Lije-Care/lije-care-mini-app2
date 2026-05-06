@@ -80,6 +80,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     }
 
     const handleBack = () => {
+      const backIntent = new CustomEvent("lije:back-intent", {
+        cancelable: true,
+        detail: {
+          pathname: location.pathname,
+        },
+      });
+
+      window.dispatchEvent(backIntent);
+
+      if (backIntent.defaultPrevented) {
+        return;
+      }
+
       navigate(-1);
     };
 

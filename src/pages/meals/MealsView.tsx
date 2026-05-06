@@ -68,6 +68,8 @@ type BackendMealPlan = {
 
 type BackendPlanMeal = NonNullable<BackendMealPlan['meals']>[number];
 
+const MEALS_VIEW_STATE_KEY = 'lije-care:meals-view-state';
+
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
 
@@ -80,6 +82,21 @@ type PlannedMealSelection = {
 type MealsByDay = Partial<
   Record<DayKey, Partial<Record<MealSlot, PlannedMealSelection[]>>>
 >;
+
+type PersistedMealsViewState = {
+  subTab: 'mealLib' | 'foodLib' | 'planning';
+  planSourceTab: 'parent' | 'nutritionist';
+  isCreatingPlan: boolean;
+  creationStep: 1 | 2;
+  planName: string;
+  selectedDay: DayKey;
+  activeSlot: MealSlot;
+  selectedMealsByDay: MealsByDay;
+  focusedChildId: string | null;
+  activeViewPlanId: string | null;
+  activeViewDay: string | null;
+  activeViewReadOnly: boolean;
+};
 
 const SPECIALIST_ROLES = new Set([
   'SUPER_ADMIN',
@@ -2169,6 +2186,8 @@ const MealsView: React.FC = () => {
   const previousVisibleIngredientIdsRef = useRef<string[]>([]);
   const shouldScrollToLoadedMealsRef = useRef(false);
   const shouldScrollToLoadedIngredientsRef = useRef(false);
+  const restoredViewPlanIdRef = useRef<string | null>(null);
+  const hasRestoredPersistedStateRef = useRef(false);
   const [activeViewPlan, setActiveViewPlan] = useState<BackendMealPlan | null>(null);
   const [activeViewDay, setActiveViewDay] = useState<string | null>(null);
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
@@ -2344,6 +2363,73 @@ const MealsView: React.FC = () => {
 
     navigate(location.pathname, { replace: true });
   }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (hasRestoredPersistedStateRef.current) {
+      return;
+    }
+
+    hasRestoredPersistedStateRef.current = true;
+
+    try {
+      const rawState = window.sessionStorage.getItem(MEALS_VIEW_STATE_KEY);
+      if (!rawState) {
+        return;
+      }
+
+      const persistedState = JSON.parse(rawState) as Partial<PersistedMealsViewState>;
+
+      if (persistedState.subTab === 'planning' || persistedState.subTab === 'mealLib' || persistedState.subTab === 'foodLib') {
+        setSubTab(persistedState.subTab);
+      }
+
+      if (persistedState.planSourceTab === 'parent' || persistedState.planSourceTab === 'nutritionist') {
+        setPlanSourceTab(persistedState.planSourceTab);
+      }
+
+      if (typeof persistedState.isCreatingPlan === 'boolean') {
+        setIsCreatingPlan(persistedState.isCreatingPlan);
+      }
+
+      if (persistedState.creationStep === 1 || persistedState.creationStep === 2) {
+        setCreationStep(persistedState.creationStep);
+      }
+
+      if (typeof persistedState.planName === 'string') {
+        setPlanName(persistedState.planName);
+      }
+
+      if (persistedState.selectedDay && WEEK_DAYS.includes(persistedState.selectedDay)) {
+        setSelectedDay(persistedState.selectedDay);
+      }
+
+      if (persistedState.activeSlot && MEAL_SLOTS.includes(persistedState.activeSlot)) {
+        setActiveSlot(persistedState.activeSlot);
+      }
+
+      if (persistedState.selectedMealsByDay && typeof persistedState.selectedMealsByDay === 'object') {
+        setSelectedMealsByDay(persistedState.selectedMealsByDay);
+      }
+
+      if (typeof persistedState.focusedChildId === 'string' || persistedState.focusedChildId === null) {
+        setFocusedChildId(persistedState.focusedChildId ?? null);
+      }
+
+      if (typeof persistedState.activeViewDay === 'string' || persistedState.activeViewDay === null) {
+        setActiveViewDay(persistedState.activeViewDay ?? null);
+      }
+
+      if (typeof persistedState.activeViewReadOnly === 'boolean') {
+        setActiveViewReadOnly(persistedState.activeViewReadOnly);
+      }
+
+      if (typeof persistedState.activeViewPlanId === 'string' && persistedState.activeViewPlanId) {
+        restoredViewPlanIdRef.current = persistedState.activeViewPlanId;
+      }
+    } catch {
+      window.sessionStorage.removeItem(MEALS_VIEW_STATE_KEY);
+    }
+  }, []);
 
   // Helper to map meal time to valid type
   const getMealType = (mealTime: string | undefined): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' =>
@@ -2867,6 +2953,53 @@ const MealsView: React.FC = () => {
   const weekDays = WEEK_DAYS;
   const mealSlots = MEAL_SLOTS;
 
+  useEffect(() => {
+    const persistedState: PersistedMealsViewState = {
+      subTab,
+      planSourceTab,
+      isCreatingPlan,
+      creationStep,
+      planName,
+      selectedDay,
+      activeSlot,
+      selectedMealsByDay,
+      focusedChildId,
+      activeViewPlanId: activeViewPlan?.id ?? restoredViewPlanIdRef.current,
+      activeViewDay,
+      activeViewReadOnly,
+    };
+
+    window.sessionStorage.setItem(MEALS_VIEW_STATE_KEY, JSON.stringify(persistedState));
+  }, [
+    activeSlot,
+    activeViewDay,
+    activeViewPlan,
+    activeViewReadOnly,
+    creationStep,
+    focusedChildId,
+    isCreatingPlan,
+    planName,
+    planSourceTab,
+    selectedDay,
+    selectedMealsByDay,
+    subTab,
+  ]);
+
+  useEffect(() => {
+    if (!restoredViewPlanIdRef.current || mealPlans.length === 0 || activeViewPlan) {
+      return;
+    }
+
+    const matchedPlan = mealPlans.find((plan) => plan.id === restoredViewPlanIdRef.current);
+    if (!matchedPlan) {
+      restoredViewPlanIdRef.current = null;
+      return;
+    }
+
+    setActiveViewPlan(matchedPlan);
+    restoredViewPlanIdRef.current = null;
+  }, [activeViewPlan, mealPlans]);
+
   const resetPlanBuilder = () => {
     setSavingPlan(false);
     setIsCreatingPlan(false);
@@ -3092,6 +3225,84 @@ const MealsView: React.FC = () => {
 
     setPendingDeletePlan(null);
   };
+
+  useEffect(() => {
+    const handleMealsBackIntent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ pathname?: string }>;
+      if (customEvent.detail?.pathname !== '/meals') {
+        return;
+      }
+
+      if (showFilters) {
+        event.preventDefault();
+        setShowFilters(false);
+        return;
+      }
+
+      if (pendingDeletePlan) {
+        event.preventDefault();
+        closeDeletePlanDialog();
+        return;
+      }
+
+      if (selectedLibraryMeal || mealDetailLoading || mealDetailError) {
+        event.preventDefault();
+        closeMealDetail();
+        return;
+      }
+
+      if (selectedLibraryIngredient || ingredientDetailLoading || ingredientDetailError) {
+        event.preventDefault();
+        closeIngredientDetail();
+        return;
+      }
+
+      if (activeViewPlan) {
+        event.preventDefault();
+        setActiveViewPlan(null);
+        setActiveViewDay(null);
+        setActiveViewReadOnly(false);
+        return;
+      }
+
+      if (isCreatingPlan) {
+        event.preventDefault();
+
+        if (creationStep === 2) {
+          setCreationStep(1);
+          return;
+        }
+
+        resetPlanBuilder();
+        return;
+      }
+
+      if (subTab !== 'planning') {
+        event.preventDefault();
+        setSubTab('planning');
+      }
+    };
+
+    window.addEventListener('lije:back-intent', handleMealsBackIntent as EventListener);
+
+    return () => {
+      window.removeEventListener('lije:back-intent', handleMealsBackIntent as EventListener);
+    };
+  }, [
+    activeViewPlan,
+    creationStep,
+    deletingPlanGroupKey,
+    ingredientDetailError,
+    ingredientDetailLoading,
+    isCreatingPlan,
+    mealDetailError,
+    mealDetailLoading,
+    pendingDeletePlan,
+    selectedLibraryIngredient,
+    selectedLibraryMeal,
+    showFilters,
+    subTab,
+  ]);
 
   const handleDeletePlan = async () => {
     if (!pendingDeletePlan) {
