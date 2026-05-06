@@ -4,7 +4,6 @@ import {
   themeParams,
   miniApp,
   mountClosingBehavior,
-  enableClosingConfirmation,
   mountSwipeBehavior,
   disableVerticalSwipes,
   initData,
@@ -39,9 +38,6 @@ export function init(debug: boolean): void {
   mountClosingBehavior();
   themeParams.mount();
   initData.restore();
-  if (enableClosingConfirmation.isAvailable()) {
-    enableClosingConfirmation();
-  }
   if (mountSwipeBehavior.isAvailable()) {
     mountSwipeBehavior();
     if (disableVerticalSwipes.isAvailable()) {
