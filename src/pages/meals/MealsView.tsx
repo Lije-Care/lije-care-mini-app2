@@ -2188,6 +2188,8 @@ const MealsView: React.FC = () => {
   const shouldScrollToLoadedIngredientsRef = useRef(false);
   const restoredViewPlanIdRef = useRef<string | null>(null);
   const hasRestoredPersistedStateRef = useRef(false);
+  const previousBackLayerRef = useRef(0);
+  const browserBackInFlightRef = useRef(false);
   const [activeViewPlan, setActiveViewPlan] = useState<BackendMealPlan | null>(null);
   const [activeViewDay, setActiveViewDay] = useState<string | null>(null);
   const [activeViewReadOnly, setActiveViewReadOnly] = useState(false);
@@ -2952,6 +2954,29 @@ const MealsView: React.FC = () => {
   const displayPlans = planSourceTab === 'parent' ? parentPlans : nutritionistPlans;
   const weekDays = WEEK_DAYS;
   const mealSlots = MEAL_SLOTS;
+  const mealsBackLayer = useMemo(() => {
+    if (showFilters) return 6;
+    if (pendingDeletePlan) return 5;
+    if (selectedLibraryMeal || mealDetailLoading || mealDetailError) return 4;
+    if (selectedLibraryIngredient || ingredientDetailLoading || ingredientDetailError) return 4;
+    if (activeViewPlan) return 3;
+    if (isCreatingPlan && creationStep === 2) return 2;
+    if (isCreatingPlan || subTab !== 'planning') return 1;
+    return 0;
+  }, [
+    activeViewPlan,
+    creationStep,
+    ingredientDetailError,
+    ingredientDetailLoading,
+    isCreatingPlan,
+    mealDetailError,
+    mealDetailLoading,
+    pendingDeletePlan,
+    selectedLibraryIngredient,
+    selectedLibraryMeal,
+    showFilters,
+    subTab,
+  ]);
 
   useEffect(() => {
     const persistedState: PersistedMealsViewState = {
@@ -2999,6 +3024,27 @@ const MealsView: React.FC = () => {
     setActiveViewPlan(matchedPlan);
     restoredViewPlanIdRef.current = null;
   }, [activeViewPlan, mealPlans]);
+
+  useEffect(() => {
+    if (browserBackInFlightRef.current) {
+      browserBackInFlightRef.current = false;
+      previousBackLayerRef.current = mealsBackLayer;
+      return;
+    }
+
+    if (mealsBackLayer > previousBackLayerRef.current) {
+      window.history.pushState(
+        {
+          ...(window.history.state ?? {}),
+          __lijeMealsBackLayer: mealsBackLayer,
+        },
+        '',
+        window.location.href,
+      );
+    }
+
+    previousBackLayerRef.current = mealsBackLayer;
+  }, [mealsBackLayer]);
 
   const resetPlanBuilder = () => {
     setSavingPlan(false);
@@ -3297,6 +3343,77 @@ const MealsView: React.FC = () => {
     isCreatingPlan,
     mealDetailError,
     mealDetailLoading,
+    pendingDeletePlan,
+    selectedLibraryIngredient,
+    selectedLibraryMeal,
+    showFilters,
+    subTab,
+  ]);
+
+  useEffect(() => {
+    const handleBrowserBack = () => {
+      if (mealsBackLayer === 0) {
+        return;
+      }
+
+      browserBackInFlightRef.current = true;
+
+      if (showFilters) {
+        setShowFilters(false);
+        return;
+      }
+
+      if (pendingDeletePlan) {
+        closeDeletePlanDialog();
+        return;
+      }
+
+      if (selectedLibraryMeal || mealDetailLoading || mealDetailError) {
+        closeMealDetail();
+        return;
+      }
+
+      if (selectedLibraryIngredient || ingredientDetailLoading || ingredientDetailError) {
+        closeIngredientDetail();
+        return;
+      }
+
+      if (activeViewPlan) {
+        setActiveViewPlan(null);
+        setActiveViewDay(null);
+        setActiveViewReadOnly(false);
+        return;
+      }
+
+      if (isCreatingPlan) {
+        if (creationStep === 2) {
+          setCreationStep(1);
+          return;
+        }
+
+        resetPlanBuilder();
+        return;
+      }
+
+      if (subTab !== 'planning') {
+        setSubTab('planning');
+      }
+    };
+
+    window.addEventListener('popstate', handleBrowserBack);
+
+    return () => {
+      window.removeEventListener('popstate', handleBrowserBack);
+    };
+  }, [
+    activeViewPlan,
+    creationStep,
+    ingredientDetailError,
+    ingredientDetailLoading,
+    isCreatingPlan,
+    mealDetailError,
+    mealDetailLoading,
+    mealsBackLayer,
     pendingDeletePlan,
     selectedLibraryIngredient,
     selectedLibraryMeal,
