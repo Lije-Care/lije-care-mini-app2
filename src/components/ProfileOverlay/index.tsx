@@ -21,6 +21,7 @@ import {
 import { useProfileOverlay } from "@/context/ProfileOverlayContext";
 import type { Child } from "@/redux/slices/childSlice";
 import type { Gender } from "@/design-system/types";
+import { registerBackHandler } from "@/navigation/backStore";
 import { signOutAndCloseApp } from "@/utils/logout";
 
 type OverlayMode =
@@ -67,6 +68,32 @@ export default function ProfileOverlay() {
       setActiveChildId(localStorage.getItem("favorite_child_id"));
     }
   }, [isProfileOpen]);
+
+  useEffect(() => {
+    if (!isProfileOpen) {
+      return;
+    }
+
+    return registerBackHandler({
+      id: "profile-overlay",
+      priority: 100,
+      canHandle: () => isProfileOpen,
+      onBack: () => {
+        if (showSignOutConfirm) {
+          setShowSignOutConfirm(false);
+          return true;
+        }
+
+        if (mode !== "main") {
+          setMode("main");
+          return true;
+        }
+
+        closeProfile();
+        return true;
+      },
+    });
+  }, [closeProfile, isProfileOpen, mode, showSignOutConfirm]);
 
   if (!isProfileOpen) return null;
 

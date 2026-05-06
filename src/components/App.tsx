@@ -11,6 +11,7 @@ import {
 import { lazy, Suspense, useEffect } from "react";
 
 import { routes } from "@/navigation/routes.tsx";
+import { goBackInApp, useBackControllerState } from "@/navigation/back";
 import { Header, BottomNav } from "@/components/layout";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthGate from "./AuthGate";
@@ -59,6 +60,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isFullyOnboarded } = useAuth();
+  const { hasHandlers } = useBackControllerState();
   const currentPath = normalizePath(location.pathname);
   const isMainTabPath = MAIN_TAB_PATHS.includes(currentPath);
 
@@ -71,7 +73,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    const shouldShowBackButton = !isMainTabPath;
+    const shouldShowBackButton = !isMainTabPath || hasHandlers;
 
     if (shouldShowBackButton) {
       backButton.show();
@@ -80,20 +82,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     }
 
     const handleBack = () => {
-      const backIntent = new CustomEvent("lije:back-intent", {
-        cancelable: true,
-        detail: {
-          pathname: location.pathname,
-        },
+      goBackInApp({
+        navigate,
+        pathname: location.pathname,
       });
-
-      window.dispatchEvent(backIntent);
-
-      if (backIntent.defaultPrevented) {
-        return;
-      }
-
-      navigate(-1);
     };
 
     if (shouldShowBackButton) {
@@ -103,7 +95,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     return () => {
       backButton.offClick(handleBack);
     };
-  }, [isMainTabPath, navigate]);
+  }, [hasHandlers, isMainTabPath, location.pathname, navigate]);
 
   return (
     <ProfileOverlayProvider>
