@@ -1,3 +1,8 @@
+import {
+  GENERAL_CHILD_PROFILE,
+  type GeneralChildProfileEntry,
+} from "@/data/generalChildProfile";
+
 export const calculateAgeInMonths = (birthDate: string): number => {
   if (!birthDate) return 0;
   const today = new Date();
@@ -14,17 +19,65 @@ export const calculateAgeInMonths = (birthDate: string): number => {
   return years * 12 + months;
 };
 
+const isPositiveNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const getGeneralChildProfileForAge = (
+  ageInMonths: number
+): GeneralChildProfileEntry | null =>
+  GENERAL_CHILD_PROFILE.find(
+    (entry) => ageInMonths >= entry.minAgeMonths && ageInMonths <= entry.maxAgeMonths
+  ) ?? null;
+
+export const resolveNutrientMeasurements = (
+  weight: number | null | undefined,
+  height: number | null | undefined,
+  date_of_birth: string
+) => {
+  const ageInMonths = calculateAgeInMonths(date_of_birth);
+  if (ageInMonths < 0) return null;
+
+  const fallbackProfile = getGeneralChildProfileForAge(ageInMonths);
+  const resolvedWeight = isPositiveNumber(weight)
+    ? weight
+    : fallbackProfile?.medianWeight;
+  const resolvedHeight = isPositiveNumber(height)
+    ? height
+    : fallbackProfile?.medianHeight;
+
+  if (!isPositiveNumber(resolvedWeight) || !isPositiveNumber(resolvedHeight)) {
+    return null;
+  }
+
+  return {
+    ageInMonths,
+    weight: resolvedWeight,
+    height: resolvedHeight,
+    fallbackProfile,
+    usedFallback:
+      !isPositiveNumber(weight) ||
+      !isPositiveNumber(height),
+  };
+};
+
 export const calculateNutrients = (
-  weight: number,
-  height: number,
+  weight: number | null | undefined,
+  height: number | null | undefined,
   _gender: string,
   date_of_birth: string,
   activity_level: "Active" | "Moderate" | "Sedentary" = "Moderate"
 ): any | null => {
-  const months = calculateAgeInMonths(date_of_birth);
-  if (months < 0 || !weight || !height) return null;
+  const resolvedMeasurements = resolveNutrientMeasurements(
+    weight,
+    height,
+    date_of_birth
+  );
+  if (!resolvedMeasurements) return null;
 
-  const bmi = weight / (height / 100) ** 2;
+  const { ageInMonths: months, weight: resolvedWeight, height: resolvedHeight } =
+    resolvedMeasurements;
+
+  const bmi = resolvedWeight / (resolvedHeight / 100) ** 2;
   const roundedBMI = parseFloat(bmi.toFixed(2));
 
   let status = "Normal";
@@ -33,11 +86,11 @@ export const calculateNutrients = (
 
   let value1: number;
   if (months <= 6) {
-    value1 = weight * 108;
+    value1 = resolvedWeight * 108;
   } else if (months <= 36) {
-    value1 = weight * 102;
+    value1 = resolvedWeight * 102;
   } else {
-    value1 = weight * 90;
+    value1 = resolvedWeight * 90;
   }
 
   let value2: number;

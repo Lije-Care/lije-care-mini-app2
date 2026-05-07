@@ -2333,7 +2333,7 @@ const MealsView: React.FC = () => {
 
   useEffect(() => {
     void refreshMealPlans();
-  }, [children]);
+  }, [children.length, focusedChildId, i18n.language]);
 
   useEffect(() => {
     const state = location.state as
@@ -2864,12 +2864,7 @@ const MealsView: React.FC = () => {
   );
   const selectedChildId = selectedChild?.id ?? null;
   const childNutritionTargets = useMemo(() => {
-    if (
-      !selectedChild?.weight ||
-      !selectedChild?.height ||
-      !selectedChild?.gender ||
-      !selectedChild?.date_of_birth
-    ) {
+    if (!selectedChild?.gender || !selectedChild?.date_of_birth) {
       return null;
     }
 
@@ -2880,7 +2875,13 @@ const MealsView: React.FC = () => {
       selectedChild.date_of_birth,
       selectedChild.activity_level ?? 'Moderate',
     );
-  }, [selectedChild]);
+  }, [
+    selectedChild?.weight,
+    selectedChild?.height,
+    selectedChild?.gender,
+    selectedChild?.date_of_birth,
+    selectedChild?.activity_level,
+  ]);
   const nutrientProgressItems = useMemo(
     () =>
       buildNutrientProgressItems(currentCals, childNutritionTargets),
@@ -3733,8 +3734,6 @@ const MealsView: React.FC = () => {
       null;
     const planNutritionTargets =
       planChildProfile &&
-      planChildProfile.weight &&
-      planChildProfile.height &&
       planChildProfile.gender &&
       planChildProfile.date_of_birth
         ? calculateNutrients(

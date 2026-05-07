@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 interface ProfileOverlayContextType {
   isProfileOpen: boolean;
@@ -10,15 +17,19 @@ const ProfileOverlayContext = createContext<ProfileOverlayContextType | null>(nu
 
 export function ProfileOverlayProvider({ children }: { children: ReactNode }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const openProfile = useCallback(() => setIsProfileOpen(true), []);
+  const closeProfile = useCallback(() => setIsProfileOpen(false), []);
+  const value = useMemo(
+    () => ({
+      isProfileOpen,
+      openProfile,
+      closeProfile,
+    }),
+    [closeProfile, isProfileOpen, openProfile]
+  );
 
   return (
-    <ProfileOverlayContext.Provider
-      value={{
-        isProfileOpen,
-        openProfile: () => setIsProfileOpen(true),
-        closeProfile: () => setIsProfileOpen(false),
-      }}
-    >
+    <ProfileOverlayContext.Provider value={value}>
       {children}
     </ProfileOverlayContext.Provider>
   );

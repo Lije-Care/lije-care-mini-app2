@@ -47,13 +47,7 @@ const MealLibraryComponent = () => {
     [children, paramId]
   );
   const dailyResult = useMemo<any | null>(() => {
-    if (
-      !child ||
-      !child.weight ||
-      !child.height ||
-      !child.gender ||
-      !child.date_of_birth
-    )
+    if (!child || !child.gender || !child.date_of_birth)
       return null;
     return calculateNutrients(
       child.weight,

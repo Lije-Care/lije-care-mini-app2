@@ -84,7 +84,7 @@ const ChildProfilePage: React.FC = () => {
   const activity_level =
     watch("activity_level") || child?.activity_level || "Moderate";
   useEffect(() => {
-    if (weight && height && gender && date_of_birth) {
+    if (gender && date_of_birth) {
       const weightNum = Number(weight);
       const heightNum = Number(height);
       const newResult = calculateNutrients(
