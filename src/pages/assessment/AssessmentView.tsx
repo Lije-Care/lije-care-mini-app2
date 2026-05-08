@@ -317,24 +317,9 @@ const buildGrowthHistory = (
   return { unit: meta.unit, points };
 };
 
-const getInterpretationText = (displayStatus: string, detailText: string, hasResult: boolean) => {
+const getInterpretationText = (detailText: string, hasResult: boolean) => {
   if (!hasResult) return 'No interpretation yet. Add measurements to calculate this assessment.';
-  if (displayStatus === 'On Track') return 'This measurement is within the expected range for this child.';
-  if (displayStatus === 'Underweight' || displayStatus === 'Below Range') {
-    return `This measurement is below the expected range. ${detailText}`;
-  }
-  if (displayStatus === 'At Risk') {
-    return `This measurement suggests nutritional risk. ${detailText}`;
-  }
-  return `This measurement is above the expected range. ${detailText}`;
-};
-
-const getSuggestedActionText = (
-  displayStatus: string,
-  hasResult: boolean
-) => {
-  if (!hasResult || displayStatus === 'On Track') return null;
-  return 'Consult nutritionist.';
+  return detailText;
 };
 
 const getAnswerColor = (answer?: DevAnswer) => {
@@ -613,15 +598,8 @@ const AssessmentView: React.FC = () => {
         lastUpdatedText: formatRelativeTime(childUpdatedAt),
         displayStatus: status.displayLabel,
         detailText: status.detail,
-        interpretation: getInterpretationText(
-          status.displayLabel,
-          status.detail,
-          status.hasResult
-        ),
-        suggestedAction: getSuggestedActionText(
-          status.displayLabel,
-          status.hasResult
-        ),
+        interpretation: getInterpretationText(status.detail, status.hasResult),
+        suggestedAction: status.recommendedAction,
         whoClassification: status.whoClassification,
         zScore: status.zScore,
         tone: status.tone,

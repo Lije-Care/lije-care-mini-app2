@@ -30,6 +30,7 @@ export interface AnthropometricStatus {
   zScore: number | null;
   score: number | null;
   progress: number;
+  recommendedAction: string | null;
 }
 
 const isPositiveNumber = (value: unknown): value is number =>
@@ -50,6 +51,7 @@ const unavailableResult = (isRecorded: boolean, detail: string): AnthropometricS
   zScore: null,
   score: null,
   progress: 0,
+  recommendedAction: null,
 });
 
 const buildResult = (
@@ -58,7 +60,8 @@ const buildResult = (
   whoClassification: string,
   displayLabel: string,
   detail: string,
-  tone: AnthropometricTone
+  tone: AnthropometricTone,
+  recommendedAction: string
 ): AnthropometricStatus => {
   const score = toPresentationScore(zScore);
 
@@ -72,6 +75,7 @@ const buildResult = (
     zScore,
     score,
     progress: score,
+    recommendedAction,
   };
 };
 
@@ -87,22 +91,19 @@ const mapWeightForHeight = (
     return unavailableResult(isRecorded, 'Weight and height are recorded, but no WHO result is available yet.');
   }
 
-  if (classification.includes('wasting')) {
-    return buildResult(
-      isRecorded,
-      zScore,
-      classification,
-      'Underweight',
-      classification,
-      'danger'
-    );
+  if (zScore < -3) {
+    return buildResult(isRecorded, zScore, classification, 'Severely Wasted', 'Severe acute malnutrition', 'danger', 'Urgent treatment (OTP/SC)');
   }
-
-  if (classification === 'Normal') {
-    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  if (zScore < -2) {
+    return buildResult(isRecorded, zScore, classification, 'Wasted (Moderate)', 'Acute malnutrition', 'warning', 'Supplementary feeding + follow-up');
   }
-
-  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+  if (zScore > 3) {
+    return buildResult(isRecorded, zScore, classification, 'Obese', 'High excess weight for height', 'danger', 'Further assessment + lifestyle intervention');
+  }
+  if (zScore > 2) {
+    return buildResult(isRecorded, zScore, classification, 'Overweight', 'Excess weight for height', 'warning', 'Counsel on diet and activity');
+  }
+  return buildResult(isRecorded, zScore, classification, 'Normal', 'Appropriate weight for height', 'success', 'Continue routine care');
 };
 
 const mapHeightForAge = (
@@ -114,18 +115,13 @@ const mapHeightForAge = (
     return unavailableResult(isRecorded, 'Height is recorded, but no WHO result is available yet.');
   }
 
-  if (classification.includes('stunting')) {
-    return buildResult(
-      isRecorded,
-      zScore,
-      classification,
-      'Below Range',
-      classification,
-      'danger'
-    );
+  if (zScore < -3) {
+    return buildResult(isRecorded, zScore, classification, 'Severely Stunted', 'Severe chronic malnutrition', 'danger', 'Comprehensive intervention (nutrition + health + social)');
   }
-
-  return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  if (zScore < -2) {
+    return buildResult(isRecorded, zScore, classification, 'Stunted (Moderate)', 'Chronic malnutrition', 'warning', 'Nutrition + long-term support');
+  }
+  return buildResult(isRecorded, zScore, classification, 'Normal', 'Normal linear growth', 'success', 'Routine monitoring');
 };
 
 const mapMuac = (
@@ -140,19 +136,13 @@ const mapMuac = (
     );
   }
 
-  if (classification.includes('Severe Acute Malnutrition')) {
-    return buildResult(isRecorded, zScore, classification, 'At Risk', classification, 'danger');
+  if (zScore < -3) {
+    return buildResult(isRecorded, zScore, classification, 'Severe Acute Malnutrition (SAM)', 'High risk of mortality', 'danger', 'Urgent referral for therapeutic feeding (OTP/SC)');
   }
-
-  if (classification.includes('Moderate Acute Malnutrition')) {
-    return buildResult(isRecorded, zScore, classification, 'At Risk', classification, 'warning');
+  if (zScore < -2) {
+    return buildResult(isRecorded, zScore, classification, 'Moderate Acute Malnutrition (MAM)', 'At risk, low muscle/fat', 'warning', 'Supplementary feeding, nutrition counseling, close follow-up');
   }
-
-  if (classification.includes('Normal Nutrition Status')) {
-    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
-  }
-
-  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+  return buildResult(isRecorded, zScore, classification, 'Normal', 'Adequate nutritional status', 'success', 'Routine growth monitoring, continue feeding practices');
 };
 
 const mapBmiForAge = (
@@ -167,22 +157,22 @@ const mapBmiForAge = (
     );
   }
 
-  if (/underweight/i.test(classification)) {
-    return buildResult(
-      isRecorded,
-      zScore,
-      classification,
-      'Underweight',
-      classification,
-      'danger'
-    );
+  if (zScore < -3) {
+    return buildResult(isRecorded, zScore, classification, 'Severe Thinness', 'Severe undernutrition', 'danger', 'Urgent intervention');
   }
-
-  if (/normal weight/i.test(classification)) {
-    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  if (zScore < -2) {
+    return buildResult(isRecorded, zScore, classification, 'Thinness', 'Underweight', 'warning', 'Nutrition support');
   }
-
-  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+  if (zScore > 3) {
+    return buildResult(isRecorded, zScore, classification, 'Obese', 'High health risk', 'danger', 'Clinical assessment');
+  }
+  if (zScore > 2) {
+    return buildResult(isRecorded, zScore, classification, 'Overweight', 'Excess weight', 'warning', 'Lifestyle intervention');
+  }
+  if (zScore > 1) {
+    return buildResult(isRecorded, zScore, classification, 'Risk of Overweight', 'Early excess weight', 'warning', 'Diet & activity counseling');
+  }
+  return buildResult(isRecorded, zScore, classification, 'Normal', 'Healthy weight status', 'success', 'Maintain healthy habits');
 };
 
 const mapWeightForAge = (
@@ -197,22 +187,13 @@ const mapWeightForAge = (
     );
   }
 
-  if (/underweight/i.test(classification)) {
-    return buildResult(
-      isRecorded,
-      zScore,
-      classification,
-      'Underweight',
-      classification,
-      classification.includes('Mild') ? 'warning' : 'danger'
-    );
+  if (zScore < -3) {
+    return buildResult(isRecorded, zScore, classification, 'Severely Underweight', 'High risk', 'danger', 'Urgent evaluation and intervention');
   }
-
-  if (/normal weight for age/i.test(classification)) {
-    return buildResult(isRecorded, zScore, classification, 'On Track', classification, 'success');
+  if (zScore < -2) {
+    return buildResult(isRecorded, zScore, classification, 'Underweight (Moderate)', 'Could be acute or chronic issue', 'warning', 'Further assessment (WFH + HFA), nutrition support');
   }
-
-  return buildResult(isRecorded, zScore, classification, 'Above Range', classification, 'warning');
+  return buildResult(isRecorded, zScore, classification, 'Normal', 'Appropriate weight for age', 'success', 'Routine care');
 };
 
 export const getAnthropometricStatus = (
