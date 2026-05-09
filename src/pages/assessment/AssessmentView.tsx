@@ -922,7 +922,9 @@ const AssessmentView: React.FC = () => {
                         {formatVaccineDueAge(vaccine.daysFromBirth)}
                       </span>
                     </div>
-                    <p className="mb-4 text-[10px] font-medium text-slate-500">{vaccine.description}</p>
+                    <p className="mb-4 text-[10px] font-medium text-slate-500">
+                      Protects against: {vaccine.description}
+                    </p>
                     <p className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                       Due: <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
                     </p>
