@@ -5,6 +5,7 @@ export interface SpecialistProfile {
   countryOfResidence: string;
   timeZone: string;
   specialty: string;
+  consultationFee: number;
   licenseNumber: string;
   issuingAuthority: string;
   yearsOfExperience: number;

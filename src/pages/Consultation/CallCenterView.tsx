@@ -131,7 +131,7 @@ const CallCenterView: React.FC = () => {
       image: s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.id}`,
       availability: 'Available for booking',
       rating: 4.8, // Backend doesn't have rating, using default
-      fee: 350, // Default fee, can be updated when backend supports it
+      fee: Number(s.SpecialistProfile?.consultationFee ?? 0),
       specialty: s.SpecialistProfile?.specialty || 'Child Care',
     };
   });
