@@ -9,6 +9,7 @@ import api, { getPreferredLanguage } from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { calculateNutrients } from '@/utils/calculateNutrients';
 import { useTranslation } from 'react-i18next';
+import { registerBackHandler } from '@/navigation/backStore';
 
 type UnitLookupRecord = {
   id: string;
@@ -3421,6 +3422,39 @@ const MealsView: React.FC = () => {
     showFilters,
     subTab,
   ]);
+
+  // Keep a ref so the backStore handler always sees the latest state without
+  // recreating itself (and causing unnecessary BackButton flickers) on every
+  // render that changes an inline closure.
+  const mealsOnBackRef = useRef<() => boolean>(() => false);
+  mealsOnBackRef.current = () => {
+    if (showFilters) { setShowFilters(false); return true; }
+    if (pendingDeletePlan) { closeDeletePlanDialog(); return true; }
+    if (selectedLibraryMeal || mealDetailLoading || mealDetailError) { closeMealDetail(); return true; }
+    if (selectedLibraryIngredient || ingredientDetailLoading || ingredientDetailError) { closeIngredientDetail(); return true; }
+    if (activeViewPlan) { setActiveViewPlan(null); setActiveViewDay(null); setActiveViewReadOnly(false); return true; }
+    if (isCreatingPlan) {
+      if (creationStep === 2) { setCreationStep(1); return true; }
+      resetPlanBuilder(); return true;
+    }
+    if (subTab !== 'planning') { setSubTab('planning'); return true; }
+    return false;
+  };
+
+  // Register a backStore handler whenever there are in-page overlay layers.
+  // This makes the Telegram BackButton visible so the system back button is
+  // captured by Telegram (and forwarded to our handler) rather than closing
+  // the mini app. The existing lije:back-intent listener handles the action;
+  // this handler is a safety fallback that also does the work directly.
+  useEffect(() => {
+    if (mealsBackLayer === 0) return;
+    return registerBackHandler({
+      id: 'meals-view',
+      priority: 10,
+      canHandle: () => mealsBackLayer > 0,
+      onBack: () => mealsOnBackRef.current(),
+    });
+  }, [mealsBackLayer]);
 
   const handleDeletePlan = async () => {
     if (!pendingDeletePlan) {

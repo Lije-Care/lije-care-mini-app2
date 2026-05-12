@@ -6,6 +6,8 @@ import {
   subscribeBackStore,
 } from "@/navigation/backStore";
 
+export { consumeRegisteredBackHandler, getBackStoreSnapshot };
+
 export const APP_BACK_INTENT_EVENT = "lije:back-intent";
 
 type GoBackInAppOptions = {

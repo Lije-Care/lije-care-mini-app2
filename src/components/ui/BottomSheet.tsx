@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { registerBackHandler } from '@/navigation/backStore';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   title,
   showHandle = true,
 }) => {
-  // Prevent body scroll when modal is open
+  // Prevent body scroll when sheet is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -26,6 +27,21 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Register a back handler so the phone back button closes the sheet
+  // before navigating away from the current page.
+  useEffect(() => {
+    if (!isOpen) return;
+    return registerBackHandler({
+      id: 'bottom-sheet',
+      priority: 50,
+      canHandle: () => isOpen,
+      onBack: () => {
+        onClose();
+        return true;
+      },
+    });
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

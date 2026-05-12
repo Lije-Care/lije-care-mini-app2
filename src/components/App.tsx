@@ -8,10 +8,14 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 
 import { routes } from "@/navigation/routes.tsx";
-import { goBackInApp, useBackControllerState } from "@/navigation/back";
+import {
+  goBackInApp,
+  useBackControllerState,
+  consumeRegisteredBackHandler,
+} from "@/navigation/back";
 import { Header, BottomNav } from "@/components/layout";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthGate from "./AuthGate";
@@ -65,37 +69,75 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isMainTabPath = MAIN_TAB_PATHS.includes(currentPath);
 
   const shouldHideNavbar = !isFullyOnboarded || !isMainTabPath;
-
   const shouldHideHeader = !isFullyOnboarded || !isMainTabPath;
+  const shouldShowBackButton = !isMainTabPath || hasHandlers;
 
+  // Always-current ref so the stable handler never captures stale navigate/pathname.
+  const backContextRef = useRef({ navigate, pathname: location.pathname });
   useEffect(() => {
-    if (!backButton.isMounted()) {
-      return;
-    }
+    backContextRef.current = { navigate, pathname: location.pathname };
+  });
 
-    const shouldShowBackButton = !isMainTabPath || hasHandlers;
+  // One stable function reference for the entire lifetime of Layout.
+  // BackButton.onClick/offClick match by reference, so a stable ref avoids
+  // double-registration when the effect re-runs due to other dep changes.
+  const stableBackHandler = useCallback(() => {
+    goBackInApp(backContextRef.current);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wire Telegram BackButton — re-runs only when visibility changes.
+  useEffect(() => {
+    if (!backButton.isMounted()) return;
 
     if (shouldShowBackButton) {
       backButton.show();
+      backButton.onClick(stableBackHandler);
     } else {
       backButton.hide();
     }
 
-    const handleBack = () => {
-      goBackInApp({
-        navigate,
-        pathname: location.pathname,
-      });
-    };
-
-    if (shouldShowBackButton) {
-      backButton.onClick(handleBack);
-    }
-
     return () => {
-      backButton.offClick(handleBack);
+      backButton.offClick(stableBackHandler);
     };
-  }, [hasHandlers, isMainTabPath, location.pathname, navigate]);
+  }, [shouldShowBackButton, stableBackHandler]);
+
+  // Popstate fallback — catches Android system-back events that Telegram does
+  // not intercept via BackButton (e.g. when the BackButton SDK is not active,
+  // or in a browser during development).
+  //
+  // Strategy:
+  //   • If a modal/overlay handler is registered → consume it and push the
+  //     history entry back forward so React Router never sees the URL change.
+  //   • Otherwise → let the event bubble so React Router navigates normally.
+  useEffect(() => {
+    // Counts how many history.go(1) calls we fired and are still in-flight.
+    // Each in-flight go(1) produces one extra popstate that we must swallow.
+    let pendingGoForward = 0;
+
+    const handlePopstate = (e: PopStateEvent) => {
+      if (pendingGoForward > 0) {
+        // This popstate was fired by our own history.go(1) — absorb it.
+        pendingGoForward--;
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      if (consumeRegisteredBackHandler()) {
+        // An overlay/modal was open — we closed it. Stop React Router from
+        // also processing this as a URL navigation.
+        e.stopImmediatePropagation();
+        pendingGoForward++;
+        window.history.go(1); // Restore the URL that the system back undid.
+      }
+      // No overlay handler → fall through; React Router handles the navigation.
+    };
+
+    // Use capture phase so we run before React Router's bubble-phase listener.
+    window.addEventListener("popstate", handlePopstate, { capture: true });
+    return () => {
+      window.removeEventListener("popstate", handlePopstate, { capture: true });
+    };
+  }, []); // consumeRegisteredBackHandler reads module-level state — no deps needed.
 
   return (
     <ProfileOverlayProvider>
