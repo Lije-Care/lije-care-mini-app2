@@ -16,16 +16,31 @@ import { FiPhoneCall } from "react-icons/fi";
 import { MdVideoCameraFront } from "react-icons/md";
 import { FaMicrophone, FaMicrophoneSlash, FaPaperPlane } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import socket from "@/utils/socket";
 import MessageList from "./MessageList";
 import { Page } from "@/components/Page";
 import { useBookings } from "@/hooks/useBookings";
+import { APP_BACK_INTENT_EVENT } from "@/navigation/back";
 
 const ChatScreen = () => {
   const { bookings } = useBookings();
   const { doctorId } = useParams();
+  const navigate = useNavigate();
+
+  // Intercept the Telegram back button before navigate(-1) runs.
+  // In the Telegram Mini App WebView, window.history.go(-1) can trigger
+  // native "close app" behavior. Navigating explicitly to /consultation
+  // uses pushState/replaceState instead, which the WebView handles correctly.
+  useEffect(() => {
+    const handleBackIntent = (e: Event) => {
+      e.preventDefault();
+      navigate("/consultation", { replace: true });
+    };
+    window.addEventListener(APP_BACK_INTENT_EVENT, handleBackIntent);
+    return () => window.removeEventListener(APP_BACK_INTENT_EVENT, handleBackIntent);
+  }, [navigate]);
 
   const [activeSlotBooking, setActiveSlotBooking] = useState<any>(null);
   const [countdown, setCountdown] = useState<string | null>(null);
