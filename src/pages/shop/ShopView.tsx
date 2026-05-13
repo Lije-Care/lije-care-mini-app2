@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchProducts } from '@/redux/slices/productSlice';
+import { addToCart } from '@/redux/slices/cartSlice';
 import { SearchIcon, PlusIcon, StarIcon, ShopIcon } from '@/design-system/icons';
 
 const DEFAULT_CATEGORIES = ['All', 'Food', 'Toys', 'Lunch Boxes', 'Utensils', 'Essentials'];
@@ -51,9 +52,15 @@ const ShopView: React.FC = () => {
   const displayCategories = categories.length > 1 ? categories : DEFAULT_CATEGORIES;
 
   const handleAddToCart = (productId: string) => {
-    // Navigate to product detail page for now
-    // Cart functionality is preserved in cartSlice
-    navigate(`/product-detail/${productId}`);
+    const product = transformedProducts.find(p => p.id === productId);
+    if (!product) return;
+    dispatch(addToCart({
+      id: product.id as any,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      image: product.image,
+    }));
   };
 
   if (loading && products.length === 0) {

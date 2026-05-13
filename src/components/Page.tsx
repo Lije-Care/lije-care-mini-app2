@@ -1,28 +1,11 @@
-import { useNavigate } from 'react-router-dom';
-import { backButton } from '@telegram-apps/sdk-react';
-import { PropsWithChildren, useEffect } from 'react';
-import { goBackInApp } from '@/navigation/back';
+import { PropsWithChildren } from 'react';
 
-export function Page({ children, back = true }: PropsWithChildren<{
-  /**
-   * True if it is allowed to go back from this page.
-   */
+// Back button visibility and navigation are handled centrally by the Layout
+// in App.tsx. Registering another handler here would cause navigate(-1) to
+// fire twice (once per handler) when the Telegram back button is pressed,
+// skipping the intermediate page in the history stack.
+export function Page({ children }: PropsWithChildren<{
   back?: boolean
 }>) {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (back) {
-      backButton.show();
-      return backButton.onClick(() => {
-        goBackInApp({
-          navigate,
-          pathname: window.location.pathname,
-        });
-      });
-    }
-    backButton.hide();
-  }, [back, navigate]);
-
   return <>{children}</>;
 }
