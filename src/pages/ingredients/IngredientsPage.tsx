@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/api/axios";
 import { getPreferredLanguage } from "@/api/axios";
-import fallback from "@/assets/meal.png";
 import { useTranslation } from "react-i18next";
 import { Eye } from "lucide-react";
 
@@ -163,6 +162,9 @@ const IngredientsPage = () => {
                 ingredient.portionUnit?.abbreviation || ""
               }`;
               const nutrients = calculateIngredientNutrients(ingredient);
+              const hasImage =
+                typeof ingredient.imageUrl === "string" &&
+                ingredient.imageUrl.startsWith("http");
               return (
                 <div
                   key={ingredient.id}
@@ -170,21 +172,18 @@ const IngredientsPage = () => {
                   onClick={() => toggleIngredientExpand(ingredient.id)}
                 >
                   <div className="flex gap-4 items-center">
-                    <img
-                      src={
-                        typeof ingredient.imageUrl === "string" &&
-                        ingredient.imageUrl.startsWith("http")
-                          ? ingredient.imageUrl
-                          : `${fallback}`
-                      }
-                      alt={ingredient.name}
-                      className="w-20 h-20 rounded-lg object-cover border border-gray-700"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = `${fallback}`;
-                      }}
-                    />
+                    <div
+                      className="w-20 h-20 rounded-lg border border-gray-700 flex-shrink-0 overflow-hidden"
+                      aria-hidden={!hasImage}
+                    >
+                      {hasImage ? (
+                        <img
+                          src={ingredient.imageUrl}
+                          alt={ingredient.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                    </div>
                     <div className="flex-1">
                       <h2 className="text-lg font-bold text-emerald-300">
                         {ingredient.name}

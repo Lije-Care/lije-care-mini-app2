@@ -10,7 +10,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { calculateNutrients } from '@/utils/calculateNutrients';
 import { useTranslation } from 'react-i18next';
 import { registerBackHandler } from '@/navigation/backStore';
-import mealFallbackImage from '@/assets/meal.png';
 
 type UnitLookupRecord = {
   id: string;
@@ -1342,11 +1341,13 @@ const MealLibraryDetailOverlay = ({
         ) : scaledMeal ? (
           <div className="space-y-8">
             <div className="relative h-64 overflow-hidden rounded-[2.5rem] shadow-xl">
+              {scaledMeal.imageUrl ? (
                 <img
-                  src={scaledMeal.imageUrl || mealFallbackImage}
-                className="h-full w-full object-cover"
-                alt={scaledMeal.name}
-              />
+                  src={scaledMeal.imageUrl}
+                  className="h-full w-full object-cover"
+                  alt={scaledMeal.name}
+                />
+              ) : null}
             </div>
 
             <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
@@ -1801,11 +1802,13 @@ const IngredientLibraryDetailOverlay = ({
         ) : ingredient ? (
           <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
               <div className="mb-8 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-50">
-                <img
-                  src={ingredient.imageUrl || mealFallbackImage}
-                  className="h-56 w-full object-cover"
-                  alt={ingredient.name}
-                />
+                {ingredient.imageUrl ? (
+                  <img
+                    src={ingredient.imageUrl}
+                    className="h-56 w-full object-cover"
+                    alt={ingredient.name}
+                  />
+                ) : null}
               </div>
               <h2 className="mb-4 text-2xl font-black text-slate-800">{ingredient.name}</h2>
               <div className="mb-10 text-xl font-black uppercase tracking-[0.22em] text-[#76A13B]">
@@ -2461,7 +2464,7 @@ const MealsView: React.FC = () => {
     name: m.name,
     type: getMealType(m.mealTimes?.[0]),
     nutrients: [], // Backend doesn't have this in simple format
-    image: m.imageUrl || mealFallbackImage,
+    image: m.imageUrl || '',
     description: m.description || '',
     prepTime: m.prepTime || 'N/A',
     ageGroup: formatMealAgeGroup(m.ageGroup),
@@ -2489,7 +2492,7 @@ const MealsView: React.FC = () => {
     portion: `${i.portionSize}g`,
     calories: Math.round(i.density * i.portionSize) || 100,
     nutrients: [{ name: i.foodGroup, amount: 'Med' }],
-    image: i.imageUrl || mealFallbackImage,
+    image: i.imageUrl || '',
   }));
 
   // Use transformed data or fallback to empty arrays
@@ -3141,7 +3144,7 @@ const MealsView: React.FC = () => {
   };
 
   const getMealImage = (meal: BackendPlanMeal) =>
-    meal?.imageUrl || mealFallbackImage;
+    meal?.imageUrl || '';
 
   const mapBackendMealToSelection = (
     meal: BackendPlanMeal,
@@ -3956,11 +3959,13 @@ const MealsView: React.FC = () => {
                             }
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            <img
-                              src={getMealImage(meal)}
-                              alt={meal.name || 'Meal'}
-                              className="w-16 h-16 rounded-2xl object-cover"
-                            />
+                            {getMealImage(meal) ? (
+                              <img
+                                src={getMealImage(meal)}
+                                alt={meal.name || 'Meal'}
+                                className="w-16 h-16 rounded-2xl object-cover"
+                              />
+                            ) : null}
                             <div className="min-w-0 flex-1">
                               <h5 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
                                 {meal.name || 'Meal'}
@@ -4318,11 +4323,13 @@ const MealsView: React.FC = () => {
                             onClick={() => void openMealDetail(meal.id, displayMultiplier)}
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            <img
-                              src={meal.image}
-                              className="h-16 w-16 rounded-2xl object-cover"
-                              alt={meal.name}
-                            />
+                            {meal.image ? (
+                              <img
+                                src={meal.image}
+                                className="h-16 w-16 rounded-2xl object-cover"
+                                alt={meal.name}
+                              />
+                            ) : null}
                             <div className="min-w-0 flex-1">
                               <h6 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
                                 {meal.name}
@@ -4547,7 +4554,9 @@ const MealsView: React.FC = () => {
                 onClick={() => void openMealDetail(meal.id)}
                 className="cursor-pointer bg-white rounded-[2.5rem] p-5 flex gap-5 border border-slate-50 shadow-sm transition-transform active:scale-95 text-left"
               >
-                <img src={meal.image} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0" alt={meal.name} />
+                {meal.image ? (
+                  <img src={meal.image} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0" alt={meal.name} />
+                ) : null}
                 <div className="flex-1 flex flex-col justify-center">
                   <div className="flex justify-between items-start mb-1">
                     <h5 className="font-bold text-slate-800 text-base">{meal.name}</h5>
@@ -4585,7 +4594,14 @@ const MealsView: React.FC = () => {
                 onClick={() => void openIngredientDetail(food.id)}
                 className="cursor-pointer bg-white rounded-[2.5rem] p-4 flex gap-5 border border-slate-50 shadow-sm text-left transition-transform active:scale-95"
               >
-                <img src={food.image} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" alt={food.name} />
+                <div
+                  className="w-20 h-20 rounded-2xl flex-shrink-0 overflow-hidden"
+                  aria-hidden={!food.image}
+                >
+                  {food.image ? (
+                    <img src={food.image} className="w-full h-full object-cover" alt={food.name} />
+                  ) : null}
+                </div>
                 <div className="flex-1 flex flex-col justify-center">
                   <h5 className="font-bold text-slate-800">{food.name}</h5>
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Per {food.portion} • {food.calories} kcal</p>
