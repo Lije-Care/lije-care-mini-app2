@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { calculateNutrients } from '@/utils/calculateNutrients';
 import { useTranslation } from 'react-i18next';
 import { registerBackHandler } from '@/navigation/backStore';
+import mealFallbackImage from '@/assets/meal.png';
 
 type UnitLookupRecord = {
   id: string;
@@ -1341,8 +1342,8 @@ const MealLibraryDetailOverlay = ({
         ) : scaledMeal ? (
           <div className="space-y-8">
             <div className="relative h-64 overflow-hidden rounded-[2.5rem] shadow-xl">
-              <img
-                src={scaledMeal.imageUrl || `https://picsum.photos/seed/${scaledMeal.id}/600/400`}
+                <img
+                  src={scaledMeal.imageUrl || mealFallbackImage}
                 className="h-full w-full object-cover"
                 alt={scaledMeal.name}
               />
@@ -1801,7 +1802,7 @@ const IngredientLibraryDetailOverlay = ({
           <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
               <div className="mb-8 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-50">
                 <img
-                  src={ingredient.imageUrl || `https://picsum.photos/seed/${ingredient.id}/600/400`}
+                  src={ingredient.imageUrl || mealFallbackImage}
                   className="h-56 w-full object-cover"
                   alt={ingredient.name}
                 />
@@ -2460,7 +2461,7 @@ const MealsView: React.FC = () => {
     name: m.name,
     type: getMealType(m.mealTimes?.[0]),
     nutrients: [], // Backend doesn't have this in simple format
-    image: m.imageUrl || `https://picsum.photos/seed/${m.id}/400/300`,
+    image: m.imageUrl || mealFallbackImage,
     description: m.description || '',
     prepTime: m.prepTime || 'N/A',
     ageGroup: formatMealAgeGroup(m.ageGroup),
@@ -2488,7 +2489,7 @@ const MealsView: React.FC = () => {
     portion: `${i.portionSize}g`,
     calories: Math.round(i.density * i.portionSize) || 100,
     nutrients: [{ name: i.foodGroup, amount: 'Med' }],
-    image: i.imageUrl || `https://picsum.photos/seed/${i.id}/200`,
+    image: i.imageUrl || mealFallbackImage,
   }));
 
   // Use transformed data or fallback to empty arrays
@@ -3140,7 +3141,7 @@ const MealsView: React.FC = () => {
   };
 
   const getMealImage = (meal: BackendPlanMeal) =>
-    meal?.imageUrl || `https://picsum.photos/seed/${meal?.id}/200/200`;
+    meal?.imageUrl || mealFallbackImage;
 
   const mapBackendMealToSelection = (
     meal: BackendPlanMeal,
