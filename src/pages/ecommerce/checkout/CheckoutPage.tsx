@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux/store";
 import { clearCart } from "@/redux/slices/cartSlice";
@@ -18,6 +19,7 @@ interface CartItem {
 
 const CheckoutPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const cartItems = useSelector(
     (state: RootState) => state.cart.items
@@ -151,25 +153,35 @@ const CheckoutPage = () => {
 
   return (
     <div>
-      <div className="bg-[#013222] p-4">
-        <h1 className="text-white text-3xl font-bold ">{t("Products")}</h1>
+      <div className="bg-[#013222] p-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
+          aria-label="Go back"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
+        <h1 className="text-white text-3xl font-bold">{t("Products")}</h1>
       </div>
-      <section className=" antialiased md:py-16 bg-gray-800">
+      <section className="antialiased bg-white">
         <form
           onSubmit={handleSubmit}
-          className="mx-auto max-w-screen-xl px-4 2xl:px-0 bg-gray-800"
+          className="mx-auto max-w-screen-xl px-4 pb-10"
         >
-          <div className="pt-6 sm:mt-8 lg:flex lg:items-start lg:gap-12 xl:gap-16">
-            <div className="min-w-0 flex-1 space-y-8">
+          <div className="pt-6 space-y-8">
+            <div className="space-y-8">
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-gray-100 ">
+                <h2 className="text-xl font-semibold text-slate-800">
                   {t("Delivery Details")}
                 </h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="customerName"
-                      className="mb-2 block text-sm font-medium text-gray-100 "
+                      className="mb-2 block text-sm font-medium text-slate-800"
                     >
                       {t("Your name")}*
                     </label>
@@ -186,7 +198,7 @@ const CheckoutPage = () => {
                   <div>
                     <label
                       htmlFor="customerEmail"
-                      className="mb-2 block text-sm font-medium text-gray-100 "
+                      className="mb-2 block text-sm font-medium text-slate-800"
                     >
                       {t("Your email")}*
                     </label>
@@ -203,7 +215,7 @@ const CheckoutPage = () => {
                   <div>
                     <label
                       htmlFor="customerPhone"
-                      className="mb-2 block text-sm font-medium text-gray-100 "
+                      className="mb-2 block text-sm font-medium text-slate-800"
                     >
                       {t("Your Phone")}*
                     </label>
@@ -220,7 +232,7 @@ const CheckoutPage = () => {
                   <div>
                     <label
                       htmlFor="city"
-                      className="mb-2 block text-sm font-medium text-gray-100 "
+                      className="mb-2 block text-sm font-medium text-slate-800"
                     >
                       {t("City")}*
                     </label>
@@ -237,10 +249,10 @@ const CheckoutPage = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-100 ">
+                <h3 className="text-xl font-semibold text-slate-800">
                   {t("Payment")}
                 </h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="rounded-lg border border-gray-300 bg-white p-4 ps-4  ">
                     <div className="flex items-start">
                       <div className="flex h-5 items-center">
@@ -304,10 +316,10 @@ const CheckoutPage = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-100 ">
+                <h3 className="text-xl font-semibold text-slate-800">
                   {t("Delivery Methods")}
                 </h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="rounded-lg border border-gray-300 bg-white p-4 ps-4  ">
                     <div className="flex items-start">
                       <div className="flex h-5 items-center">
@@ -371,46 +383,46 @@ const CheckoutPage = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-6 w-full space-y-6 sm:mt-8 lg:mt-0 lg:max-w-xs xl:max-w-md">
+            <div className="space-y-6 border-t border-slate-200 pt-6">
               <div className="flow-root">
-                <div className="-my-3 divide-y divide-gray-300 ">
+                <div className="-my-3 divide-y divide-slate-200">
                   <dl className="flex items-center justify-between gap-4 py-3">
-                    <dt className="text-base font-normal text-gray-200 ">
+                    <dt className="text-base font-normal text-slate-600">
                       {t("Subtotal")}
                     </dt>
-                    <dd className="text-base font-medium text-gray-100 ">
+                    <dd className="text-base font-medium text-slate-800">
                       ETB {subtotal.toFixed(2)}
                     </dd>
                   </dl>
                   <dl className="flex items-center justify-between gap-4 py-3">
-                    <dt className="text-base font-normal text-gray-200 ">
+                    <dt className="text-base font-normal text-slate-600">
                       {t("Tax")}
                     </dt>
-                    <dd className="text-base font-medium text-gray-100 ">
+                    <dd className="text-base font-medium text-slate-800">
                       ETB {tax.toFixed(2)}
                     </dd>
                   </dl>
                   <dl className="flex items-center justify-between gap-4 py-3">
-                    <dt className="text-base font-normal text-gray-200 ">
+                    <dt className="text-base font-normal text-slate-600">
                       {t("Delivery Fee")}
                     </dt>
-                    <dd className="text-base font-medium text-gray-100 ">
+                    <dd className="text-base font-medium text-slate-800">
                       ETB {deliveryFee.toFixed(2)}
                     </dd>
                   </dl>
                   <dl className="flex items-center justify-between gap-4 py-3">
-                    <dt className="text-base font-normal text-gray-200 ">
+                    <dt className="text-base font-normal text-slate-600">
                       {t("Payment Fee")}
                     </dt>
-                    <dd className="text-base font-medium text-gray-100 ">
+                    <dd className="text-base font-medium text-slate-800">
                       ETB {paymentFee.toFixed(2)}
                     </dd>
                   </dl>
                   <dl className="flex items-center justify-between gap-4 py-3">
-                    <dt className="text-base font-bold text-gray-100 ">
+                    <dt className="text-base font-bold text-slate-800">
                       {t("Total")}
                     </dt>
-                    <dd className="text-base font-bold text-gray-100 ">
+                    <dd className="text-base font-bold text-slate-800">
                       ETB {total.toFixed(2)}
                     </dd>
                   </dl>
@@ -420,7 +432,7 @@ const CheckoutPage = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-xs hover:bg-indigo-700"
+                  className="flex w-full items-center justify-center rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-base font-black text-white shadow-xl active:scale-95 transition-transform"
                 >
                   {isSubmitting ? t("Processing...") : t("Order Now")}
                 </button>
