@@ -1,18 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
-import { PlusIcon, StarIcon } from '@/design-system/icons';
+import { ChevronLeftIcon, PlusIcon, StarIcon } from '@/design-system/icons';
 import { Card, Button } from '@/components/ui';
 import { fetchArticles } from '@/redux/slices/articlesSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchParent } from '@/redux/slices/itemSlice';
 import { fetchProducts } from '@/redux/slices/productSlice';
 import { fetchMeals } from '@/redux/slices/mealSlice';
+import { getPromotions } from '@/services/promotion';
+import { Promotion } from '@/types/promotion';
 import {
   getAgeInMonthsFromDob,
   getDevelopmentTracePromptsForAge,
 } from '@/data/developmentalMilestones';
+import { motion } from 'framer-motion';
 
 interface AssessmentPrompt {
   id: string;
@@ -54,6 +57,11 @@ const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [dailyTip] = useState('Talk to your child throughout the day, describing what you see and do together. This helps build their vocabulary and language skills.');
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionsError, setPromotionsError] = useState('');
+  const [promoIndex, setPromoIndex] = useState(0);
+  const autoSlideRef = useRef<number | null>(null);
 
   // Redux state
   const { products } = useSelector((state: RootState) => state.products);
@@ -92,6 +100,60 @@ const HomeDashboard: React.FC = () => {
     dispatch(fetchProducts());
     dispatch(fetchMeals());
   }, [dispatch]);
+
+  const fetchPromotionItems = async () => {
+    try {
+      setPromotionsLoading(true);
+      setPromotionsError('');
+      const result = await getPromotions(10);
+      setPromotions(result);
+      setPromoIndex(0);
+    } catch (error: any) {
+      setPromotionsError(
+        error?.response?.data?.message || 'Failed to load promotions.'
+      );
+    } finally {
+      setPromotionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPromotionItems();
+  }, []);
+
+  useEffect(() => {
+    if (autoSlideRef.current) {
+      window.clearInterval(autoSlideRef.current);
+    }
+
+    if (promotions.length > 1) {
+      autoSlideRef.current = window.setInterval(() => {
+        setPromoIndex((prev) => (prev + 1) % promotions.length);
+      }, 3000);
+    }
+
+    return () => {
+      if (autoSlideRef.current) {
+        window.clearInterval(autoSlideRef.current);
+      }
+    };
+  }, [promotions.length]);
+
+  useEffect(() => {
+    if (promoIndex > 0 && promoIndex >= promotions.length) {
+      setPromoIndex(0);
+    }
+  }, [promoIndex, promotions.length]);
+
+  const showPreviousPromotion = () => {
+    if (promotions.length <= 1) return;
+    setPromoIndex((prev) => (prev - 1 + promotions.length) % promotions.length);
+  };
+
+  const showNextPromotion = () => {
+    if (promotions.length <= 1) return;
+    setPromoIndex((prev) => (prev + 1) % promotions.length);
+  };
 
   // Get featured product from backend or use fallback
   const FEATURED_PRODUCT = products.length > 0 ? {
@@ -180,7 +242,119 @@ const HomeDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Today's Meal Section - Healthy Bites */}
+      {/* 2. Promotion Section */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-slate-800 text-lg">Promotions</h3>
+          <div className="flex gap-1.5">
+            {promotions.map((_, index) => (
+              <div
+                key={index}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  index === promoIndex ? 'w-6 bg-emerald-500' : 'w-1.5 bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {promotionsLoading && (
+          <Card className="text-sm font-medium text-slate-500" padding="lg">
+            Loading promotions...
+          </Card>
+        )}
+
+        {!promotionsLoading && promotionsError && (
+          <Card className="space-y-4" padding="lg">
+            <p className="text-sm font-medium text-rose-500">{promotionsError}</p>
+            <Button color="emerald" size="sm" onClick={fetchPromotionItems}>
+              Retry
+            </Button>
+          </Card>
+        )}
+
+        {!promotionsLoading && !promotionsError && promotions.length === 0 && (
+          <Card className="text-sm font-medium text-slate-500" padding="lg">
+            No promotions found.
+          </Card>
+        )}
+
+        {!promotionsLoading && !promotionsError && promotions.length > 0 && (
+          <div className="relative overflow-hidden group">
+            <motion.div
+              className="flex touch-pan-y"
+              animate={{ x: `-${promoIndex * 100}%` }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.08}
+              onDragEnd={(_, info) => {
+                if (info.offset.x <= -50) {
+                  showNextPromotion();
+                  return;
+                }
+
+                if (info.offset.x >= 50) {
+                  showPreviousPromotion();
+                }
+              }}
+            >
+              {promotions.map((promotion) => (
+                <button
+                  key={promotion.id}
+                  type="button"
+                  className="w-full flex-shrink-0 px-0.5 text-left"
+                  onClick={() =>
+                    navigate(`/promotions/${promotion.id}`, {
+                      state: { promotion },
+                    })
+                  }
+                >
+                  <div className="relative h-44 overflow-hidden rounded-[2rem] bg-emerald-600 shadow-lg shadow-emerald-100/60">
+                    {promotion.imageUrl ? (
+                      <img
+                        src={promotion.imageUrl}
+                        alt={promotion.title}
+                        className="h-full w-full object-cover opacity-85"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-emerald-500 to-slate-900" />
+                    )}
+                    <div className="absolute inset-0 flex items-end bg-gradient-to-t from-slate-900/75 via-slate-900/10 to-transparent p-6">
+                      <h4 className="text-xl font-black leading-tight text-white">
+                        {promotion.title}
+                      </h4>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </motion.div>
+
+            {promotions.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousPromotion}
+                  className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Previous promotion"
+                >
+                  <ChevronLeftIcon size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextPromotion}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Next promotion"
+                >
+                  <ChevronLeftIcon size={16} className="rotate-180" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* 3. Today's Meal Section - Healthy Bites */}
       <section>
         <h3 className="font-bold text-slate-800 text-lg mb-4">Healthy Bites</h3>
         <div
@@ -220,7 +394,7 @@ const HomeDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. Featured Product Section - Shop Essentials */}
+      {/* 4. Featured Product Section - Shop Essentials */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-lg">Shop Essentials</h3>
@@ -265,7 +439,7 @@ const HomeDashboard: React.FC = () => {
         </Card>
       </section>
 
-      {/* 4. Daily Tip Section - Parenting Tip */}
+      {/* 5. Daily Tip Section - Parenting Tip */}
       <section>
         <div className="bg-amber-300 rounded-[2rem] p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-200/50 rounded-full -mr-8 -mt-8 blur-2xl"></div>

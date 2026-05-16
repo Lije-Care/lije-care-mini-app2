@@ -13,6 +13,7 @@ const ConsultationBookingPage = lazy(() => import("@/pages/ConsultationBookingPa
 const ChildProfilePage = lazy(() => import("@/pages/ChildProfilePage"));
 const ChildrenListPage = lazy(() => import("@/pages/ChildrenListPage"));
 const ProductDetailPage = lazy(() => import("@/pages/ecommerce/products/ProductDetailPage"));
+const PromotionDetailPage = lazy(() => import("@/pages/promotions/PromotionDetailPage"));
 const CheckoutPage = lazy(() => import("@/pages/ecommerce/checkout/CheckoutPage"));
 const HomeDashboard = lazy(() => import("@/pages/home/HomeDashboard"));
 const AssessmentView = lazy(() => import("@/pages/assessment/AssessmentView"));
@@ -50,6 +51,12 @@ export const routes: Route[] = [
     path: "/product-detail/:id",
     Component: ProductDetailPage,
     title: "Product Detail",
+    protected: true,
+  },
+  {
+    path: "/promotions/:id",
+    Component: PromotionDetailPage,
+    title: "Promotion Detail",
     protected: true,
   },
   {

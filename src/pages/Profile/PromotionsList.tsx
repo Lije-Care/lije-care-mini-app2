@@ -1,15 +1,9 @@
 import { Headline, Text, Spinner } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
-import api from "@/api/axios";
 import { Page } from "@/components/Page";
 import { useTranslation } from "react-i18next";
-
-interface Promotion {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-}
+import { Promotion } from "@/types/promotion";
+import { getPromotions } from "@/services/promotion";
 
 export const PromotionsList = () => {
   const { t } = useTranslation();
@@ -20,10 +14,9 @@ export const PromotionsList = () => {
   const fetchPromotions = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/promotion/find-all?page=1&limit=50", {
-        headers: { "Content-Type": "application/json" },
-      });
-      setPromotions(res.data?.data || []);
+      setError("");
+      const result = await getPromotions(50);
+      setPromotions(result);
     } catch (err: any) {
       setError(err?.response?.data?.message || t("Failed to load promotions."));
     } finally {
