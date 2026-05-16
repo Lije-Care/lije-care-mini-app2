@@ -114,7 +114,7 @@ const CheckoutPage = () => {
           response.data.status === "created"
         ) {
           dispatch(clearCart());
-          window.location.href = response.data.data.checkout_url;
+          window.Telegram.WebApp.openLink(response.data.data.checkout_url);
         } else {
           setError("Payment initialization failed");
         }

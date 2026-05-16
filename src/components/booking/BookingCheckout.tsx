@@ -82,7 +82,7 @@ const BookingCheckout = () => {
         response.data.status === "success" ||
         response.data.status === "created"
       ) {
-        window.location.href = response.data.data.checkout_url;
+        window.Telegram.WebApp.openLink(response.data.data.checkout_url);
       } else {
         setError(t("Payment initialization failed."));
       }
