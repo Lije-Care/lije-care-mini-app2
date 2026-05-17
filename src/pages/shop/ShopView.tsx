@@ -5,7 +5,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchProducts } from '@/redux/slices/productSlice';
 import { addToCart, removeFromCart, updateQuantity } from '@/redux/slices/cartSlice';
-import { SearchIcon, PlusIcon, StarIcon, ShopIcon, CloseIcon, TrashIcon } from '@/design-system/icons';
+import { SearchIcon, PlusIcon, StarIcon, ShopIcon, CloseIcon, TrashIcon, CallCenterIcon } from '@/design-system/icons';
+
+// Business phone for the "Call to Order" action on product detail cards.
+// Set VITE_SHOP_ORDER_PHONE in your environment file.
+const SHOP_ORDER_PHONE: string = (import.meta.env.VITE_SHOP_ORDER_PHONE as string | undefined) ?? '';
 
 const DEFAULT_CATEGORIES = ['All', 'Food', 'Toys', 'Lunch Boxes', 'Utensils', 'Essentials'];
 
@@ -69,15 +73,22 @@ const ProductDetail = ({
         <span className="text-sm font-bold text-slate-400">{product.rating}</span>
       </div>
 
-      {qty === 0 ? (
-        <button
-          onClick={onIncrement}
+      {SHOP_ORDER_PHONE ? (
+        <a
+          href={`tel:${SHOP_ORDER_PHONE}`}
           className="w-full flex items-center justify-center gap-3 bg-[#0B1A12] text-white py-5 rounded-[2rem] font-black shadow-xl mb-8 active:scale-95 transition-transform"
         >
-          <PlusIcon size={18} />
-          Add to Cart
-        </button>
+          <CallCenterIcon size={18} />
+          Call to Order
+        </a>
       ) : (
+        <p className="w-full text-center text-sm text-slate-400 mb-8">
+          {/* TODO: Set VITE_SHOP_ORDER_PHONE in your environment to enable Call to Order */}
+          Order by phone — contact info not configured.
+        </p>
+      )}
+
+      {qty > 0 && (
         <div className="flex items-center gap-3 mb-8">
           <button
             onClick={onDecrement}

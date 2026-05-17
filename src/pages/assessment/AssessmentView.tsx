@@ -317,6 +317,11 @@ const buildGrowthHistory = (
   return { unit: meta.unit, points };
 };
 
+const toOutdatedText = (lastUpdatedText: string, isRecorded: boolean) => {
+  if (!isRecorded) return 'Not recorded yet';
+  return `Outdated · ${lastUpdatedText.replace(/^Updated\s+/i, '')}`;
+};
+
 const getInterpretationText = (detailText: string, hasResult: boolean) => {
   if (!hasResult) return 'No interpretation yet. Add measurements to calculate this assessment.';
   return detailText;
@@ -427,9 +432,8 @@ const AssessmentView: React.FC = () => {
   );
   const [selectedAssessmentId, setSelectedAssessmentId] =
     useState<AnthropometricAssessmentId | null>(null);
-  const [notificationType, setNotificationType] = useState<
-    'anthropometric' | 'developmental' | 'vaccine' | null
-  >(null);
+  // 'anthropometric' | 'vaccine' | 'dev-Social' | 'dev-Language' | 'dev-Cognitive' | 'dev-Physical'
+  const [notificationType, setNotificationType] = useState<string | null>(null);
   const [recommendationModal, setRecommendationModal] = useState<DetailedAssessment | null>(null);
   const [helpAssessment, setHelpAssessment] = useState<string | null>(null);
   const [isAddingData, setIsAddingData] = useState<string | null>(null);
@@ -442,6 +446,7 @@ const AssessmentView: React.FC = () => {
   const [updatingVaccineId, setUpdatingVaccineId] = useState<string | null>(null);
   const [isSavingMeasurement, setIsSavingMeasurement] = useState(false);
   const [saveMeasurementError, setSaveMeasurementError] = useState<string | null>(null);
+  const anthropoSectionRef = useRef<HTMLElement | null>(null);
   const vaccineSectionRef = useRef<HTMLElement | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
@@ -547,10 +552,16 @@ const AssessmentView: React.FC = () => {
 
   useEffect(() => {
     const nextMeasurementId = (
-      location.state as { openMeasurementId?: string; focusSection?: 'vaccine' } | null
+      location.state as {
+        openMeasurementId?: string;
+        focusSection?: 'vaccine' | 'anthropometric';
+      } | null
     )?.openMeasurementId;
     const focusSection = (
-      location.state as { openMeasurementId?: string; focusSection?: 'vaccine' } | null
+      location.state as {
+        openMeasurementId?: string;
+        focusSection?: 'vaccine' | 'anthropometric';
+      } | null
     )?.focusSection;
 
     if (nextMeasurementId && MEASUREMENT_FIELDS[nextMeasurementId] && !isAddingData) {
@@ -561,6 +572,9 @@ const AssessmentView: React.FC = () => {
 
     if (focusSection === 'vaccine') {
       vaccineSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (focusSection === 'anthropometric') {
+      anthropoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [isAddingData, location.pathname, location.state, navigate]);
@@ -627,11 +641,29 @@ const AssessmentView: React.FC = () => {
       })
       .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
   }, [vaccineSchedule]);
-  const vaccineAlerts = useMemo(
-    () => vaccineCards.filter((item) => item.isUpcomingReminder),
-    [vaccineCards]
+  const vaccineAlerts = useMemo(() => {
+    const today = startOfDay(new Date());
+    const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    return vaccineCards.filter((item) => {
+      if (item.isGiven) return false;
+      // User explicitly said No → always remind regardless of how old the date is
+      if (item.isMissed) return true;
+      // Pending → only remind if due date falls between today and 7 days from now
+      return item.dueDate >= today && item.dueDate <= sevenDaysFromNow;
+    });
+  }, [vaccineCards]);
+  // Per-subcategory grouping of unaddressed developmental items
+  const devUnaddressedByCategory = useMemo(
+    () =>
+      DEVELOPMENTAL_SUBCATEGORY_ORDER.reduce<Record<string, DetailedAssessment[]>>((acc, sub) => {
+        acc[sub] = developmentalAssessments.filter(
+          (item) => item.subCategory === sub && item.answer === 'no'
+        );
+        return acc;
+      }, {}),
+    [developmentalAssessments]
   );
-  const unaddressedDev = developmentalAssessments.filter((item) => item.answer === 'no');
   const selectedAssessment =
     selectedAssessmentId &&
     anthropometricCards.find((assessment) => assessment.id === selectedAssessmentId);
@@ -753,14 +785,14 @@ const AssessmentView: React.FC = () => {
       </div>
 
       <div className="space-y-12">
-        <section ref={vaccineSectionRef}>
+        <section ref={anthropoSectionRef}>
           <div className="mb-4 flex items-center justify-between px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Anthropometric
             </h3>
             <button
               type="button"
-              onClick={() => navigate('/notifications')}
+              onClick={() => setNotificationType('anthropometric')}
               className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
             >
               <BellIcon className="h-5 w-5" />
@@ -856,7 +888,7 @@ const AssessmentView: React.FC = () => {
           </div>
         </section>
 
-        <section>
+        <section ref={vaccineSectionRef}>
           <div className="mb-6 flex items-center justify-between px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Vaccination Schedule
@@ -991,22 +1023,10 @@ const AssessmentView: React.FC = () => {
         </section>
 
         <section>
-          <div className="mb-6 flex items-center justify-between px-6">
+          <div className="mb-6 px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
               Developmental
             </h3>
-            <button
-              type="button"
-              onClick={() => setNotificationType('developmental')}
-              className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
-            >
-              <BellIcon className="h-5 w-5" />
-              {unaddressedDev.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
-                  {unaddressedDev.length}
-                </span>
-              )}
-            </button>
           </div>
 
           {DEVELOPMENTAL_SUBCATEGORY_ORDER.map((subCategory) => {
@@ -1018,12 +1038,26 @@ const AssessmentView: React.FC = () => {
               return null;
             }
 
+            const subAlerts = devUnaddressedByCategory[subCategory] ?? [];
+
             return (
               <div key={subCategory} className="mb-10">
-                <h4 className="mb-4 flex items-center gap-2 px-6 text-xs font-bold text-slate-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
-                  {DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory]}
-                </h4>
+                <div className="mb-4 flex items-center justify-between px-6">
+                  <h4 className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+                    {DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory]}
+                  </h4>
+                  {subAlerts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setNotificationType(`dev-${subCategory}`)}
+                      className="flex animate-pulse items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-rose-500"
+                    >
+                      <span className="h-1 w-1 rounded-full bg-rose-500" />
+                      {subAlerts.length} Alert{subAlerts.length > 1 ? 's' : ''}
+                    </button>
+                  )}
+                </div>
                 <div className="hide-scrollbar flex gap-4 overflow-x-auto px-6 snap-x">
                   {categoryQuestions.map((question) => (
                     <div
@@ -1140,10 +1174,12 @@ const AssessmentView: React.FC = () => {
             <div className="mb-8 flex items-center justify-between">
               <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800">
                 {notificationType === 'anthropometric'
-                  ? 'Expired Measurements'
+                  ? 'Outdated Measurements'
                   : notificationType === 'vaccine'
                     ? 'Vaccination Alerts'
-                  : 'Unaddressed Concerns'}
+                    : notificationType?.startsWith('dev-')
+                      ? `${notificationType.replace('dev-', '')} Concerns`
+                      : 'Concerns'}
               </h3>
               <button
                 type="button"
@@ -1162,10 +1198,10 @@ const AssessmentView: React.FC = () => {
                       key={assessment.id}
                       className="flex items-center justify-between rounded-3xl border border-amber-100 bg-amber-50 p-5"
                     >
-                      <div>
+                      <div className="pr-4">
                         <h5 className="font-bold text-slate-800">{assessment.title}</h5>
                         <p className="text-[10px] font-black uppercase text-amber-600">
-                          {assessment.lastUpdatedText}
+                          {toOutdatedText(assessment.lastUpdatedText, assessment.isRecorded)}
                         </p>
                       </div>
                       <button
@@ -1195,7 +1231,7 @@ const AssessmentView: React.FC = () => {
                           ? 'border-rose-100 bg-rose-50'
                           : vaccine.canCheck
                             ? 'border-sky-100 bg-sky-50'
-                            : 'border-emerald-100 bg-emerald-50'
+                            : 'border-amber-100 bg-[#fff8ea]'
                       }`}
                     >
                       <div className="pr-4">
@@ -1206,52 +1242,31 @@ const AssessmentView: React.FC = () => {
                               ? 'text-rose-600'
                               : vaccine.canCheck
                                 ? 'text-sky-600'
-                                : 'text-emerald-600'
+                                : 'text-amber-600'
                           }`}
                         >
                           {vaccine.isMissed
-                            ? `Not given • ${formatDueDate(vaccine.dueDate)}`
+                            ? `Marked No • ${formatDueDate(vaccine.dueDate)}`
                             : vaccine.canCheck
-                              ? `Due now • ${formatDueDate(vaccine.dueDate)}`
-                              : `Due • ${formatDueDate(vaccine.dueDate)}`}
+                              ? `Due today • ${formatDueDate(vaccine.dueDate)}`
+                              : `Due within 7 days • ${formatDueDate(vaccine.dueDate)}`}
                         </p>
                       </div>
-                      {vaccine.canCheck || vaccine.isMissed ? (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void toggleVaccination(vaccine.id, 'yes')}
-                            disabled={updatingVaccineId === vaccine.id}
-                            className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${
-                              vaccine.isGiven
-                                ? 'bg-emerald-600 text-white'
-                                : 'border border-emerald-200 bg-white text-emerald-600'
-                            }`}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void toggleVaccination(vaccine.id, 'no')}
-                            disabled={updatingVaccineId === vaccine.id}
-                            className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${
-                              vaccine.isMissed
-                                ? 'bg-rose-500 text-white'
-                                : 'border border-rose-200 bg-white text-rose-500'
-                            }`}
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setNotificationType(null)}
-                          className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-[10px] font-black text-emerald-600"
-                        >
-                          View
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotificationType(null);
+                          setTimeout(() => {
+                            vaccineSectionRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            });
+                          }, 100);
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black text-slate-800 shadow-sm"
+                      >
+                        View
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -1259,39 +1274,45 @@ const AssessmentView: React.FC = () => {
                     No vaccine alerts right now.
                   </p>
                 )
-              ) : unaddressedDev.length > 0 ? (
-                unaddressedDev.map((assessment) => (
-                  <div
-                    key={assessment.id}
-                    className="space-y-4 rounded-3xl border border-rose-100 bg-rose-50 p-5"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h5 className="font-bold text-slate-800">{assessment.title}</h5>
-                        <p className="text-[10px] font-black uppercase text-rose-600">
-                          {assessment.subCategory}
-                        </p>
-                      </div>
-                      <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[8px] font-black uppercase text-rose-500">
-                        Action Needed
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => markAsAddressed(assessment.id)}
-                        className="flex-1 rounded-xl border border-sky-100 bg-white py-2 text-[10px] font-black text-sky-500 shadow-sm"
+              ) : notificationType?.startsWith('dev-') ? (
+                (() => {
+                  const subCategory = notificationType.replace('dev-', '');
+                  const items = devUnaddressedByCategory[subCategory] ?? [];
+                  return items.length > 0 ? (
+                    items.map((assessment) => (
+                      <div
+                        key={assessment.id}
+                        className="space-y-4 rounded-3xl border border-rose-100 bg-rose-50 p-5"
                       >
-                        Addressed with Doctor
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="py-10 text-center font-bold text-slate-400">
-                  No unaddressed concerns. Great job!
-                </p>
-              )}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h5 className="font-bold text-slate-800">{assessment.title}</h5>
+                            <p className="text-[10px] font-black uppercase text-rose-600">
+                              {assessment.subCategory}
+                            </p>
+                          </div>
+                          <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[8px] font-black uppercase text-rose-500">
+                            Action Needed
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => markAsAddressed(assessment.id)}
+                            className="flex-1 rounded-xl border border-sky-100 bg-white py-2 text-[10px] font-black text-sky-500 shadow-sm"
+                          >
+                            Addressed with Doctor
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="py-10 text-center font-bold text-slate-400">
+                      No unaddressed concerns here. Great job!
+                    </p>
+                  );
+                })()
+              ) : null}
             </div>
             <button
               type="button"
