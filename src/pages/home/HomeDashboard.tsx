@@ -62,11 +62,13 @@ const HomeDashboard: React.FC = () => {
   const [promotionsError, setPromotionsError] = useState('');
   const [promoIndex, setPromoIndex] = useState(0);
   const autoSlideRef = useRef<number | null>(null);
+  const articlesScrollRef = useRef<HTMLDivElement>(null);
 
   // Redux state
   const { products } = useSelector((state: RootState) => state.products);
   const { meals } = useSelector((state: RootState) => state.meals);
   const { data: children } = useSelector((state: RootState) => state.children);
+  const { articles } = useSelector((state: RootState) => state.articles);
 
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const activeChild = children.find((child) => child.id === favoriteChildId) || children[0];
@@ -439,7 +441,53 @@ const HomeDashboard: React.FC = () => {
         </Card>
       </section>
 
-      {/* 5. Daily Tip Section - Parenting Tip */}
+      {/* 5. Featured Articles Section */}
+      {articles.length > 0 && (
+        <section>
+          <h3 className="font-bold text-slate-800 text-lg mb-4">Featured Articles</h3>
+          <div className="relative group">
+            <div ref={articlesScrollRef} className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-4 px-4 pb-2">
+              {articles.slice(0, 5).map((article) => (
+                <div
+                  key={article.id}
+                  className="flex-shrink-0 w-64 snap-center bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer active:scale-95 transition-transform"
+                  onClick={() => navigate(`/articles/${article.id}`)}
+                >
+                  {article.image && (
+                    <img
+                      src={article.image}
+                      alt={article.title}
+                      className="w-full h-36 object-cover"
+                    />
+                  )}
+                  <div className="p-4">
+                    <h4 className="font-bold text-slate-800 text-sm leading-snug mb-1 line-clamp-2">
+                      {article.title}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-medium">{article.author}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => articlesScrollRef.current?.scrollBy({ left: -272, behavior: 'smooth' })}
+              className="absolute left-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-md backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label="Scroll articles left"
+            >
+              <ChevronLeftIcon size={16} />
+            </button>
+            <button
+              onClick={() => articlesScrollRef.current?.scrollBy({ left: 272, behavior: 'smooth' })}
+              className="absolute right-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-md backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label="Scroll articles right"
+            >
+              <ChevronLeftIcon size={16} className="rotate-180" />
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* 6. Daily Tip Section - Parenting Tip */}
       <section>
         <div className="bg-amber-300 rounded-[2rem] p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-200/50 rounded-full -mr-8 -mt-8 blur-2xl"></div>
