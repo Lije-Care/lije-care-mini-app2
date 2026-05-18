@@ -98,7 +98,7 @@ const mapWeightForHeight = (
     return buildResult(isRecorded, zScore, classification, 'Wasted (Moderate)', 'Acute malnutrition', 'warning', 'Supplementary feeding + follow-up');
   }
   if (zScore > 3) {
-    return buildResult(isRecorded, zScore, classification, 'Obese', 'High excess weight for height', 'danger', 'Further assessment + lifestyle intervention');
+    return buildResult(isRecorded, zScore, classification, 'Obese', 'High excess weight', 'danger', 'Further assessment + lifestyle intervention');
   }
   if (zScore > 2) {
     return buildResult(isRecorded, zScore, classification, 'Overweight', 'Excess weight for height', 'warning', 'Counsel on diet and activity');
@@ -137,7 +137,7 @@ const mapMuac = (
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severe Acute Malnutrition (SAM)', 'High risk of mortality', 'danger', 'Urgent referral for therapeutic feeding (OTP/SC)');
+    return buildResult(isRecorded, zScore, classification, 'Severe Acute Malnutrition (SAM)', 'High risk of mortality', 'danger', 'Urgent clinical visit, referral for therapeutic feeding (OTP/SC)');
   }
   if (zScore < -2) {
     return buildResult(isRecorded, zScore, classification, 'Moderate Acute Malnutrition (MAM)', 'At risk, low muscle/fat', 'warning', 'Supplementary feeding, nutrition counseling, close follow-up');
@@ -158,7 +158,7 @@ const mapBmiForAge = (
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severe Thinness', 'Severe undernutrition', 'danger', 'Urgent intervention');
+    return buildResult(isRecorded, zScore, classification, 'Severe Thinness', 'Severe undernutrition', 'danger', 'Urgent clinical visit, urgent intervention');
   }
   if (zScore < -2) {
     return buildResult(isRecorded, zScore, classification, 'Thinness', 'Underweight', 'warning', 'Nutrition support');
@@ -188,7 +188,7 @@ const mapWeightForAge = (
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severely Underweight', 'High risk', 'danger', 'Urgent evaluation and intervention');
+    return buildResult(isRecorded, zScore, classification, 'Severely Underweight', 'High risk', 'danger', 'Urgent clinical visit, urgent evaluation and intervention');
   }
   if (zScore < -2) {
     return buildResult(isRecorded, zScore, classification, 'Underweight (Moderate)', 'Could be acute or chronic issue', 'warning', 'Further assessment (WFH + HFA), nutrition support');
