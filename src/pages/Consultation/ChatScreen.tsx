@@ -136,13 +136,16 @@ const ChatScreen = () => {
   }, [doctorId]);
 
   // In fetch useEffect:
+  // NOTE: We use `doctorId` directly from URL params instead of `selectedDoctor?.id`
+  // so that the room is created immediately — even for non-specialist users such as
+  // CUSTOMER_SUPPORT agents whose profile is not exposed by /specialists/find-one.
   useEffect(() => {
-    if (telegramUser?.id && selectedDoctor?.id) {
+    if (telegramUser?.id && doctorId) {
       setIsLoadingRoom(true);
       api
         .post("/chat/rooms/find-or-create", {
           parentId: telegramUser.id,
-          expertId: selectedDoctor.id,
+          expertId: doctorId,
         })
         .then((res) => {
           setChatRoomId(res.data.id);
@@ -155,7 +158,7 @@ const ChatScreen = () => {
           setIsLoadingRoom(false);
         });
     }
-  }, [telegramUser?.id, selectedDoctor?.id]);
+  }, [telegramUser?.id, doctorId]);
   // --- Load messages ---
   useEffect(() => {
     if (chatRoomId && !messagesFetched.current) {

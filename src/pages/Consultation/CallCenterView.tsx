@@ -13,6 +13,10 @@ import type { Booking } from '@/types/booking';
 const getDateKey = (isoDate: string) => isoDate.split('T')[0];
 const SESSION_MODE_STORAGE_KEY = 'consultation_session_modes';
 
+// Support contact — mirrors the VITE_SHOP_ORDER_PHONE pattern used in ShopView.
+const SUPPORT_PHONE: string = (import.meta.env.VITE_SUPPORT_PHONE as string | undefined) ?? '';
+const SUPPORT_AGENT_ID: string = (import.meta.env.VITE_SUPPORT_AGENT_ID as string | undefined) ?? '';
+
 const formatDateOption = (isoDate: string) => {
   const date = new Date(isoDate);
   return {
@@ -387,21 +391,35 @@ const CallCenterView: React.FC = () => {
             <h3 className="text-2xl font-black text-slate-800 mb-3 leading-tight">Instant App Help</h3>
             <p className="text-slate-500 text-sm mb-10 leading-relaxed font-medium">Talk to our customer success team for any technical or general app queries. No booking needed.</p>
             <div className="flex flex-col gap-4 w-full">
+              {/* Instant Live Chat — navigates to the real chat screen with the support agent */}
               <Button
                 color="purple"
                 fullWidth
                 size="lg"
-                onClick={() => navigate('/chat/support')}
+                onClick={() => {
+                  if (SUPPORT_AGENT_ID) {
+                    navigate(`/chat/${SUPPORT_AGENT_ID}`);
+                  } else {
+                    alert('Live chat is not available right now. Please call us instead.');
+                  }
+                }}
               >
                 Instant Live Chat
               </Button>
-              <Button
-                color="slate"
-                fullWidth
-                size="lg"
-              >
-                Emergency Audio Call
-              </Button>
+
+              {/* Emergency Audio Call — opens native phone dialer, same pattern as ShopView */}
+              {SUPPORT_PHONE ? (
+                <a
+                  href={`tel:${SUPPORT_PHONE}`}
+                  className="w-full py-4 text-lg bg-[#0B1A12] hover:bg-[#1B3B2B] text-white font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-slate-300"
+                >
+                  Emergency Audio Call
+                </a>
+              ) : (
+                <p className="text-center text-sm text-slate-400">
+                  Call support — contact not configured (set VITE_SUPPORT_PHONE)
+                </p>
+              )}
             </div>
           </div>
         </div>
