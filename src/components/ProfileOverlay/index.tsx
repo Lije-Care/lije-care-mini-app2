@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import { RootState, AppDispatch } from "@/redux/store";
-import { addChild, updateChild, deleteChildById } from "@/redux/slices/childSlice";
+import {
+  addChild,
+  updateChild,
+  deleteChildById,
+  fetchChildrenByParentId,
+} from "@/redux/slices/childSlice";
 import ParentProfile from "@/components/ParentProfile";
 import AccountSettings from "@/components/AccountSetting";
 import BabyProfileSheet from "@/pages/Profile/BabyProfileSheet";
@@ -66,8 +71,22 @@ export default function ProfileOverlay() {
       setMode("main");
       // Re-read favorite child from storage in case it changed
       setActiveChildId(localStorage.getItem("favorite_child_id"));
+
+      const storedUser = localStorage.getItem("user");
+      if (!storedUser) {
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser?.id) {
+          void dispatch(fetchChildrenByParentId(String(parsedUser.id)));
+        }
+      } catch {
+        // Ignore malformed local user payload and allow current UI state to render.
+      }
     }
-  }, [isProfileOpen]);
+  }, [dispatch, isProfileOpen]);
 
   useEffect(() => {
     if (!isProfileOpen) {
@@ -316,6 +335,20 @@ export default function ProfileOverlay() {
               {t("Switch Baby")}
             </button>
           </div>
+
+          {childrenState.loading && (
+            <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Loading children...
+            </p>
+          )}
+
+          {!childrenState.loading && childrenState.error && (
+            <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-center">
+              <p className="text-sm font-bold text-rose-500">
+                {childrenState.error}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Menu items */}
