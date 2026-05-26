@@ -1051,10 +1051,12 @@ const AssessmentView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setNotificationType(`dev-${subCategory}`)}
-                      className="flex animate-pulse items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-rose-500"
+                      className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
                     >
-                      <span className="h-1 w-1 rounded-full bg-rose-500" />
-                      {subAlerts.length} Alert{subAlerts.length > 1 ? 's' : ''}
+                      <BellIcon className="h-5 w-5" />
+                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
+                        {subAlerts.length}
+                      </span>
                     </button>
                   )}
                 </div>

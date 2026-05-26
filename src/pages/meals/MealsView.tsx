@@ -1340,14 +1340,16 @@ const MealLibraryDetailOverlay = ({
           </div>
         ) : scaledMeal ? (
           <div className="space-y-8">
-            <div className="relative h-64 overflow-hidden rounded-[2.5rem] shadow-xl">
-              {scaledMeal.imageUrl ? (
+            <div className="relative h-64 overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-xl flex items-center justify-center">
+              <span className="text-6xl opacity-20">🍽️</span>
+              {scaledMeal.imageUrl && (
                 <img
                   src={scaledMeal.imageUrl}
-                  className="h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                   alt={scaledMeal.name}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
-              ) : null}
+              )}
             </div>
 
             <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
@@ -1801,14 +1803,16 @@ const IngredientLibraryDetailOverlay = ({
           </div>
         ) : ingredient ? (
           <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
-              <div className="mb-8 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-50">
-                {ingredient.imageUrl ? (
+              <div className="relative mb-8 h-56 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-100 flex items-center justify-center">
+                <span className="text-6xl opacity-20">🥕</span>
+                {ingredient.imageUrl && (
                   <img
                     src={ingredient.imageUrl}
-                    className="h-56 w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover"
                     alt={ingredient.name}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
-                ) : null}
+                )}
               </div>
               <h2 className="mb-4 text-2xl font-black text-slate-800">{ingredient.name}</h2>
               <div className="mb-10 text-xl font-black uppercase tracking-[0.22em] text-[#76A13B]">
@@ -3959,13 +3963,17 @@ const MealsView: React.FC = () => {
                             }
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            {getMealImage(meal) ? (
-                              <img
-                                src={getMealImage(meal)}
-                                alt={meal.name || 'Meal'}
-                                className="w-16 h-16 rounded-2xl object-cover"
-                              />
-                            ) : null}
+                            <div className="relative w-16 h-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                              <span className="text-2xl opacity-30">🍽️</span>
+                              {getMealImage(meal) && (
+                                <img
+                                  src={getMealImage(meal)}
+                                  alt={meal.name || 'Meal'}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              )}
+                            </div>
                             <div className="min-w-0 flex-1">
                               <h5 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
                                 {meal.name || 'Meal'}
@@ -4323,13 +4331,17 @@ const MealsView: React.FC = () => {
                             onClick={() => void openMealDetail(meal.id, displayMultiplier)}
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            {meal.image ? (
-                              <img
-                                src={meal.image}
-                                className="h-16 w-16 rounded-2xl object-cover"
-                                alt={meal.name}
-                              />
-                            ) : null}
+                            <div className="relative h-16 w-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                              <span className="text-2xl opacity-30">🍽️</span>
+                              {meal.image && (
+                                <img
+                                  src={meal.image}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  alt={meal.name}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              )}
+                            </div>
                             <div className="min-w-0 flex-1">
                               <h6 className="line-clamp-2 text-sm font-bold leading-tight text-slate-800">
                                 {meal.name}
@@ -4554,9 +4566,17 @@ const MealsView: React.FC = () => {
                 onClick={() => void openMealDetail(meal.id)}
                 className="cursor-pointer bg-white rounded-[2.5rem] p-5 flex gap-5 border border-slate-50 shadow-sm transition-transform active:scale-95 text-left"
               >
-                {meal.image ? (
-                  <img src={meal.image} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0" alt={meal.name} />
-                ) : null}
+                <div className="relative w-24 h-24 rounded-3xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  <span className="text-3xl opacity-25">🍽️</span>
+                  {meal.image && (
+                    <img
+                      src={meal.image}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      alt={meal.name}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
                 <div className="flex-1 flex flex-col justify-center">
                   <div className="flex justify-between items-start mb-1">
                     <h5 className="font-bold text-slate-800 text-base">{meal.name}</h5>
@@ -4595,12 +4615,18 @@ const MealsView: React.FC = () => {
                 className="cursor-pointer bg-white rounded-[2.5rem] p-4 flex gap-5 border border-slate-50 shadow-sm text-left transition-transform active:scale-95"
               >
                 <div
-                  className="w-20 h-20 rounded-2xl flex-shrink-0 overflow-hidden"
+                  className="relative w-20 h-20 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center"
                   aria-hidden={!food.image}
                 >
-                  {food.image ? (
-                    <img src={food.image} className="w-full h-full object-cover" alt={food.name} />
-                  ) : null}
+                  <span className="text-2xl opacity-25">🥕</span>
+                  {food.image && (
+                    <img
+                      src={food.image}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      alt={food.name}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
                 </div>
                 <div className="flex-1 flex flex-col justify-center">
                   <h5 className="font-bold text-slate-800">{food.name}</h5>

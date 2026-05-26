@@ -10,8 +10,6 @@ import {
   Caption,
 } from "@telegram-apps/telegram-ui";
 
-const fallbackImg = "https://via.placeholder.com/400x250?text=Meal+Image";
-
 const MealDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<any | null>(null);
@@ -119,14 +117,17 @@ const MealDetails: React.FC = () => {
                 className="flex items-center gap-4 cursor-pointer"
                 onClick={() => setOpenMealId(isOpen ? null : meal.id)}
               >
-                <img
-                  src={meal.imageUrl ? `${meal.imageUrl}` : fallbackImg}
-                  alt={meal.name}
-                  onError={(e) => {
-                    e.currentTarget.src = fallbackImg;
-                  }}
-                  className="w-24 h-24 rounded-lg object-cover border border-gray-700"
-                />
+                <div className="relative w-24 h-24 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  <span className="text-3xl opacity-30">🍽️</span>
+                  {meal.imageUrl && (
+                    <img
+                      src={meal.imageUrl}
+                      alt={meal.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
                 <div className="flex-1">
                   <Title className="text-lg">{meal.name}</Title>
                   <Text className="text-xs text-white gap-2">
