@@ -9,9 +9,48 @@ import { BottomSheet, Button } from '@/components/ui';
 import type { Professional } from '@/design-system/types';
 import type { AvailabilitySlot } from '@/types/specialist';
 import type { Booking } from '@/types/booking';
+import type { ConsultationOrder } from '@/types/consultationOrder';
 
 const getDateKey = (isoDate: string) => isoDate.split('T')[0];
 const SESSION_MODE_STORAGE_KEY = 'consultation_session_modes';
+
+/** Map frontend mode labels to backend ConsultationType enum values */
+const MODE_TO_CONSULTATION_TYPE: Record<'Text' | 'Audio' | 'Video', string> = {
+  Text: 'TEXT',
+  Audio: 'AUDIO',
+  Video: 'VIDEO',
+};
+
+/** Return the correct fee for the selected mode, falling back to the general fee */
+const getPriceForMode = (
+  pro: Professional,
+  mode: 'Text' | 'Audio' | 'Video' | null,
+): number => {
+  if (mode === 'Text') return pro.textFee ?? pro.fee;
+  if (mode === 'Audio') return pro.callFee ?? pro.fee;
+  if (mode === 'Video') return pro.videoFee ?? pro.fee;
+  return pro.fee;
+};
+
+/** Lowest price across all configured consultation types — used on the expert card */
+const getStartingFee = (pro: Professional): { amount: number; hasRange: boolean } => {
+  const configured = ([pro.textFee, pro.callFee, pro.videoFee] as Array<number | null | undefined>)
+    .filter((f): f is number => f != null);
+  if (configured.length === 0) return { amount: pro.fee, hasRange: false };
+  const min = Math.min(...configured);
+  const max = Math.max(...configured, pro.fee);
+  return { amount: min, hasRange: min !== max };
+};
+
+/** Map backend ConsultationOrder status values to user-facing labels */
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  PENDING_ADMIN_CONFIRMATION: 'Waiting for approval',
+  CONFIRMED: 'Approved',
+  REJECTED: 'Rejected',
+};
+
+const getOrderStatusLabel = (status: string): string =>
+  ORDER_STATUS_LABEL[status] ?? status;
 
 // Support contact — mirrors the VITE_SHOP_ORDER_PHONE pattern used in ShopView.
 const SUPPORT_PHONE: string = (import.meta.env.VITE_SUPPORT_PHONE as string | undefined) ?? '';
@@ -84,8 +123,11 @@ const CallCenterView: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<'Text' | 'Audio' | 'Video' | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [consultationOrders, setConsultationOrders] = useState<ConsultationOrder[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [uploadingOrder, setUploadingOrder] = useState(false);
 
   // Get specialists from Redux
   const { specialists, loading } = useSelector((state: RootState) => state.specialists);
@@ -98,6 +140,7 @@ const CallCenterView: React.FC = () => {
     const telegramUser = JSON.parse(localStorage.getItem('user') || '{}');
     if (!telegramUser?.id) {
       setBookings([]);
+      setConsultationOrders([]);
       setSessionsError('User not found');
       return;
     }
@@ -105,11 +148,28 @@ const CallCenterView: React.FC = () => {
     try {
       setLoadingSessions(true);
       setSessionsError(null);
-      const { data } = await api.get(`/booking/my-booking/parent/${telegramUser.id}`);
-      setBookings(data?.data ?? []);
+
+      // Fetch bookings and consultation orders in parallel so one failing doesn't block the other
+      const [bookingsRes, ordersRes] = await Promise.allSettled([
+        api.get(`/booking/my-booking/parent/${telegramUser.id}`),
+        api.get(`/consultation-order/my-orders/${telegramUser.id}`),
+      ]);
+
+      setBookings(
+        bookingsRes.status === 'fulfilled' ? bookingsRes.value.data?.data ?? [] : [],
+      );
+      setConsultationOrders(
+        ordersRes.status === 'fulfilled' ? ordersRes.value.data ?? [] : [],
+      );
+
+      if (bookingsRes.status === 'rejected') {
+        const err = bookingsRes.reason as any;
+        setSessionsError(err?.response?.data?.message || 'Failed to load bookings');
+      }
     } catch (error: any) {
       setSessionsError(error.response?.data?.message || 'Failed to load bookings');
       setBookings([]);
+      setConsultationOrders([]);
     } finally {
       setLoadingSessions(false);
     }
@@ -136,6 +196,9 @@ const CallCenterView: React.FC = () => {
       availability: 'Available for booking',
       rating: 4.8, // Backend doesn't have rating, using default
       fee: Number(s.SpecialistProfile?.consultationFee ?? 0),
+      textFee: s.SpecialistProfile?.textPrice != null ? Number(s.SpecialistProfile.textPrice) : null,
+      callFee: s.SpecialistProfile?.callPrice != null ? Number(s.SpecialistProfile.callPrice) : null,
+      videoFee: s.SpecialistProfile?.videoCallPrice != null ? Number(s.SpecialistProfile.videoCallPrice) : null,
       specialty: s.SpecialistProfile?.specialty || 'Child Care',
     };
   });
@@ -194,6 +257,8 @@ const CallCenterView: React.FC = () => {
     setSelectedSlotId(null);
     setSelectedMode(null);
     setBookingError(null);
+    setScreenshotFile(null);
+    setUploadingOrder(false);
   };
 
   useEffect(() => {
@@ -224,7 +289,7 @@ const CallCenterView: React.FC = () => {
   };
 
   const handleBookConsultation = async () => {
-    if (!selectedPro || !selectedMode || !selectedSlot) return;
+    if (!selectedPro || !selectedMode || !selectedSlot || !screenshotFile) return;
 
     const telegramUser = JSON.parse(localStorage.getItem('user') || '{}');
     const favoriteChildId = localStorage.getItem('favorite_child_id');
@@ -236,20 +301,50 @@ const CallCenterView: React.FC = () => {
 
     try {
       setBookingError(null);
-      await api.post('/booking/create', {
+      setUploadingOrder(true);
+
+      // 1. Reserve the availability slot
+      const bookingRes = await api.post('/booking/create', {
         parentId: telegramUser.id,
         expertId: selectedPro.id,
         slotId: selectedSlot.id,
         childId: favoriteChildId,
       });
+      const bookingId: string | undefined = bookingRes.data?.id;
+
+      // 2. Upload payment screenshot
+      const formData = new FormData();
+      formData.append('image', screenshotFile);
+      formData.append('type', 'PAYMENT_SCREENSHOT');
+      const uploadRes = await api.post('/file-upload/upload-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      // Backend stores only the filename in url (accessPath = ''), so construct
+      // the correct full URL here using the API origin + known upload folder.
+      const apiOrigin = new URL(import.meta.env.VITE_API_URL as string).origin;
+      const fileName: string = uploadRes.data?.fileName ?? '';
+      const paymentScreenshotUrl: string = fileName
+        ? `${apiOrigin}/uploads/images/PAYMENT_SCREENSHOT/${fileName}`
+        : (uploadRes.data?.url ?? '');
+
+      // 3. Create consultation order with type + price snapshot
+      await api.post('/consultation-order/create', {
+        parentId: telegramUser.id,
+        expertId: selectedPro.id,
+        ...(bookingId ? { bookingId } : {}),
+        consultationType: MODE_TO_CONSULTATION_TYPE[selectedMode],
+        pricePaid: getPriceForMode(selectedPro, selectedMode),
+        paymentScreenshotUrl,
+      });
+
       storeSessionMode(selectedSlot.id, selectedMode);
       await fetchBookings();
       setActiveTab('Sessions');
-
-      // Navigate to existing chat or video call based on mode
       resetBookingState();
     } catch (error: any) {
       setBookingError(error.response?.data?.message || 'Booking failed. Try again.');
+    } finally {
+      setUploadingOrder(false);
     }
   };
 
@@ -315,6 +410,8 @@ const CallCenterView: React.FC = () => {
             bookings.map((booking) => {
               const sessionMode = getStoredSessionModes()[booking.slotId];
               const isActive = isSessionActive(booking.slot);
+              // Look up the consultation order linked to this booking to get admin approval status
+              const order = consultationOrders.find(o => o.bookingId === booking.id);
               return (
                 <div key={booking.id} className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden">
                   {isActive && (
@@ -332,7 +429,19 @@ const CallCenterView: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-black text-slate-800">{booking.expert.firstName} {booking.expert.lastName}</h4>
-                      <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">{booking.status}</p>
+                      {order ? (
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${
+                          order.status === 'CONFIRMED'
+                            ? 'text-[#76A13B]'
+                            : order.status === 'REJECTED'
+                            ? 'text-rose-500'
+                            : 'text-amber-500'
+                        }`}>
+                          {getOrderStatusLabel(order.status)}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{booking.status}</p>
+                      )}
                       {sessionMode && (
                         <div className="flex items-center gap-2 mt-2">
                           <span className="px-2 py-1 bg-slate-100 rounded-lg text-[8px] font-black text-slate-500 uppercase tracking-widest">{sessionMode}</span>
@@ -463,7 +572,9 @@ const CallCenterView: React.FC = () => {
               <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Session Fee</span>
-                  <span className="text-xl font-black text-slate-900">{pro.fee} <span className="text-[10px] font-bold">ETB</span></span>
+                  <span className="text-xl font-black text-slate-900">
+                    {getStartingFee(pro).amount} <span className="text-[10px] font-bold">ETB</span>
+                  </span>
                 </div>
                 <button
                   onClick={() => {
@@ -581,6 +692,11 @@ const CallCenterView: React.FC = () => {
                         <span className={`text-[10px] font-black uppercase ${
                           selectedMode === mode ? 'text-[#76A13B]' : 'text-slate-500 group-hover:text-[#76A13B]'
                         }`}>{mode}</span>
+                        <span className={`text-[9px] font-bold ${
+                          selectedMode === mode ? 'text-[#76A13B]' : 'text-slate-400'
+                        }`}>
+                          {getPriceForMode(selectedPro, mode)} ETB
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -596,7 +712,7 @@ const CallCenterView: React.FC = () => {
                         <span className="mt-2 text-xs font-black">{formatSlotRange(selectedSlot)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-black">{selectedPro.fee} <span className="text-[10px] text-slate-400 font-bold uppercase">ETB</span></span>
+                        <span className="text-2xl font-black">{getPriceForMode(selectedPro, selectedMode)} <span className="text-[10px] text-slate-400 font-bold uppercase">ETB</span></span>
                       </div>
                     </div>
                   )}
@@ -630,7 +746,7 @@ const CallCenterView: React.FC = () => {
                   <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-3xl">💳</div>
                   <h3 className="text-2xl font-black text-slate-800 mb-2">Payment Details</h3>
                   <p className="text-slate-500 text-sm font-medium">
-                    Please complete the payment for <span className="font-black text-slate-800">{selectedPro.fee} ETB</span> to secure your slot on{' '}
+                    Please complete the payment for <span className="font-black text-slate-800">{getPriceForMode(selectedPro, selectedMode)} ETB</span> to secure your slot on{' '}
                     <span className="text-[#76A13B] font-black">{selectedSlot ? formatDateOption(selectedSlot.date).full : ''}</span> at{' '}
                     <span className="text-[#76A13B] font-black">{selectedSlot ? selectedSlot.startTime : ''}</span>.
                   </p>
@@ -654,26 +770,44 @@ const CallCenterView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Payment screenshot upload */}
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 mb-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                    Payment Screenshot <span className="text-rose-400">*</span>
+                  </p>
+                  <label className="flex flex-col items-center gap-3 cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      className="hidden"
+                      onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
+                    />
+                    {screenshotFile ? (
+                      <div className="w-full flex items-center justify-between gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                        <span className="text-sm font-bold text-emerald-700 truncate">{screenshotFile.name}</span>
+                        <span className="flex-shrink-0 text-[10px] font-black text-emerald-500 bg-emerald-100 px-2 py-0.5 rounded-lg">
+                          {(screenshotFile.size / 1024).toFixed(0)} KB
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 py-4 text-slate-400">
+                        <span className="text-3xl">📎</span>
+                        <span className="text-xs font-bold">Tap to attach screenshot</span>
+                        <span className="text-[10px]">JPEG or PNG · max 2 MB</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+
                 <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-10">
                   <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
-                    Please upload your transaction screenshot or send the transaction ID to our Telegram support after payment, then return and close this booking flow.
+                    Attach your payment screenshot above, then tap Done. Your booking will be reviewed by our team.
                   </p>
                 </div>
 
                 {bookingError && (
                   <p className="px-2 pb-4 text-sm font-medium text-rose-500">{bookingError}</p>
                 )}
-
-                <div className="flex flex-col gap-4 mb-10">
-                  <a
-                    href="https://t.me/lijecare_support"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-5 bg-sky-500 text-white font-black rounded-3xl shadow-xl shadow-sky-100 flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase text-xs tracking-widest"
-                  >
-                    Upload Payment (Telegram)
-                  </a>
-                </div>
 
                 <div className="flex gap-4">
                   <button
@@ -683,12 +817,15 @@ const CallCenterView: React.FC = () => {
                     Change Info
                   </button>
                   <button
-                    onClick={() => {
-                      void handleBookConsultation();
-                    }}
-                    className="flex-[2] py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-2xl shadow-emerald-200 active:scale-95 transition-transform uppercase text-xs tracking-widest"
+                    onClick={() => { void handleBookConsultation(); }}
+                    disabled={uploadingOrder || !screenshotFile}
+                    className={`flex-[2] py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-2xl shadow-emerald-200 transition-transform uppercase text-xs tracking-widest ${
+                      uploadingOrder || !screenshotFile
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'active:scale-95'
+                    }`}
                   >
-                    Done / Close
+                    {uploadingOrder ? 'Submitting…' : 'Done / Close'}
                   </button>
                 </div>
               </div>

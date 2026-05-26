@@ -5,7 +5,14 @@ export interface SpecialistProfile {
   countryOfResidence: string;
   timeZone: string;
   specialty: string;
+  /** General fallback fee (backward-compatible) */
   consultationFee: number;
+  /** Price for text / chat consultation — null means not configured */
+  textPrice?: number | null;
+  /** Price for audio / voice call consultation — null means not configured */
+  callPrice?: number | null;
+  /** Price for video call consultation — null means not configured */
+  videoCallPrice?: number | null;
   licenseNumber: string;
   issuingAuthority: string;
   yearsOfExperience: number;

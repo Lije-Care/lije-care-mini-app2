@@ -163,6 +163,11 @@ export interface Professional {
   image: string;
   availability: string;
   rating: number;
+  /** General fallback fee used when a per-type price is not configured */
   fee: number;
+  /** Per-type prices — null means not configured; falls back to fee */
+  textFee?: number | null;
+  callFee?: number | null;
+  videoFee?: number | null;
   specialty: string;
 }
