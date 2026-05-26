@@ -117,8 +117,7 @@ const MealDetails: React.FC = () => {
                 className="flex items-center gap-4 cursor-pointer"
                 onClick={() => setOpenMealId(isOpen ? null : meal.id)}
               >
-                <div className="relative w-24 h-24 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                  <span className="text-3xl opacity-30">🍽️</span>
+                <div className="relative w-24 h-24 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex-shrink-0">
                   {meal.imageUrl && (
                     <img
                       src={meal.imageUrl}

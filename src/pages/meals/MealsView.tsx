@@ -1340,8 +1340,7 @@ const MealLibraryDetailOverlay = ({
           </div>
         ) : scaledMeal ? (
           <div className="space-y-8">
-            <div className="relative h-64 overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-xl flex items-center justify-center">
-              <span className="text-6xl opacity-20">🍽️</span>
+            <div className="relative h-64 overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-xl">
               {scaledMeal.imageUrl && (
                 <img
                   src={scaledMeal.imageUrl}
@@ -1803,8 +1802,7 @@ const IngredientLibraryDetailOverlay = ({
           </div>
         ) : ingredient ? (
           <div className="rounded-[2.5rem] border border-slate-50 bg-white p-8 shadow-xl shadow-slate-100">
-              <div className="relative mb-8 h-56 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-100 flex items-center justify-center">
-                <span className="text-6xl opacity-20">🥕</span>
+              <div className="relative mb-8 h-56 overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-100">
                 {ingredient.imageUrl && (
                   <img
                     src={ingredient.imageUrl}
@@ -3963,8 +3961,7 @@ const MealsView: React.FC = () => {
                             }
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            <div className="relative w-16 h-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                              <span className="text-2xl opacity-30">🍽️</span>
+                            <div className="relative w-16 h-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden">
                               {getMealImage(meal) && (
                                 <img
                                   src={getMealImage(meal)}
@@ -4331,8 +4328,7 @@ const MealsView: React.FC = () => {
                             onClick={() => void openMealDetail(meal.id, displayMultiplier)}
                             className="flex flex-1 items-center gap-4 text-left"
                           >
-                            <div className="relative h-16 w-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                              <span className="text-2xl opacity-30">🍽️</span>
+                            <div className="relative h-16 w-16 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden">
                               {meal.image && (
                                 <img
                                   src={meal.image}
@@ -4566,8 +4562,7 @@ const MealsView: React.FC = () => {
                 onClick={() => void openMealDetail(meal.id)}
                 className="cursor-pointer bg-white rounded-[2.5rem] p-5 flex gap-5 border border-slate-50 shadow-sm transition-transform active:scale-95 text-left"
               >
-                <div className="relative w-24 h-24 rounded-3xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                  <span className="text-3xl opacity-25">🍽️</span>
+                <div className="relative w-24 h-24 rounded-3xl bg-slate-100 flex-shrink-0 overflow-hidden">
                   {meal.image && (
                     <img
                       src={meal.image}
@@ -4615,10 +4610,9 @@ const MealsView: React.FC = () => {
                 className="cursor-pointer bg-white rounded-[2.5rem] p-4 flex gap-5 border border-slate-50 shadow-sm text-left transition-transform active:scale-95"
               >
                 <div
-                  className="relative w-20 h-20 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center"
+                  className="relative w-20 h-20 rounded-2xl bg-slate-100 flex-shrink-0 overflow-hidden"
                   aria-hidden={!food.image}
                 >
-                  <span className="text-2xl opacity-25">🥕</span>
                   {food.image && (
                     <img
                       src={food.image}
