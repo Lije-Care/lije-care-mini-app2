@@ -128,6 +128,7 @@ const CallCenterView: React.FC = () => {
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [uploadingOrder, setUploadingOrder] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
   // Get specialists from Redux
   const { specialists, loading } = useSelector((state: RootState) => state.specialists);
@@ -259,6 +260,7 @@ const CallCenterView: React.FC = () => {
     setBookingError(null);
     setScreenshotFile(null);
     setUploadingOrder(false);
+    setSubmissionSuccess(false);
   };
 
   useEffect(() => {
@@ -339,8 +341,8 @@ const CallCenterView: React.FC = () => {
 
       storeSessionMode(selectedSlot.id, selectedMode);
       await fetchBookings();
-      setActiveTab('Sessions');
-      resetBookingState();
+      // Show success message inside the sheet; the user closes it explicitly via "Close".
+      setSubmissionSuccess(true);
     } catch (error: any) {
       setBookingError(error.response?.data?.message || 'Booking failed. Try again.');
     } finally {
@@ -742,92 +744,129 @@ const CallCenterView: React.FC = () => {
               </>
             ) : (
               <div className="animate-in fade-in zoom-in duration-300">
-                <div className="text-center mb-10">
-                  <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-3xl">💳</div>
-                  <h3 className="text-2xl font-black text-slate-800 mb-2">Payment Details</h3>
-                  <p className="text-slate-500 text-sm font-medium">
-                    Please complete the payment for <span className="font-black text-slate-800">{getPriceForMode(selectedPro, selectedMode)} ETB</span> to secure your slot on{' '}
-                    <span className="text-[#76A13B] font-black">{selectedSlot ? formatDateOption(selectedSlot.date).full : ''}</span> at{' '}
-                    <span className="text-[#76A13B] font-black">{selectedSlot ? selectedSlot.startTime : ''}</span>.
-                  </p>
-                </div>
-
-                <div className="space-y-4 mb-12">
-                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank - CBE</span>
+                {submissionSuccess ? (
+                  /* ── Success state ── */
+                  <div className="flex flex-col items-center text-center py-8">
+                    <div className="w-24 h-24 bg-emerald-50 rounded-[2rem] flex items-center justify-center mb-6 text-5xl shadow-inner">
+                      ✅
                     </div>
-                    <p className="text-lg font-black text-slate-800 mb-1">1000123456789</p>
-                    <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE TECHNOLOGIES</p>
-                  </div>
-
-                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mobile Money - Telebirr</span>
+                    <h3 className="text-2xl font-black text-slate-800 mb-3">Submitted!</h3>
+                    <p className="text-slate-500 text-sm font-medium leading-relaxed mb-10 px-2">
+                      Payment screenshot submitted successfully.{' '}
+                      <span className="font-black text-slate-700">Your booking is awaiting approval.</span>
+                    </p>
+                    <div className="bg-amber-50 p-5 rounded-3xl border border-amber-100 mb-10 w-full">
+                      <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
+                        Our team will review your payment and confirm your session shortly.
+                      </p>
                     </div>
-                    <p className="text-lg font-black text-slate-800 mb-1">+251 912 345 678</p>
-                    <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE SERVICES</p>
+                    <button
+                      onClick={resetBookingState}
+                      className="w-full py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl shadow-emerald-200 active:scale-95 transition-transform uppercase text-xs tracking-widest"
+                    >
+                      Close
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  /* ── Normal payment upload state ── */
+                  <>
+                    <div className="text-center mb-10">
+                      <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-3xl">💳</div>
+                      <h3 className="text-2xl font-black text-slate-800 mb-2">Payment Details</h3>
+                      <p className="text-slate-500 text-sm font-medium">
+                        Please complete the payment for <span className="font-black text-slate-800">{getPriceForMode(selectedPro, selectedMode)} ETB</span> to secure your slot on{' '}
+                        <span className="text-[#76A13B] font-black">{selectedSlot ? formatDateOption(selectedSlot.date).full : ''}</span> at{' '}
+                        <span className="text-[#76A13B] font-black">{selectedSlot ? selectedSlot.startTime : ''}</span>.
+                      </p>
+                    </div>
 
-                {/* Payment screenshot upload */}
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 mb-4">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
-                    Payment Screenshot <span className="text-rose-400">*</span>
-                  </p>
-                  <label className="flex flex-col items-center gap-3 cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png"
-                      className="hidden"
-                      onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
-                    />
-                    {screenshotFile ? (
-                      <div className="w-full flex items-center justify-between gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
-                        <span className="text-sm font-bold text-emerald-700 truncate">{screenshotFile.name}</span>
-                        <span className="flex-shrink-0 text-[10px] font-black text-emerald-500 bg-emerald-100 px-2 py-0.5 rounded-lg">
-                          {(screenshotFile.size / 1024).toFixed(0)} KB
-                        </span>
+                    <div className="space-y-4 mb-12">
+                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank - CBE</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-800 mb-1">1000123456789</p>
+                        <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE TECHNOLOGIES</p>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 py-4 text-slate-400">
-                        <span className="text-3xl">📎</span>
-                        <span className="text-xs font-bold">Tap to attach screenshot</span>
-                        <span className="text-[10px]">JPEG or PNG · max 2 MB</span>
+
+                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mobile Money - Telebirr</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-800 mb-1">+251 912 345 678</p>
+                        <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE SERVICES</p>
                       </div>
+                    </div>
+
+                    {/* Payment screenshot upload */}
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 mb-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                        Payment Screenshot <span className="text-rose-400">*</span>
+                      </p>
+                      <label className="flex flex-col items-center gap-3 cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png"
+                          className="hidden"
+                          onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
+                        />
+                        {screenshotFile ? (
+                          <div className="w-full flex items-center justify-between gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                            <span className="text-sm font-bold text-emerald-700 truncate">{screenshotFile.name}</span>
+                            <span className="flex-shrink-0 text-[10px] font-black text-emerald-500 bg-emerald-100 px-2 py-0.5 rounded-lg">
+                              {(screenshotFile.size / 1024).toFixed(0)} KB
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 py-4 text-slate-400">
+                            <span className="text-3xl">📎</span>
+                            <span className="text-xs font-bold">Tap to attach screenshot</span>
+                            <span className="text-[10px]">JPEG or PNG · max 2 MB</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-10">
+                      <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
+                        Attach your payment screenshot above, then tap <strong>Done</strong>. Your booking will be reviewed by our team.
+                      </p>
+                    </div>
+
+                    {bookingError && (
+                      <p className="px-2 pb-4 text-sm font-medium text-rose-500">{bookingError}</p>
                     )}
-                  </label>
-                </div>
 
-                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-10">
-                  <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
-                    Attach your payment screenshot above, then tap Done. Your booking will be reviewed by our team.
-                  </p>
-                </div>
-
-                {bookingError && (
-                  <p className="px-2 pb-4 text-sm font-medium text-rose-500">{bookingError}</p>
+                    {/* Three-action row: Change Info · Close · Done */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setBookingStep('selection')}
+                        className="flex-1 py-5 text-slate-400 font-black uppercase text-[10px] tracking-widest"
+                      >
+                        Change Info
+                      </button>
+                      {/* Close — dismisses the sheet without submitting anything */}
+                      <button
+                        onClick={resetBookingState}
+                        className="flex-1 py-5 border-2 border-slate-200 text-slate-500 font-black rounded-3xl uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
+                      >
+                        Close
+                      </button>
+                      {/* Done — submits the screenshot; disabled until a file is chosen or while loading */}
+                      <button
+                        onClick={() => { void handleBookConsultation(); }}
+                        disabled={uploadingOrder || !screenshotFile}
+                        className={`flex-[2] py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl shadow-emerald-200 transition-transform uppercase text-[10px] tracking-widest ${
+                          uploadingOrder || !screenshotFile
+                            ? 'opacity-40 cursor-not-allowed'
+                            : 'active:scale-95'
+                        }`}
+                      >
+                        {uploadingOrder ? 'Submitting…' : 'Done'}
+                      </button>
+                    </div>
+                  </>
                 )}
-
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setBookingStep('selection')}
-                    className="flex-1 py-5 text-slate-400 font-black uppercase text-xs tracking-widest"
-                  >
-                    Change Info
-                  </button>
-                  <button
-                    onClick={() => { void handleBookConsultation(); }}
-                    disabled={uploadingOrder || !screenshotFile}
-                    className={`flex-[2] py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-2xl shadow-emerald-200 transition-transform uppercase text-xs tracking-widest ${
-                      uploadingOrder || !screenshotFile
-                        ? 'opacity-40 cursor-not-allowed'
-                        : 'active:scale-95'
-                    }`}
-                  >
-                    {uploadingOrder ? 'Submitting…' : 'Done / Close'}
-                  </button>
-                </div>
               </div>
             )}
           </>

@@ -28,8 +28,8 @@ const CheckoutPage = () => {
   // Form state
   const [formData, setFormData] = useState({
     customerName: "",
-    customerEmail: "",
     customerPhone: "",
+    customerEmail: "",
     city: "",
     paymentMethod: "CASH",
     deliveryMethod: "PICKUP",
@@ -66,12 +66,6 @@ const CheckoutPage = () => {
   // Validate form
   const validateForm = () => {
     if (!formData.customerName) return t("Name is required.");
-    if (
-      !formData.customerEmail ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)
-    ) {
-      return t("Valid email is required.");
-    }
     if (!formData.customerPhone) return t("Phone number is required.");
     if (!formData.city) return t("City is required.");
     return "";
@@ -94,8 +88,8 @@ const CheckoutPage = () => {
     try {
       const orderData = {
         customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,
+        customerEmail: formData.customerEmail || undefined,
         city: formData.city,
         deliveryMethod: formData.deliveryMethod,
         paymentMethod: formData.paymentMethod,
@@ -197,23 +191,6 @@ const CheckoutPage = () => {
                   </div>
                   <div>
                     <label
-                      htmlFor="customerEmail"
-                      className="mb-2 block text-sm font-medium text-slate-800"
-                    >
-                      {t("Your email")}*
-                    </label>
-                    <input
-                      type="email"
-                      id="customerEmail"
-                      value={formData.customerEmail}
-                      onChange={handleInputChange}
-                      className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 "
-                      placeholder="test@lijecare.com"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label
                       htmlFor="customerPhone"
                       className="mb-2 block text-sm font-medium text-slate-800"
                     >
@@ -227,6 +204,22 @@ const CheckoutPage = () => {
                       className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 "
                       placeholder="+251961197371"
                       required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customerEmail"
+                      className="mb-2 block text-sm font-medium text-slate-800"
+                    >
+                      {t("Email")} <span className="text-slate-400 text-xs">({t("optional")})</span>
+                    </label>
+                    <input
+                      type="email"
+                      id="customerEmail"
+                      value={formData.customerEmail}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500"
+                      placeholder="you@example.com"
                     />
                   </div>
                   <div>

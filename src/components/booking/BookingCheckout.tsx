@@ -21,7 +21,6 @@ const BookingCheckout = () => {
   // 🧩 States
   const [formData, setFormData] = useState({
     customerName: "",
-    customerEmail: "",
     customerPhone: "",
     city: "",
   });
@@ -39,11 +38,6 @@ const BookingCheckout = () => {
 
   const validateForm = () => {
     if (!formData.customerName) return t("Name is required.");
-    if (
-      !formData.customerEmail ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)
-    )
-      return t("Valid email is required.");
     if (!formData.customerPhone) return t("Phone number is required.");
     if (!formData.city) return t("City is required.");
     return "";
@@ -66,7 +60,6 @@ const BookingCheckout = () => {
     try {
       const bookingData = {
         customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,
         parentId: parentId,
         paymentMethod: "chapa",
@@ -130,21 +123,6 @@ const BookingCheckout = () => {
                 id="customerName"
                 value={formData.customerName}
                 placeholder="Enter you name"
-                onChange={handleInputChange}
-                className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 ">
-                {t("Your email")}*
-              </label>
-              <input
-                type="email"
-                id="customerEmail"
-                value={formData.customerEmail}
-                placeholder="Enter your email"
                 onChange={handleInputChange}
                 className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900"
                 required
