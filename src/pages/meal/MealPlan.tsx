@@ -14,6 +14,16 @@ type SelectedMeal = {
   selectedMealTime: string;
 };
 
+const MEAL_TIME_OPTIONS = ["BREAKFAST", "LUNCH", "SNACKS", "DINNER"] as const;
+
+const mealMatchesTime = (mealTimes: string[] | undefined, activeTab: string) => {
+  if (!Array.isArray(mealTimes) || mealTimes.length === 0) {
+    return MEAL_TIME_OPTIONS.includes(activeTab as (typeof MEAL_TIME_OPTIONS)[number]);
+  }
+
+  return mealTimes.includes(activeTab);
+};
+
 const MealLibraryComponent = () => {
   const { t, i18n } = useTranslation();
   const [meals, setMeals] = useState<any[]>([]);
@@ -88,11 +98,13 @@ const MealLibraryComponent = () => {
       const quantity = item.quantity ?? 1;
       ing?.nutrientAmounts?.forEach((na: any) => {
         const nutrientType = (na?.nutrient?.name || "other").toLowerCase();
+        const normalizedNutrientType =
+          nutrientType === "energy" ? "calories" : nutrientType;
         const unit = na?.nutrient?.unit || "";
         const adjustedAmount = na.amount * (quantity / portionSize);
-        if (!nutrientsByType[nutrientType])
-          nutrientsByType[nutrientType] = { amount: 0, unit };
-        nutrientsByType[nutrientType].amount += adjustedAmount;
+        if (!nutrientsByType[normalizedNutrientType])
+          nutrientsByType[normalizedNutrientType] = { amount: 0, unit };
+        nutrientsByType[normalizedNutrientType].amount += adjustedAmount;
       });
     });
     return nutrientsByType;
@@ -173,12 +185,7 @@ const MealLibraryComponent = () => {
   }, [paramId, i18n.language]);
   useEffect(() => {
     if (meals.length > 0 && !activeTab) {
-      const uniqueTimes = Array.from(
-        new Set(meals.flatMap((m) => m.mealTimes || []))
-      );
-      if (uniqueTimes.length > 0) {
-        setActiveTab(uniqueTimes[0]);
-      }
+      setActiveTab(MEAL_TIME_OPTIONS[0]);
     }
   }, [meals, activeTab]);
   const getDateKey = (dateStr: string) =>
@@ -211,11 +218,9 @@ const MealLibraryComponent = () => {
       )
     );
   };
-  const allMealTimess = Array.from(
-    new Set(meals?.flatMap((plan) => plan.mealTimes || []))
-  );
+  const allMealTimess = [...MEAL_TIME_OPTIONS];
   const filteredMeals = activeTab
-    ? meals.filter((meal) => meal.mealTimes?.includes(activeTab))
+    ? meals.filter((meal) => mealMatchesTime(meal.mealTimes, activeTab))
     : meals;
   const nutrientTotals = useMemo(
     () => computeNutrients(selectedMeals),

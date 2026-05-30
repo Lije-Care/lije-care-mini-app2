@@ -124,6 +124,14 @@ function normalizeMealSlot(value?: string | null): MealSlot | null {
   }
 }
 
+function getEligibleMealSlots(mealTimes?: string[] | null): MealSlot[] {
+  const normalizedSlots = (mealTimes ?? [])
+    .map((mealTime) => normalizeMealSlot(mealTime))
+    .filter((mealTime): mealTime is MealSlot => mealTime !== null);
+
+  return normalizedSlots.length > 0 ? Array.from(new Set(normalizedSlots)) : [...MEAL_SLOTS];
+}
+
 type LibrarySubTab = 'mealLib' | 'foodLib';
 type SortBy = 'recent' | 'alpha';
 
@@ -280,6 +288,16 @@ function deriveDietTypeFromText(...values: Array<string | null | undefined>) {
   return NON_VEGAN_KEYWORDS.some((keyword) => haystack.includes(keyword))
     ? 'non-vegan'
     : 'vegan';
+}
+
+function deriveMealCategoryFromType(mealType?: string | null) {
+  const normalizedType = mealType?.trim().toUpperCase();
+
+  if (normalizedType === 'DRINK') {
+    return 'drinks only';
+  }
+
+  return 'solid';
 }
 
 type FilterOverlayProps = {
@@ -737,7 +755,11 @@ function getMealCaloriesSummary(
   mealIngredients?.forEach((item) => {
     (item.ingredient?.nutrientAmounts || []).forEach((entry) => {
       const nutrientName = entry.nutrient?.name?.trim().toLowerCase();
-      if (nutrientName !== 'calories' && nutrientName !== 'calorie') {
+      if (
+        nutrientName !== 'calories' &&
+        nutrientName !== 'calorie' &&
+        nutrientName !== 'energy'
+      ) {
         return;
       }
 
@@ -2440,10 +2462,6 @@ const MealsView: React.FC = () => {
     }
   }, []);
 
-  // Helper to map meal time to valid type
-  const getMealType = (mealTime: string | undefined): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' =>
-    normalizeMealSlot(mealTime) || 'Snack';
-
   // Transform backend meals to match UI format
   const transformedMeals = backendMeals.map(m => ({
     raw: m,
@@ -2455,16 +2473,17 @@ const MealsView: React.FC = () => {
       m.intoleranceDescription,
       m.direction,
     ),
-    derivedCategory: m.totalVolume >= 200 ? 'drinks only' : 'solid',
+    derivedCategory: deriveMealCategoryFromType(m.mealType),
     derivedAllergens: m.allergen && m.allergenDescription
       ? m.allergenDescription
           .split(/[;,/]/)
           .map((item) => item.trim())
           .filter(Boolean)
       : [],
+    eligibleSlots: getEligibleMealSlots(m.mealTimes),
     id: m.id,
     name: m.name,
-    type: getMealType(m.mealTimes?.[0]),
+    type: getEligibleMealSlots(m.mealTimes)[0],
     nutrients: [], // Backend doesn't have this in simple format
     image: m.imageUrl || '',
     description: m.description || '',
@@ -2573,7 +2592,7 @@ const MealsView: React.FC = () => {
     }
 
     if (mealTypeFilter !== 'all') {
-      result = result.filter((meal) => meal.type === mealTypeFilter);
+      result = result.filter((meal) => meal.eligibleSlots.includes(mealTypeFilter as MealSlot));
     }
 
     if (excludedAllergens.length > 0) {
@@ -2621,7 +2640,7 @@ const MealsView: React.FC = () => {
   const canLoadMoreIngredients = Boolean(ingredientsPagination?.next);
 
   const plannerMealsForActiveSlot = useMemo(() => {
-    const slotFilteredMeals = filteredMeals.filter((meal) => meal.type === activeSlot);
+    const slotFilteredMeals = filteredMeals.filter((meal) => meal.eligibleSlots.includes(activeSlot));
     const selectedById = new Map<string, Meal>(
       selectedMealsForSlot.map((selection) => [
         selection.meal.id,
