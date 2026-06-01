@@ -2372,6 +2372,13 @@ const MealsView: React.FC = () => {
   const [savingPlan, setSavingPlan] = useState(false);
   const [plansSuccess, setPlansSuccess] = useState<string | null>(null);
   const [focusedChildId, setFocusedChildId] = useState<string | null>(null);
+  const [favoriteChildIdState, setFavoriteChildIdState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('favorite_child_id');
+    } catch {
+      return null;
+    }
+  });
   const mealCardRefs = useRef<Record<string, HTMLElement | null>>({});
   const ingredientCardRefs = useRef<Record<string, HTMLElement | null>>({});
   const plannerSearchInputRef = useRef<HTMLInputElement | null>(null);
@@ -2670,7 +2677,7 @@ const MealsView: React.FC = () => {
 
   useEffect(() => {
     void refreshMealPlans();
-  }, [children.length, focusedChildId, i18n.language]);
+  }, [children.length, favoriteChildIdState, focusedChildId, i18n.language]);
 
   useEffect(() => {
     const state = location.state as
@@ -3297,7 +3304,7 @@ const MealsView: React.FC = () => {
       ),
     [selectedMealsForDay, transformedMealsById, unitLabelsById, unitRecordsById, viewPlanMealDetails]
   );
-  const favoriteChildId = localStorage.getItem('favorite_child_id');
+  const favoriteChildId = favoriteChildIdState;
   const effectiveChildId = focusedChildId ?? favoriteChildId;
   const selectedChild = useMemo(
     () =>
@@ -3372,8 +3379,34 @@ const MealsView: React.FC = () => {
 
     if (favoriteChildId !== selectedChildId) {
       localStorage.setItem('favorite_child_id', selectedChildId);
+      setFavoriteChildIdState(selectedChildId);
     }
   }, [favoriteChildId, selectedChildId]);
+
+  useEffect(() => {
+    const syncFavoriteChildId = () => {
+      try {
+        setFavoriteChildIdState(localStorage.getItem('favorite_child_id'));
+      } catch {
+        setFavoriteChildIdState(null);
+      }
+    };
+
+    window.addEventListener('storage', syncFavoriteChildId);
+    window.addEventListener('focus', syncFavoriteChildId);
+
+    return () => {
+      window.removeEventListener('storage', syncFavoriteChildId);
+      window.removeEventListener('focus', syncFavoriteChildId);
+    };
+  }, []);
+
+  useEffect(() => {
+    setActiveViewPlan(null);
+    setActiveViewDay(null);
+    setActiveViewReadOnly(false);
+    restoredViewPlanIdRef.current = null;
+  }, [selectedChildId]);
 
   useEffect(() => {
     if (!plansSuccess) return;
@@ -3420,16 +3453,23 @@ const MealsView: React.FC = () => {
       ).values()
     );
 
+  const scopedMealPlans = useMemo(
+    () =>
+      selectedChildId
+        ? mealPlans.filter((plan) => plan.child?.id === selectedChildId)
+        : mealPlans,
+    [mealPlans, selectedChildId]
+  );
   const parentPlans = useMemo(
-    () => groupPlans(mealPlans.filter((plan) => getPlanSource(plan) === 'parent')),
-    [mealPlans]
+    () => groupPlans(scopedMealPlans.filter((plan) => getPlanSource(plan) === 'parent')),
+    [scopedMealPlans]
   );
   const nutritionistPlans = useMemo(
     () =>
       groupPlans(
-        mealPlans.filter((plan) => getPlanSource(plan) === 'nutritionist')
+        scopedMealPlans.filter((plan) => getPlanSource(plan) === 'nutritionist')
       ),
-    [mealPlans]
+    [scopedMealPlans]
   );
   const displayPlans = planSourceTab === 'parent' ? parentPlans : nutritionistPlans;
   const weekDays = WEEK_DAYS;
@@ -3495,7 +3535,7 @@ const MealsView: React.FC = () => {
       return;
     }
 
-    const matchedPlan = mealPlans.find((plan) => plan.id === restoredViewPlanIdRef.current);
+    const matchedPlan = scopedMealPlans.find((plan) => plan.id === restoredViewPlanIdRef.current);
     if (!matchedPlan) {
       restoredViewPlanIdRef.current = null;
       return;
@@ -3503,7 +3543,7 @@ const MealsView: React.FC = () => {
 
     setActiveViewPlan(matchedPlan);
     restoredViewPlanIdRef.current = null;
-  }, [activeViewPlan, mealPlans]);
+  }, [activeViewPlan, scopedMealPlans]);
 
   useEffect(() => {
     if (browserBackInFlightRef.current) {
@@ -4055,17 +4095,7 @@ const MealsView: React.FC = () => {
   };
 
   async function refreshMealPlans() {
-    const childIds = focusedChildId
-      ? [focusedChildId]
-      : Array.from(
-          new Set(
-            children.map((child) => child.id).filter(Boolean).concat(
-              selectedChildId ? [selectedChildId] : []
-            )
-          )
-        );
-
-    if (!childIds.length) {
+    if (!selectedChildId) {
       setMealPlans([]);
       return;
     }
@@ -4074,19 +4104,12 @@ const MealsView: React.FC = () => {
     setPlansError(null);
 
     try {
-      const responses = await Promise.all(
-        childIds.map((childId) =>
-          api.get(`/meal-plans/by-child/${childId}?lang=${i18n.language || getPreferredLanguage()}`)
-        )
+      const response = await api.get(
+        `/meal-plans/by-child/${selectedChildId}?lang=${i18n.language || getPreferredLanguage()}`
       );
 
-      const fetchedPlans = responses.flatMap(
-        (response) => response.data?.data ?? []
-      ) as BackendMealPlan[];
-
-      const uniquePlans = Array.from(
-        new Map(fetchedPlans.map((plan) => [plan.id, plan])).values()
-      );
+      const fetchedPlans = (response.data?.data ?? []) as BackendMealPlan[];
+      const uniquePlans = Array.from(new Map(fetchedPlans.map((plan) => [plan.id, plan])).values());
 
       setMealPlans(uniquePlans);
     } catch (error: any) {
