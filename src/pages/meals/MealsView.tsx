@@ -134,7 +134,40 @@ function getEligibleMealSlots(mealTimes?: string[] | null): MealSlot[] {
 }
 
 type LibrarySubTab = 'mealLib' | 'foodLib';
+type FilterOverlayTab = LibrarySubTab | 'planning';
 type SortBy = 'recent' | 'alpha';
+
+type MealFilterState = {
+  sortBy: SortBy;
+  ageFilter: string;
+  mealTypeFilter: string;
+  excludedAllergens: string[];
+  dietTypeFilter: string;
+  categoryFilter: string;
+};
+
+type LibraryFilterState = MealFilterState & {
+  ingredientTypeFilter: string;
+};
+
+const DEFAULT_LIBRARY_FILTERS: LibraryFilterState = {
+  sortBy: 'recent',
+  ageFilter: 'all',
+  mealTypeFilter: 'all',
+  ingredientTypeFilter: 'all',
+  excludedAllergens: [],
+  dietTypeFilter: 'all',
+  categoryFilter: 'all',
+};
+
+const DEFAULT_PLANNER_FILTERS: MealFilterState = {
+  sortBy: 'recent',
+  ageFilter: 'all',
+  mealTypeFilter: 'all',
+  excludedAllergens: [],
+  dietTypeFilter: 'all',
+  categoryFilter: 'all',
+};
 
 const ALLERGEN_KEYWORDS: Record<string, string[]> = {
   Milk: ['milk', 'dairy', 'cheese', 'butter', 'yogurt', 'cream', 'ወተት', 'የወተት', 'አይብ', 'እርጎ'],
@@ -311,7 +344,7 @@ type FilterOverlayProps = {
   setSortBy: (val: SortBy) => void;
   ageFilter: string;
   setAgeFilter: (val: string) => void;
-  subTab: LibrarySubTab;
+  subTab: FilterOverlayTab;
   mealTypeFilter: string;
   setMealTypeFilter: (val: string) => void;
   ingredientTypeFilter: string;
@@ -2145,7 +2178,7 @@ const FilterOverlay: React.FC<FilterOverlayProps> = ({
         </div>
       </section>
 
-      {subTab === 'mealLib' ? (
+      {subTab !== 'foodLib' ? (
         <section>
           <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
             Meal Type
@@ -2251,7 +2284,7 @@ const FilterOverlay: React.FC<FilterOverlayProps> = ({
         </div>
       </section>
 
-      {subTab === 'mealLib' && (
+      {subTab !== 'foodLib' && (
         <section>
           <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
             Texture
@@ -2311,17 +2344,18 @@ const MealsView: React.FC = () => {
   const [planName, setPlanName] = useState('');
   const [selectedDay, setSelectedDay] = useState<DayKey>('Mon');
   const [activeSlot, setActiveSlot] = useState<MealSlot>('Breakfast');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedMealSearch, setDebouncedMealSearch] = useState('');
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [plannerSearchQuery, setPlannerSearchQuery] = useState('');
+  const [debouncedLibraryMealSearch, setDebouncedLibraryMealSearch] = useState('');
+  const [debouncedPlannerMealSearch, setDebouncedPlannerMealSearch] = useState('');
   const [debouncedIngredientSearch, setDebouncedIngredientSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState<SortBy>('recent');
-  const [ageFilter, setAgeFilter] = useState('all');
-  const [mealTypeFilter, setMealTypeFilter] = useState('all');
-  const [ingredientTypeFilter, setIngredientTypeFilter] = useState('all');
-  const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
-  const [dietTypeFilter, setDietTypeFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [libraryFilters, setLibraryFilters] = useState<LibraryFilterState>(
+    DEFAULT_LIBRARY_FILTERS
+  );
+  const [plannerFilters, setPlannerFilters] = useState<MealFilterState>(
+    DEFAULT_PLANNER_FILTERS
+  );
   const [selectedMealsByDay, setSelectedMealsByDay] = useState<MealsByDay>({});
   const [multiplierDrafts, setMultiplierDrafts] = useState<Record<string, string>>({});
   const [selectedLibraryMeal, setSelectedLibraryMeal] = useState<DetailedMeal | null>(null);
@@ -2358,7 +2392,10 @@ const MealsView: React.FC = () => {
   const [editingPlanGroupKey, setEditingPlanGroupKey] = useState<string | null>(null);
   const [deletingPlanGroupKey, setDeletingPlanGroupKey] = useState<string | null>(null);
   const [pendingDeletePlan, setPendingDeletePlan] = useState<BackendMealPlan | null>(null);
-  const filterOverlayTab: LibrarySubTab = subTab === 'planning' ? 'mealLib' : subTab;
+  const isPlannerMealSelectionView =
+    subTab === 'planning' && isCreatingPlan && creationStep === 2;
+  const filterOverlayTab: FilterOverlayTab =
+    subTab === 'foodLib' ? 'foodLib' : isPlannerMealSelectionView ? 'planning' : 'mealLib';
   const currentUserId = useMemo(() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -2384,66 +2421,146 @@ const MealsView: React.FC = () => {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      const nextSearch = searchQuery.trim();
-      setDebouncedMealSearch(nextSearch);
-      setDebouncedIngredientSearch(nextSearch);
+      const nextLibrarySearch = librarySearchQuery.trim();
+      setDebouncedLibraryMealSearch(nextLibrarySearch);
+      setDebouncedIngredientSearch(nextLibrarySearch);
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [librarySearchQuery]);
 
-  const mealMaxAgeMonths = useMemo(
-    () => (ageFilter !== 'all' ? getAgeFilterLimitInMonths(ageFilter) : null),
-    [ageFilter]
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedPlannerMealSearch(plannerSearchQuery.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [plannerSearchQuery]);
+
+  const libraryMealMaxAgeMonths = useMemo(
+    () =>
+      libraryFilters.ageFilter !== 'all'
+        ? getAgeFilterLimitInMonths(libraryFilters.ageFilter)
+        : null,
+    [libraryFilters.ageFilter]
   );
-  const mealFetchFilters = useMemo(
+  const plannerMealMaxAgeMonths = useMemo(
+    () =>
+      plannerFilters.ageFilter !== 'all'
+        ? getAgeFilterLimitInMonths(plannerFilters.ageFilter)
+        : null,
+    [plannerFilters.ageFilter]
+  );
+  const libraryMealFetchFilters = useMemo(
     () => ({
-      search: debouncedMealSearch,
+      search: debouncedLibraryMealSearch,
       mealType:
-        categoryFilter !== 'all' ? (categoryFilter as MealType) : undefined,
-      mealSlot: mealTypeFilter !== 'all' ? mealTypeFilter : undefined,
-      maxAgeMonths: mealMaxAgeMonths ?? undefined,
-      excludedAllergens,
-      dietType: dietTypeFilter !== 'all' ? dietTypeFilter : undefined,
+        libraryFilters.categoryFilter !== 'all'
+          ? (libraryFilters.categoryFilter as MealType)
+          : undefined,
+      mealSlot:
+        libraryFilters.mealTypeFilter !== 'all'
+          ? libraryFilters.mealTypeFilter
+          : undefined,
+      maxAgeMonths: libraryMealMaxAgeMonths ?? undefined,
+      excludedAllergens: libraryFilters.excludedAllergens,
+      dietType:
+        libraryFilters.dietTypeFilter !== 'all'
+          ? libraryFilters.dietTypeFilter
+          : undefined,
     }),
     [
-      categoryFilter,
-      debouncedMealSearch,
-      dietTypeFilter,
-      excludedAllergens,
-      mealMaxAgeMonths,
-      mealTypeFilter,
+      debouncedLibraryMealSearch,
+      libraryFilters.categoryFilter,
+      libraryFilters.dietTypeFilter,
+      libraryFilters.excludedAllergens,
+      libraryFilters.mealTypeFilter,
+      libraryMealMaxAgeMonths,
+    ]
+  );
+  const plannerMealFetchFilters = useMemo(
+    () => ({
+      search: debouncedPlannerMealSearch,
+      mealType:
+        plannerFilters.categoryFilter !== 'all'
+          ? (plannerFilters.categoryFilter as MealType)
+          : undefined,
+      mealSlot:
+        plannerFilters.mealTypeFilter !== 'all'
+          ? plannerFilters.mealTypeFilter
+          : undefined,
+      maxAgeMonths: plannerMealMaxAgeMonths ?? undefined,
+      excludedAllergens: plannerFilters.excludedAllergens,
+      dietType:
+        plannerFilters.dietTypeFilter !== 'all'
+          ? plannerFilters.dietTypeFilter
+          : undefined,
+    }),
+    [
+      debouncedPlannerMealSearch,
+      plannerFilters.categoryFilter,
+      plannerFilters.dietTypeFilter,
+      plannerFilters.excludedAllergens,
+      plannerFilters.mealTypeFilter,
+      plannerMealMaxAgeMonths,
     ]
   );
   const ingredientFetchFilters = useMemo(
     () => ({
       search: debouncedIngredientSearch,
-      maxAgeMonths: mealMaxAgeMonths ?? undefined,
+      maxAgeMonths: libraryMealMaxAgeMonths ?? undefined,
       ingredientType:
-        ingredientTypeFilter !== 'all' ? ingredientTypeFilter : undefined,
-      excludedAllergens,
-      dietType: dietTypeFilter !== 'all' ? dietTypeFilter : undefined,
+        libraryFilters.ingredientTypeFilter !== 'all'
+          ? libraryFilters.ingredientTypeFilter
+          : undefined,
+      excludedAllergens: libraryFilters.excludedAllergens,
+      dietType:
+        libraryFilters.dietTypeFilter !== 'all'
+          ? libraryFilters.dietTypeFilter
+          : undefined,
     }),
     [
       debouncedIngredientSearch,
-      dietTypeFilter,
-      excludedAllergens,
-      ingredientTypeFilter,
-      mealMaxAgeMonths,
+      libraryFilters.dietTypeFilter,
+      libraryFilters.excludedAllergens,
+      libraryFilters.ingredientTypeFilter,
+      libraryMealMaxAgeMonths,
     ]
   );
 
   useEffect(() => {
+    if (subTab !== 'mealLib') {
+      return;
+    }
+
     dispatch(
       fetchMeals({
         page: 1,
         limit: 10,
-        ...mealFetchFilters,
+        ...libraryMealFetchFilters,
       })
     );
-  }, [dispatch, i18n.language, mealFetchFilters]);
+  }, [dispatch, i18n.language, libraryMealFetchFilters, subTab]);
 
   useEffect(() => {
+    if (!isPlannerMealSelectionView) {
+      return;
+    }
+
+    dispatch(
+      fetchMeals({
+        page: 1,
+        limit: 10,
+        ...plannerMealFetchFilters,
+      })
+    );
+  }, [dispatch, i18n.language, isPlannerMealSelectionView, plannerMealFetchFilters]);
+
+  useEffect(() => {
+    if (subTab !== 'foodLib') {
+      return;
+    }
+
     dispatch(
       fetchIngredients({
         page: 1,
@@ -2451,9 +2568,13 @@ const MealsView: React.FC = () => {
         ...ingredientFetchFilters,
       })
     );
-  }, [dispatch, i18n.language, ingredientFetchFilters]);
+  }, [dispatch, i18n.language, ingredientFetchFilters, subTab]);
 
-  const insertSearchText = (text: string, input: HTMLInputElement | null) => {
+  const insertSearchText = (
+    text: string,
+    input: HTMLInputElement | null,
+    setValue: React.Dispatch<React.SetStateAction<string>>
+  ) => {
     if (!text) {
       return;
     }
@@ -2461,7 +2582,7 @@ const MealsView: React.FC = () => {
     const selectionStart = input?.selectionStart;
     const selectionEnd = input?.selectionEnd;
 
-    setSearchQuery((currentValue) => {
+    setValue((currentValue) => {
       const nextSelectionStart = selectionStart ?? currentValue.length;
       const nextSelectionEnd = selectionEnd ?? currentValue.length;
       return `${currentValue.slice(0, nextSelectionStart)}${text}${currentValue.slice(nextSelectionEnd)}`;
@@ -2478,7 +2599,10 @@ const MealsView: React.FC = () => {
     });
   };
 
-  const handleSearchPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleSearchPaste = (
+    event: React.ClipboardEvent<HTMLInputElement>,
+    setValue: React.Dispatch<React.SetStateAction<string>>
+  ) => {
     const pastedText = event.clipboardData?.getData('text');
 
     if (!pastedText) {
@@ -2486,7 +2610,7 @@ const MealsView: React.FC = () => {
     }
 
     event.preventDefault();
-    insertSearchText(pastedText, event.currentTarget);
+    insertSearchText(pastedText, event.currentTarget, setValue);
   };
 
   useEffect(() => {
@@ -2752,79 +2876,85 @@ const MealsView: React.FC = () => {
     return Array.from(new Set([...defaults, ...backendValues])).filter(Boolean);
   }, [transformedMeals]);
 
-  const excludedAllergenKeywords = useMemo(
-    () =>
-      excludedAllergens.flatMap((allergen) => getAllergenKeywords(allergen)),
-    [excludedAllergens]
-  );
-  const ingredientTypeKeywords = useMemo(
-    () =>
-      ingredientTypeFilter === 'all'
-        ? []
-        : getIngredientTypeKeywords(ingredientTypeFilter),
-    [ingredientTypeFilter]
-  );
+  const applyMealFilters = (
+    sourceMeals: typeof transformedMeals,
+    filters: MealFilterState
+  ) => {
+    let result = [...sourceMeals];
+    const excludedAllergenKeywords = filters.excludedAllergens.flatMap((allergen) =>
+      getAllergenKeywords(allergen)
+    );
 
-  const filteredMeals = useMemo(() => {
-    let result = [...transformedMeals];
-
-    if (ageFilter !== 'all') {
-      const maxMonths = getAgeFilterLimitInMonths(ageFilter);
+    if (filters.ageFilter !== 'all') {
+      const maxMonths = getAgeFilterLimitInMonths(filters.ageFilter);
       if (maxMonths != null) {
-        result = result.filter((meal) => meal.minAgeMonths != null && meal.minAgeMonths < maxMonths);
+        result = result.filter(
+          (meal) => meal.minAgeMonths != null && meal.minAgeMonths < maxMonths
+        );
       }
     }
 
-    if (mealTypeFilter !== 'all') {
-      result = result.filter((meal) => meal.eligibleSlots.includes(mealTypeFilter as MealSlot));
-    }
-
-    if (excludedAllergens.length > 0) {
-      result = result.filter(
-        (meal) => {
-          const haystack = [
-            meal.name,
-            meal.description,
-            ...(meal.derivedAllergens || []),
-            meal.raw.allergenDescription || '',
-          ]
-            .join(' ')
-            .toLowerCase();
-
-          return !excludedAllergenKeywords.some((keyword) => haystack.includes(keyword));
-        }
+    if (filters.mealTypeFilter !== 'all') {
+      result = result.filter((meal) =>
+        meal.eligibleSlots.includes(filters.mealTypeFilter as MealSlot)
       );
     }
 
-    if (dietTypeFilter !== 'all') {
-      result = result.filter((meal) => meal.derivedDietType === dietTypeFilter);
+    if (filters.excludedAllergens.length > 0) {
+      result = result.filter((meal) => {
+        const haystack = [
+          meal.name,
+          meal.description,
+          ...(meal.derivedAllergens || []),
+          meal.raw.allergenDescription || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return !excludedAllergenKeywords.some((keyword) => haystack.includes(keyword));
+      });
     }
 
-    if (categoryFilter !== 'all') {
-      result = result.filter((meal) => meal.derivedCategory === categoryFilter);
+    if (filters.dietTypeFilter !== 'all') {
+      result = result.filter((meal) => meal.derivedDietType === filters.dietTypeFilter);
     }
 
-    if (sortBy === 'alpha') {
+    if (filters.categoryFilter !== 'all') {
+      result = result.filter((meal) => meal.derivedCategory === filters.categoryFilter);
+    }
+
+    if (filters.sortBy === 'alpha') {
       result.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    return result.map(({ raw: _raw, minAgeMonths: _minAgeMonths, derivedDietType: _derivedDietType, derivedCategory: _derivedCategory, derivedAllergens: _derivedAllergens, ...meal }) => meal);
-  }, [
-    transformedMeals,
-    ageFilter,
-    mealTypeFilter,
-    excludedAllergens,
-    excludedAllergenKeywords,
-    dietTypeFilter,
-    categoryFilter,
-    sortBy,
-  ]);
+    return result.map(
+      ({
+        raw: _raw,
+        minAgeMonths: _minAgeMonths,
+        derivedDietType: _derivedDietType,
+        derivedCategory: _derivedCategory,
+        derivedAllergens: _derivedAllergens,
+        ...meal
+      }) => meal
+    );
+  };
+
+  const filteredMeals = useMemo(
+    () => applyMealFilters(transformedMeals, libraryFilters),
+    [libraryFilters, transformedMeals]
+  );
+  const filteredPlannerMeals = useMemo(
+    () => applyMealFilters(transformedMeals, plannerFilters),
+    [plannerFilters, transformedMeals]
+  );
   const canLoadMoreMeals = Boolean(mealsPagination?.next);
 
   const canLoadMoreIngredients = Boolean(ingredientsPagination?.next);
 
   const plannerMealsForActiveSlot = useMemo(() => {
-    const slotFilteredMeals = filteredMeals.filter((meal) => meal.eligibleSlots.includes(activeSlot));
+    const slotFilteredMeals = filteredPlannerMeals.filter((meal) =>
+      meal.eligibleSlots.includes(activeSlot)
+    );
     const selectedById = new Map<string, Meal>(
       selectedMealsForSlot.map((selection) => [
         selection.meal.id,
@@ -2842,7 +2972,7 @@ const MealsView: React.FC = () => {
     });
 
     return Array.from(selectedById.values());
-  }, [activeSlot, filteredMeals, selectedMealsForSlot]);
+  }, [activeSlot, filteredPlannerMeals, selectedMealsForSlot]);
 
   const visibleMealIds = useMemo(
     () =>
@@ -2886,11 +3016,15 @@ const MealsView: React.FC = () => {
     }
 
     shouldScrollToLoadedMealsRef.current = true;
+    const nextMealFilters = isPlannerMealSelectionView
+      ? plannerMealFetchFilters
+      : libraryMealFetchFilters;
+
     dispatch(
       fetchMeals({
         page: mealsPagination.next,
         limit: mealsPagination.perPage,
-        ...mealFetchFilters,
+        ...nextMealFilters,
         append: true,
       })
     );
@@ -2898,14 +3032,21 @@ const MealsView: React.FC = () => {
 
   const filteredIngredients = useMemo(() => {
     let result = [...transformedIngredients];
+    const ingredientTypeKeywords =
+      libraryFilters.ingredientTypeFilter === 'all'
+        ? []
+        : getIngredientTypeKeywords(libraryFilters.ingredientTypeFilter);
+    const excludedAllergenKeywords = libraryFilters.excludedAllergens.flatMap((allergen) =>
+      getAllergenKeywords(allergen)
+    );
 
-    if (ageFilter !== 'all') {
-      const match = ageFilter.match(/\d+/);
+    if (libraryFilters.ageFilter !== 'all') {
+      const match = libraryFilters.ageFilter.match(/\d+/);
       const rawAgeLimit = match ? Number(match[0]) : null;
       const maxMonths =
         rawAgeLimit == null
           ? null
-          : ageFilter.includes('year')
+          : libraryFilters.ageFilter.includes('year')
             ? rawAgeLimit * 12
             : rawAgeLimit;
 
@@ -2924,7 +3065,7 @@ const MealsView: React.FC = () => {
       }
     }
 
-    if (ingredientTypeFilter !== 'all') {
+    if (libraryFilters.ingredientTypeFilter !== 'all') {
       result = result.filter((ingredient) => {
         const haystack = [
           ingredient.derivedType,
@@ -2938,7 +3079,7 @@ const MealsView: React.FC = () => {
       });
     }
 
-    if (excludedAllergens.length > 0) {
+    if (libraryFilters.excludedAllergens.length > 0) {
       result = result.filter((ingredient) => {
         const haystack = [
           ingredient.name,
@@ -2954,24 +3095,20 @@ const MealsView: React.FC = () => {
       });
     }
 
-    if (dietTypeFilter !== 'all') {
-      result = result.filter((ingredient) => ingredient.derivedDietType === dietTypeFilter);
+    if (libraryFilters.dietTypeFilter !== 'all') {
+      result = result.filter(
+        (ingredient) => ingredient.derivedDietType === libraryFilters.dietTypeFilter
+      );
     }
 
-    if (sortBy === 'alpha') {
+    if (libraryFilters.sortBy === 'alpha') {
       result.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     return result.map(({ raw: _raw, derivedType: _derivedType, derivedDietType: _derivedDietType, ...ingredient }) => ingredient);
   }, [
     transformedIngredients,
-    ageFilter,
-    ingredientTypeFilter,
-    ingredientTypeKeywords,
-    excludedAllergens,
-    excludedAllergenKeywords,
-    dietTypeFilter,
-    sortBy,
+    libraryFilters,
   ]);
 
   const visibleIngredientIds = useMemo(
@@ -3019,6 +3156,74 @@ const MealsView: React.FC = () => {
         append: true,
       })
     );
+  };
+  const updateLibraryFilters = (updater: (current: LibraryFilterState) => LibraryFilterState) => {
+    setLibraryFilters((current) => updater(current));
+  };
+  const updatePlannerFilters = (updater: (current: MealFilterState) => MealFilterState) => {
+    setPlannerFilters((current) => updater(current));
+  };
+  const activeFilterState = filterOverlayTab === 'planning' ? plannerFilters : libraryFilters;
+  const setActiveSortBy = (value: SortBy) => {
+    if (filterOverlayTab === 'planning') {
+      updatePlannerFilters((current) => ({ ...current, sortBy: value }));
+      return;
+    }
+
+    updateLibraryFilters((current) => ({ ...current, sortBy: value }));
+  };
+  const setActiveAgeFilter = (value: string) => {
+    if (filterOverlayTab === 'planning') {
+      updatePlannerFilters((current) => ({ ...current, ageFilter: value }));
+      return;
+    }
+
+    updateLibraryFilters((current) => ({ ...current, ageFilter: value }));
+  };
+  const setActiveMealTypeFilter = (value: string) => {
+    if (filterOverlayTab === 'planning') {
+      updatePlannerFilters((current) => ({ ...current, mealTypeFilter: value }));
+      return;
+    }
+
+    updateLibraryFilters((current) => ({ ...current, mealTypeFilter: value }));
+  };
+  const setActiveIngredientTypeFilter = (value: string) => {
+    updateLibraryFilters((current) => ({ ...current, ingredientTypeFilter: value }));
+  };
+  const setActiveExcludedAllergens: React.Dispatch<React.SetStateAction<string[]>> = (
+    value
+  ) => {
+    if (filterOverlayTab === 'planning') {
+      setPlannerFilters((current) => ({
+        ...current,
+        excludedAllergens:
+          typeof value === 'function' ? value(current.excludedAllergens) : value,
+      }));
+      return;
+    }
+
+    setLibraryFilters((current) => ({
+      ...current,
+      excludedAllergens:
+        typeof value === 'function' ? value(current.excludedAllergens) : value,
+    }));
+  };
+  const setActiveDietTypeFilter = (value: string) => {
+    if (filterOverlayTab === 'planning') {
+      updatePlannerFilters((current) => ({ ...current, dietTypeFilter: value }));
+      return;
+    }
+
+    updateLibraryFilters((current) => ({ ...current, dietTypeFilter: value }));
+  };
+  const setActiveCategoryFilter = (value: string) => {
+    if (filterOverlayTab === 'planning') {
+      updatePlannerFilters((current) => ({ ...current, categoryFilter: value }));
+      return;
+    }
+
+    updateLibraryFilters((current) => ({ ...current, categoryFilter: value }));
   };
   const getRealMealSummary = (mealId: string, multiplier: number) => {
     const sanitizedMultiplier = sanitizeMultiplier(multiplier);
@@ -3331,6 +3536,9 @@ const MealsView: React.FC = () => {
     setSelectedDay('Mon');
     setActiveSlot('Breakfast');
     setSelectedMealsByDay({});
+    setPlannerSearchQuery('');
+    setDebouncedPlannerMealSearch('');
+    setPlannerFilters(DEFAULT_PLANNER_FILTERS);
   };
 
   const openNewPlanBuilder = () => {
@@ -3344,6 +3552,9 @@ const MealsView: React.FC = () => {
     setSelectedDay('Mon');
     setActiveSlot('Breakfast');
     setSelectedMealsByDay({});
+    setPlannerSearchQuery('');
+    setDebouncedPlannerMealSearch('');
+    setPlannerFilters(DEFAULT_PLANNER_FILTERS);
     setIsCreatingPlan(true);
   };
 
@@ -3488,6 +3699,9 @@ const MealsView: React.FC = () => {
     setSelectedDay(dayKey);
     setActiveSlot(selectedSlot);
     setSelectedMealsByDay(selectionsByDay);
+    setPlannerSearchQuery('');
+    setDebouncedPlannerMealSearch('');
+    setPlannerFilters(DEFAULT_PLANNER_FILTERS);
     setPlansError(null);
     setPlansSuccess(null);
   };
@@ -4608,9 +4822,9 @@ const MealsView: React.FC = () => {
                       type="text"
                       placeholder={`Search ${activeSlot.toLowerCase()} meals...`}
                       className="w-full rounded-2xl border border-slate-100 bg-white py-4 pl-12 pr-4 text-sm font-medium text-slate-800 outline-none focus:border-sky-300 placeholder:text-slate-300 caret-slate-700"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onPaste={handleSearchPaste}
+                      value={plannerSearchQuery}
+                      onChange={(e) => setPlannerSearchQuery(e.target.value)}
+                      onPaste={(event) => handleSearchPaste(event, setPlannerSearchQuery)}
                       enterKeyHint="search"
                       inputMode="search"
                       autoCapitalize="none"
@@ -4854,9 +5068,9 @@ const MealsView: React.FC = () => {
             type="text"
             placeholder={t('Search by name, allergy...')}
             className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium text-slate-800 placeholder:text-slate-300 caret-slate-700"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onPaste={handleSearchPaste}
+            value={librarySearchQuery}
+            onChange={e => setLibrarySearchQuery(e.target.value)}
+            onPaste={(event) => handleSearchPaste(event, setLibrarySearchQuery)}
             enterKeyHint="search"
             inputMode="search"
             autoCapitalize="none"
@@ -5040,21 +5254,21 @@ const MealsView: React.FC = () => {
       {showFilters && (
         <FilterOverlay
           onClose={() => setShowFilters(false)}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          ageFilter={ageFilter}
-          setAgeFilter={setAgeFilter}
+          sortBy={activeFilterState.sortBy}
+          setSortBy={setActiveSortBy}
+          ageFilter={activeFilterState.ageFilter}
+          setAgeFilter={setActiveAgeFilter}
           subTab={filterOverlayTab}
-          mealTypeFilter={mealTypeFilter}
-          setMealTypeFilter={setMealTypeFilter}
-          ingredientTypeFilter={ingredientTypeFilter}
-          setIngredientTypeFilter={setIngredientTypeFilter}
-          excludedAllergens={excludedAllergens}
-          setExcludedAllergens={setExcludedAllergens}
-          dietTypeFilter={dietTypeFilter}
-          setDietTypeFilter={setDietTypeFilter}
-          categoryFilter={categoryFilter}
-          setCategoryFilter={setCategoryFilter}
+          mealTypeFilter={activeFilterState.mealTypeFilter}
+          setMealTypeFilter={setActiveMealTypeFilter}
+          ingredientTypeFilter={libraryFilters.ingredientTypeFilter}
+          setIngredientTypeFilter={setActiveIngredientTypeFilter}
+          excludedAllergens={activeFilterState.excludedAllergens}
+          setExcludedAllergens={setActiveExcludedAllergens}
+          dietTypeFilter={activeFilterState.dietTypeFilter}
+          setDietTypeFilter={setActiveDietTypeFilter}
+          categoryFilter={activeFilterState.categoryFilter}
+          setCategoryFilter={setActiveCategoryFilter}
           commonAllergens={commonAllergens}
         />
       )}
