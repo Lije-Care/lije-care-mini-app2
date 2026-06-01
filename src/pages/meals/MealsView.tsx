@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { calculateNutrients } from '@/utils/calculateNutrients';
 import { useTranslation } from 'react-i18next';
 import { registerBackHandler } from '@/navigation/backStore';
+import type { MealType } from '@/types/meal';
 
 type UnitLookupRecord = {
   id: string;
@@ -294,10 +295,14 @@ function deriveMealCategoryFromType(mealType?: string | null) {
   const normalizedType = mealType?.trim().toUpperCase();
 
   if (normalizedType === 'DRINK') {
-    return 'drinks only';
+    return 'DRINK';
   }
 
-  return 'solid';
+  if (normalizedType === 'SEMI_SOLID') {
+    return 'SEMI_SOLID';
+  }
+
+  return 'SOLID';
 }
 
 type FilterOverlayProps = {
@@ -427,6 +432,77 @@ type DetailedIngredient = {
     } | null;
   }>;
 };
+
+type TrackedNutrientKey =
+  | 'calories'
+  | 'carbs'
+  | 'protein'
+  | 'fat'
+  | 'iron'
+  | 'calcium'
+  | 'zinc'
+  | 'vitamina'
+  | 'water';
+
+type AggregatedNutrientValue = {
+  amount: number;
+  unit: string;
+  baseUnitId: string | null;
+};
+
+type AggregatedNutrientTotals = Partial<
+  Record<TrackedNutrientKey, AggregatedNutrientValue>
+>;
+
+const TRACKED_NUTRIENT_CONFIG: Array<{
+  key: TrackedNutrientKey;
+  label: string;
+  targetKey: TrackedNutrientKey;
+  defaultUnit: string;
+}> = [
+  { key: 'calories', label: 'Calorie', targetKey: 'calories', defaultUnit: 'kcal' },
+  { key: 'carbs', label: 'Carbohydrate', targetKey: 'carbs', defaultUnit: 'g' },
+  { key: 'protein', label: 'Protein', targetKey: 'protein', defaultUnit: 'g' },
+  { key: 'fat', label: 'Fat', targetKey: 'fat', defaultUnit: 'g' },
+  { key: 'iron', label: 'Iron', targetKey: 'iron', defaultUnit: 'mg' },
+  { key: 'calcium', label: 'Calcium', targetKey: 'calcium', defaultUnit: 'mg' },
+  { key: 'zinc', label: 'Zinc', targetKey: 'zinc', defaultUnit: 'mg' },
+  { key: 'vitamina', label: 'Vit A', targetKey: 'vitamina', defaultUnit: 'mcg' },
+  { key: 'water', label: 'Water', targetKey: 'water', defaultUnit: 'mL' },
+];
+
+function normalizeTrackedNutrientKey(name?: string | null): TrackedNutrientKey | null {
+  const normalized = name?.trim().toLowerCase();
+
+  switch (normalized) {
+    case 'energy':
+    case 'calorie':
+    case 'calories':
+      return 'calories';
+    case 'carbohydrate':
+    case 'carbohydrates':
+    case 'carb':
+    case 'carbs':
+      return 'carbs';
+    case 'protein':
+      return 'protein';
+    case 'fat':
+      return 'fat';
+    case 'iron':
+      return 'iron';
+    case 'calcium':
+      return 'calcium';
+    case 'zinc':
+      return 'zinc';
+    case 'vitamin a':
+    case 'vita':
+      return 'vitamina';
+    case 'water':
+      return 'water';
+    default:
+      return null;
+  }
+}
 
 function getNutrientUnitLabel(
   nutrient?: {
@@ -675,72 +751,124 @@ function convertNutrientAmount(
   return baseAmount / toUnit.conversionToBase;
 }
 
+function getDetailedMealNutrientTotals(
+  meal: DetailedMeal | null | undefined,
+  multiplier: number,
+  unitLabelsById: Record<string, string>,
+  unitRecordsById: Record<string, UnitLookupRecord>
+): AggregatedNutrientTotals {
+  if (!meal) {
+    return {};
+  }
+
+  const totals = new Map<TrackedNutrientKey, AggregatedNutrientValue>();
+
+  meal.mealIngredients?.forEach((item) => {
+    (item.ingredient?.nutrientAmounts || []).forEach((entry) => {
+      const nutrientKey = normalizeTrackedNutrientKey(entry.nutrient?.name);
+      if (!nutrientKey) {
+        return;
+      }
+
+      const quantity = item.quantity || 0;
+      const portionSize = item.ingredient?.portionSize || 1;
+      const adjustedAmount = (entry.amount || 0) * (quantity / portionSize) * multiplier;
+      const nextUnitId = getNutrientUnitId(entry.nutrient);
+      const nextUnitLabel =
+        getNutrientUnitLabel(entry.nutrient, unitLabelsById) ||
+        TRACKED_NUTRIENT_CONFIG.find((item) => item.key === nutrientKey)?.defaultUnit ||
+        '';
+      const current = totals.get(nutrientKey);
+
+      if (current?.baseUnitId && nextUnitId && current.baseUnitId !== nextUnitId) {
+        totals.set(nutrientKey, {
+          ...current,
+          amount:
+            current.amount +
+            convertNutrientAmount(
+              adjustedAmount,
+              nextUnitId,
+              current.baseUnitId,
+              unitRecordsById,
+            ),
+        });
+        return;
+      }
+
+      totals.set(nutrientKey, {
+        amount: (current?.amount || 0) + adjustedAmount,
+        unit: current?.unit || nextUnitLabel,
+        baseUnitId: current?.baseUnitId || nextUnitId,
+      });
+    });
+  });
+
+  return Object.fromEntries(totals.entries()) as AggregatedNutrientTotals;
+}
+
+function mergeAggregatedNutrients(
+  base: AggregatedNutrientTotals,
+  incoming: AggregatedNutrientTotals,
+  unitRecordsById: Record<string, UnitLookupRecord>
+) {
+  const next = { ...base };
+
+  Object.entries(incoming).forEach(([rawKey, value]) => {
+    if (!value) {
+      return;
+    }
+
+    const key = rawKey as TrackedNutrientKey;
+    const current = next[key];
+
+    if (current?.baseUnitId && value.baseUnitId && current.baseUnitId !== value.baseUnitId) {
+      next[key] = {
+        ...current,
+        amount:
+          current.amount +
+          convertNutrientAmount(
+            value.amount,
+            value.baseUnitId,
+            current.baseUnitId,
+            unitRecordsById,
+          ),
+      };
+      return;
+    }
+
+    next[key] = {
+      amount: (current?.amount || 0) + value.amount,
+      unit: current?.unit || value.unit,
+      baseUnitId: current?.baseUnitId || value.baseUnitId,
+    };
+  });
+
+  return next;
+}
+
 function buildNutrientProgressItems(
-  currentCals: number,
+  consumedTotals: AggregatedNutrientTotals,
   childNutritionTargets: ReturnType<typeof calculateNutrients>
 ) {
   if (!childNutritionTargets) {
     return [];
   }
 
-  return [
-    {
-      key: 'calorie',
-      label: 'Calorie',
-      current: Math.round(currentCals),
-      target: childNutritionTargets.calories,
-      unit: '',
-    },
-    {
-      key: 'carbohydrate',
-      label: 'Carbohydrate',
-      current: Math.round(currentCals * 0.125),
-      target: Math.round(childNutritionTargets.carbs),
-      unit: '',
-    },
-    {
-      key: 'protein',
-      label: 'Protein',
-      current: Math.round(currentCals * 0.04),
-      target: Math.round(childNutritionTargets.protein),
-      unit: '',
-    },
-    {
-      key: 'fat',
-      label: 'Fat',
-      current: Math.round(currentCals * 0.033),
-      target: Math.round(childNutritionTargets.fat),
-      unit: '',
-    },
-    {
-      key: 'iron',
-      label: 'Iron',
-      current: Math.round(currentCals * 0.01),
-      target: Math.round(childNutritionTargets.iron),
-      unit: '',
-    },
-    {
-      key: 'calcium',
-      label: 'Calcium',
-      current: Math.round(currentCals * 0.53),
-      target: Math.round(childNutritionTargets.calcium),
-      unit: '',
-    },
-    {
-      key: 'zinc',
-      label: 'Zinc',
-      current: Math.round(currentCals * 0.007),
-      target: Math.round(childNutritionTargets.zinc),
-      unit: '',
-    },
-    {
-      key: 'vita',
-      label: 'Vit A',
-      current: Math.round(currentCals * 0.27),
-      target: Math.round(childNutritionTargets.vitamina),
-      unit: '',
-    },
-  ];
+  return TRACKED_NUTRIENT_CONFIG.map((item) => {
+    const current = consumedTotals[item.key]?.amount || 0;
+    const target = Math.round(childNutritionTargets[item.targetKey] || 0);
+    const percentage =
+      target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+
+    return {
+      key: item.key,
+      label: item.label,
+      current: Math.round(current),
+      target,
+      unit: item.defaultUnit,
+      percentage,
+    };
+  });
 }
 
 function getMealCaloriesSummary(
@@ -2126,22 +2254,25 @@ const FilterOverlay: React.FC<FilterOverlayProps> = ({
       {subTab === 'mealLib' && (
         <section>
           <label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Category
+            Texture
           </label>
-          <div className="flex gap-2">
-            {['all', 'solid', 'drinks only'].map((option) => (
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'SOLID', label: 'Solid' },
+              { value: 'SEMI_SOLID', label: 'Semi-Solid' },
+              { value: 'DRINK', label: 'Drink' },
+            ].map((option) => (
               <button
-                key={option}
-                onClick={() => setCategoryFilter(option)}
+                key={option.value}
+                onClick={() => setCategoryFilter(option.value)}
                 className={`cursor-pointer flex-1 rounded-xl border py-3 text-xs font-bold transition-all ${
-                  categoryFilter === option
+                  categoryFilter === option.value
                     ? 'border-sky-500 bg-sky-500 text-white shadow-lg shadow-sky-100'
                     : 'border-slate-100 bg-white text-slate-500'
                 }`}
               >
-                {option === 'all'
-                  ? 'All'
-                  : option.charAt(0).toUpperCase() + option.slice(1)}
+                {option.label}
               </button>
             ))}
           </div>
@@ -2261,13 +2392,66 @@ const MealsView: React.FC = () => {
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  useEffect(() => {
-    dispatch(fetchMeals({ page: 1, limit: 10, search: debouncedMealSearch }));
-  }, [debouncedMealSearch, dispatch, i18n.language]);
+  const mealMaxAgeMonths = useMemo(
+    () => (ageFilter !== 'all' ? getAgeFilterLimitInMonths(ageFilter) : null),
+    [ageFilter]
+  );
+  const mealFetchFilters = useMemo(
+    () => ({
+      search: debouncedMealSearch,
+      mealType:
+        categoryFilter !== 'all' ? (categoryFilter as MealType) : undefined,
+      mealSlot: mealTypeFilter !== 'all' ? mealTypeFilter : undefined,
+      maxAgeMonths: mealMaxAgeMonths ?? undefined,
+      excludedAllergens,
+      dietType: dietTypeFilter !== 'all' ? dietTypeFilter : undefined,
+    }),
+    [
+      categoryFilter,
+      debouncedMealSearch,
+      dietTypeFilter,
+      excludedAllergens,
+      mealMaxAgeMonths,
+      mealTypeFilter,
+    ]
+  );
+  const ingredientFetchFilters = useMemo(
+    () => ({
+      search: debouncedIngredientSearch,
+      maxAgeMonths: mealMaxAgeMonths ?? undefined,
+      ingredientType:
+        ingredientTypeFilter !== 'all' ? ingredientTypeFilter : undefined,
+      excludedAllergens,
+      dietType: dietTypeFilter !== 'all' ? dietTypeFilter : undefined,
+    }),
+    [
+      debouncedIngredientSearch,
+      dietTypeFilter,
+      excludedAllergens,
+      ingredientTypeFilter,
+      mealMaxAgeMonths,
+    ]
+  );
 
   useEffect(() => {
-    dispatch(fetchIngredients({ page: 1, limit: 10, search: debouncedIngredientSearch }));
-  }, [debouncedIngredientSearch, dispatch, i18n.language]);
+    dispatch(
+      fetchMeals({
+        page: 1,
+        limit: 10,
+        ...mealFetchFilters,
+      })
+    );
+  }, [dispatch, i18n.language, mealFetchFilters]);
+
+  useEffect(() => {
+    dispatch(
+      fetchIngredients({
+        page: 1,
+        limit: 10,
+        ...ingredientFetchFilters,
+      })
+    );
+  }, [dispatch, i18n.language, ingredientFetchFilters]);
 
   const insertSearchText = (text: string, input: HTMLInputElement | null) => {
     if (!text) {
@@ -2706,7 +2890,7 @@ const MealsView: React.FC = () => {
       fetchMeals({
         page: mealsPagination.next,
         limit: mealsPagination.perPage,
-        search: debouncedMealSearch,
+        ...mealFetchFilters,
         append: true,
       })
     );
@@ -2831,7 +3015,7 @@ const MealsView: React.FC = () => {
       fetchIngredients({
         page: ingredientsPagination.next,
         limit: ingredientsPagination.perPage,
-        search: debouncedIngredientSearch,
+        ...ingredientFetchFilters,
         append: true,
       })
     );
@@ -2868,16 +3052,45 @@ const MealsView: React.FC = () => {
     };
   };
 
-  const currentCals = useMemo(
+  const getTrackedMealNutrients = (mealId: string, multiplier: number) => {
+    const sanitizedMultiplier = sanitizeMultiplier(multiplier);
+    const detailedMeal = viewPlanMealDetails[mealId];
+
+    if (detailedMeal) {
+      return getDetailedMealNutrientTotals(
+        detailedMeal,
+        sanitizedMultiplier,
+        unitLabelsById,
+        unitRecordsById,
+      );
+    }
+
+    const fallbackMeal = transformedMealsById.get(mealId);
+    const estimatedCalories = fallbackMeal?.calories
+      ? Number((fallbackMeal.calories * sanitizedMultiplier).toFixed(0))
+      : 0;
+
+    return estimatedCalories > 0
+      ? {
+          calories: {
+            amount: estimatedCalories,
+            unit: 'kcal',
+            baseUnitId: null,
+          },
+        }
+      : {};
+  };
+
+  const consumedNutrientTotals = useMemo(
     () =>
       selectedMealsForDay.reduce(
-        (sum, selection) => {
-          const summary = getRealMealSummary(selection.meal.id, selection.multiplier);
-          return sum + (summary.calories?.amount || 0);
+        (totals, selection) => {
+          const next = getTrackedMealNutrients(selection.meal.id, selection.multiplier);
+          return mergeAggregatedNutrients(totals, next, unitRecordsById);
         },
-        0
+        {} as AggregatedNutrientTotals
       ),
-    [getRealMealSummary, selectedMealsForDay]
+    [selectedMealsForDay, transformedMealsById, unitLabelsById, unitRecordsById, viewPlanMealDetails]
   );
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const effectiveChildId = focusedChildId ?? favoriteChildId;
@@ -2910,9 +3123,44 @@ const MealsView: React.FC = () => {
   ]);
   const nutrientProgressItems = useMemo(
     () =>
-      buildNutrientProgressItems(currentCals, childNutritionTargets),
-    [childNutritionTargets, currentCals]
+      buildNutrientProgressItems(consumedNutrientTotals, childNutritionTargets),
+    [childNutritionTargets, consumedNutrientTotals]
   );
+
+  useEffect(() => {
+    const missingMealIds = Array.from(
+      new Set(
+        selectedMealsForDay
+          .map((selection) => selection.meal.id)
+          .filter((mealId) => mealId && !viewPlanMealDetails[mealId])
+      )
+    );
+
+    if (missingMealIds.length === 0) {
+      return;
+    }
+
+    void Promise.allSettled(
+      missingMealIds.map(async (mealId) => {
+        const response = await api.get<DetailedMeal>(
+          `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
+        );
+        return { id: mealId, meal: response.data };
+      })
+    ).then((results) => {
+      setViewPlanMealDetails((current) => {
+        const next = { ...current };
+
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            next[result.value.id] = result.value.meal;
+          }
+        });
+
+        return next;
+      });
+    });
+  }, [i18n.language, selectedMealsForDay, viewPlanMealDetails]);
 
   useEffect(() => {
     if (!selectedChildId) return;
@@ -3284,6 +3532,47 @@ const MealsView: React.FC = () => {
       });
     }
   };
+
+  useEffect(() => {
+    if (!activeViewPlan) {
+      return;
+    }
+
+    const relatedPlans = getRelatedPlans(activeViewPlan);
+    const missingMealIds = Array.from(
+      new Set(
+        relatedPlans
+          .flatMap((candidate) => candidate.meals || [])
+          .map((meal) => meal.id)
+          .filter((mealId) => mealId && !viewPlanMealDetails[mealId])
+      )
+    );
+
+    if (missingMealIds.length === 0) {
+      return;
+    }
+
+    void Promise.allSettled(
+      missingMealIds.map(async (mealId) => {
+        const response = await api.get<DetailedMeal>(
+          `/meal/find-one/${mealId}?lang=${i18n.language || getPreferredLanguage()}`
+        );
+        return { id: mealId, meal: response.data };
+      })
+    ).then((results) => {
+      setViewPlanMealDetails((current) => {
+        const next = { ...current };
+
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            next[result.value.id] = result.value.meal;
+          }
+        });
+
+        return next;
+      });
+    });
+  }, [activeViewPlan, i18n.language, mealPlans, viewPlanMealDetails]);
 
   const requestDeletePlan = (plan: BackendMealPlan) => {
     setPendingDeletePlan(plan);
@@ -3836,17 +4125,34 @@ const MealsView: React.FC = () => {
         meals: mealsForSlot,
       };
     });
-    const viewPlanCurrentCals = slotEntries.reduce(
-      (sum, { meals }) =>
-        sum +
-        meals.reduce((mealSum, meal) => {
-          const summary = getCachedMealSummary(meal);
-          return mealSum + (summary.calories?.amount || 0);
-        }, 0),
-      0,
+    const viewPlanConsumedNutrientTotals = slotEntries.reduce(
+      (totals, { meals }) =>
+        meals.reduce((mealTotals, meal) => {
+          const detailedMeal = viewPlanMealDetails[meal.id];
+          const multiplier = sanitizeMultiplier(meal.multiplier);
+          const next = detailedMeal
+            ? getDetailedMealNutrientTotals(
+                detailedMeal,
+                multiplier,
+                unitLabelsById,
+                unitRecordsById,
+              )
+            : getCachedMealSummary(meal).calories
+              ? {
+                  calories: {
+                    amount: getCachedMealSummary(meal).calories?.amount || 0,
+                    unit: 'kcal',
+                    baseUnitId: null,
+                  },
+                }
+              : {};
+
+          return mergeAggregatedNutrients(mealTotals, next, unitRecordsById);
+        }, totals),
+      {} as AggregatedNutrientTotals,
     );
     const viewPlanProgressItems = buildNutrientProgressItems(
-      viewPlanCurrentCals,
+      viewPlanConsumedNutrientTotals,
       planNutritionTargets,
     );
 
@@ -3904,11 +4210,6 @@ const MealsView: React.FC = () => {
             <div className="max-h-80 overflow-y-auto pr-2">
               <div className="space-y-4">
                 {viewPlanProgressItems.map((item) => {
-                  const percentage = Math.min(
-                    100,
-                    Math.round((item.current / item.target) * 100)
-                  );
-
                   return (
                     <div
                       key={item.key}
@@ -3918,15 +4219,19 @@ const MealsView: React.FC = () => {
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                           {item.label}
                         </span>
-                        <span className="text-xs font-bold text-slate-300">
-                          {item.current} / {item.target}
-                          {item.unit}
-                        </span>
+                        <div className="text-right">
+                          <span className="block text-xs font-bold text-slate-300">
+                            {item.current} / {item.target} {item.unit}
+                          </span>
+                          <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                            {item.percentage}% achieved
+                          </span>
+                        </div>
                       </div>
                       <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#76A13B] rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${percentage}%` }}
+                          style={{ width: `${item.percentage}%` }}
                         />
                       </div>
                     </div>
@@ -4250,11 +4555,6 @@ const MealsView: React.FC = () => {
                   <div className="max-h-80 overflow-y-auto pr-2">
                     <div className="space-y-4">
                     {nutrientProgressItems.map((item) => {
-                      const percentage = Math.min(
-                        100,
-                        Math.round((item.current / item.target) * 100)
-                      );
-
                       return (
                         <div
                           key={item.key}
@@ -4264,15 +4564,19 @@ const MealsView: React.FC = () => {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                               {item.label}
                             </span>
-                            <span className="text-xs font-bold text-slate-300">
-                              {item.current} / {item.target}
-                              {item.unit}
-                            </span>
+                            <div className="text-right">
+                              <span className="block text-xs font-bold text-slate-300">
+                                {item.current} / {item.target} {item.unit}
+                              </span>
+                              <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                {item.percentage}% achieved
+                              </span>
+                            </div>
                           </div>
                           <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-[#76A13B] rounded-full transition-all duration-1000 ease-out"
-                              style={{ width: `${percentage}%` }}
+                              style={{ width: `${item.percentage}%` }}
                             />
                           </div>
                         </div>

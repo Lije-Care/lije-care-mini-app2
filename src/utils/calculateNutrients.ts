@@ -29,6 +29,46 @@ const getGeneralChildProfileForAge = (
     (entry) => ageInMonths >= entry.minAgeMonths && ageInMonths <= entry.maxAgeMonths
   ) ?? null;
 
+const dailyWaterIntake = (weightKg: number): number => {
+  if (weightKg <= 10) {
+    return weightKg * 100;
+  }
+
+  if (weightKg <= 20) {
+    return 1000 + (weightKg - 10) * 50;
+  }
+
+  return 1500 + (weightKg - 20) * 20;
+};
+
+const getAgeBasedWaterRequirement = (ageInMonths: number): number => {
+  if (ageInMonths < 6) {
+    return 700;
+  }
+
+  if (ageInMonths <= 11) {
+    return 800;
+  }
+
+  if (ageInMonths <= 47) {
+    return 1300;
+  }
+
+  if (ageInMonths <= 107) {
+    return 1700;
+  }
+
+  if (ageInMonths <= 143) {
+    return 2100;
+  }
+
+  if (ageInMonths <= 167) {
+    return 2300;
+  }
+
+  return 2500;
+};
+
 export const resolveNutrientMeasurements = (
   weight: number | null | undefined,
   height: number | null | undefined,
@@ -134,32 +174,31 @@ export const calculateNutrients = (
 
   let calcium: number;
   let vitaminA: number;
-  let water: number;
   let zinc: number;
   if (months <= 6) {
     calcium = 200;
     vitaminA = 400;
-    water = 700;
     zinc = 2;
   } else if (months <= 12) {
     calcium = 260;
     vitaminA = 500;
-    water = 900;
     zinc = 3;
   } else if (months <= 36) {
     calcium = 700;
     vitaminA = 300;
-    water = 1300;
     zinc = 3;
   } else {
     calcium = 1000;
     vitaminA = 400;
-    water = 1600;
     zinc = 5;
   }
   if (status === "Underweight") {
     calcium = calcium * 1.15;
   }
+
+  const water = isPositiveNumber(weight)
+    ? Math.round(dailyWaterIntake(weight))
+    : getAgeBasedWaterRequirement(months);
 
   return {
     bmi: roundedBMI.toString(),

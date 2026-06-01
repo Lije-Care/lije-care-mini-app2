@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api, { getPreferredLanguage } from "@/api/axios";
+import type { MealType } from "@/types/meal";
 
 interface Meal {
   id: string;
@@ -88,6 +89,11 @@ export const fetchMeals = createAsyncThunk<
     page?: number;
     limit?: number;
     search?: string;
+    mealType?: MealType;
+    mealSlot?: string;
+    maxAgeMonths?: number;
+    excludedAllergens?: string[];
+    dietType?: string;
     append?: boolean;
   } | void,
   { rejectValue: string }
@@ -102,6 +108,15 @@ export const fetchMeals = createAsyncThunk<
         limit,
         lang: getPreferredLanguage(),
         ...(search ? { search } : {}),
+        ...(params?.mealType ? { mealType: params.mealType } : {}),
+        ...(params?.mealSlot ? { mealSlot: params.mealSlot } : {}),
+        ...(typeof params?.maxAgeMonths === "number"
+          ? { maxAgeMonths: params.maxAgeMonths }
+          : {}),
+        ...(params?.excludedAllergens?.length
+          ? { excludedAllergens: params.excludedAllergens.join(",") }
+          : {}),
+        ...(params?.dietType ? { dietType: params.dietType } : {}),
       },
     });
 
@@ -127,6 +142,10 @@ export const fetchIngredients = createAsyncThunk<
     page?: number;
     limit?: number;
     search?: string;
+    maxAgeMonths?: number;
+    ingredientType?: string;
+    excludedAllergens?: string[];
+    dietType?: string;
     append?: boolean;
   } | void,
   { rejectValue: string }
@@ -141,6 +160,14 @@ export const fetchIngredients = createAsyncThunk<
         limit,
         lang: getPreferredLanguage(),
         ...(search ? { search } : {}),
+        ...(typeof params?.maxAgeMonths === "number"
+          ? { maxAgeMonths: params.maxAgeMonths }
+          : {}),
+        ...(params?.ingredientType ? { ingredientType: params.ingredientType } : {}),
+        ...(params?.excludedAllergens?.length
+          ? { excludedAllergens: params.excludedAllergens.join(",") }
+          : {}),
+        ...(params?.dietType ? { dietType: params.dietType } : {}),
       },
     });
 
