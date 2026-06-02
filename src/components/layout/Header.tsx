@@ -1,10 +1,12 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { RootState } from '@/redux/store';
 import { useProfileOverlay } from '@/context/ProfileOverlayContext';
 
 const Header: React.FC = () => {
   const { openProfile } = useProfileOverlay();
+  const { t } = useTranslation();
 
   // Get children from Redux store
   const { data: children } = useSelector((state: RootState) => state.children);
@@ -22,8 +24,8 @@ const Header: React.FC = () => {
           <span className="text-[#F9C846] font-black text-xs">LC</span>
         </div>
         <div className="flex flex-col leading-none">
-          <span className="font-bold text-lg tracking-tight text-[#0B1A12]">LIJE CARE</span>
-          <span className="text-[10px] font-bold text-[#76A13B] tracking-wider">Mini App</span>
+          <span className="font-bold text-lg tracking-tight text-[#0B1A12]">{t('Lije Care')}</span>
+          <span className="text-[10px] font-bold text-[#76A13B] tracking-wider">{t('Mini App')}</span>
         </div>
       </div>
 
@@ -35,7 +37,7 @@ const Header: React.FC = () => {
           {avatarUrl ? (
             <img
               src={avatarUrl}
-              alt={selectedChild?.name || 'Profile'}
+              alt={selectedChild?.name || t('Profile')}
               className="w-full h-full object-cover"
             />
           ) : (

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ import {
   type AnthropometricAssessmentId,
   type AnthropometricTone,
 } from '@/utils/anthropometric';
+import i18n from '@/i18n/i18n';
 
 interface MeasurementField {
   label: string;
@@ -227,23 +229,31 @@ const ANTHROPOMETRIC_ASSESSMENTS: Array<{
 ];
 
 const formatRelativeTime = (isoDate?: string) => {
-  if (!isoDate) return 'Never updated';
+  if (!isoDate) return i18n.t('Never updated');
 
   const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return i18n.t('Unknown');
 
   const diffMs = Date.now() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays <= 0) return 'Updated today';
-  if (diffDays === 1) return 'Updated 1 day ago';
-  if (diffDays < 7) return `Updated ${diffDays} days ago`;
+  if (diffDays <= 0) return i18n.t('Updated today');
+  if (diffDays === 1) return i18n.t('Updated 1 day ago');
+  if (diffDays < 7) return i18n.t('Updated {{count}} days ago', { count: diffDays });
 
   const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 5) return `Updated ${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+  if (diffWeeks < 5) {
+    return i18n.t(
+      diffWeeks > 1 ? 'Updated {{count}} weeks ago' : 'Updated {{count}} week ago',
+      { count: diffWeeks }
+    );
+  }
 
   const diffMonths = Math.floor(diffDays / 30);
-  return `Updated ${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
+  return i18n.t(
+    diffMonths > 1 ? 'Updated {{count}} months ago' : 'Updated {{count}} month ago',
+    { count: diffMonths }
+  );
 };
 
 const formatMetricValue = (value?: number | null, unit?: string) => {
@@ -255,23 +265,27 @@ const formatHistoryMonth = (isoDate?: string) => {
   if (!isoDate) return '';
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('en-US', { month: 'short' });
+  return date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', { month: 'short' });
 };
 
 const formatHistoryValue = (value: number) =>
   Number.isInteger(value) ? value.toString() : value.toFixed(1);
 
 const formatDueDate = (date: Date) =>
-  date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const formatVaccineDueAge = (daysFromBirth: number) => {
-  if (daysFromBirth <= 0) return 'Birth';
-  if (daysFromBirth % 365 === 0) return `${daysFromBirth / 365}Y`;
-  if (daysFromBirth % 30 === 0) return `${daysFromBirth / 30}M`;
-  if (daysFromBirth % 7 === 0) return `${daysFromBirth / 7}W`;
-  return `${daysFromBirth}D`;
+  if (daysFromBirth <= 0) return i18n.t('Birth');
+  if (daysFromBirth % 365 === 0) return i18n.t('{{count}}Y', { count: daysFromBirth / 365 });
+  if (daysFromBirth % 30 === 0) return i18n.t('{{count}}M', { count: daysFromBirth / 30 });
+  if (daysFromBirth % 7 === 0) return i18n.t('{{count}}W', { count: daysFromBirth / 7 });
+  return i18n.t('{{count}}D', { count: daysFromBirth });
 };
 
 const getGrowthHistoryMeta = (assessmentId: AnthropometricAssessmentId) => {
@@ -318,12 +332,16 @@ const buildGrowthHistory = (
 };
 
 const toOutdatedText = (lastUpdatedText: string, isRecorded: boolean) => {
-  if (!isRecorded) return 'Not recorded yet';
-  return `Outdated · ${lastUpdatedText.replace(/^Updated\s+/i, '')}`;
+  if (!isRecorded) return i18n.t('Not recorded yet');
+  return i18n.t('Outdated status', {
+    value: lastUpdatedText.replace(/^Updated\s+/i, ''),
+  });
 };
 
 const getInterpretationText = (detailText: string, hasResult: boolean) => {
-  if (!hasResult) return 'No interpretation yet. Add measurements to calculate this assessment.';
+  if (!hasResult) {
+    return i18n.t('No interpretation yet. Add measurements to calculate this assessment.');
+  }
   return detailText;
 };
 
@@ -368,10 +386,10 @@ const GrowthProgressChart: React.FC<{
     return (
       <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
         <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-          Growth Progress
+          {i18n.t('Growth Progress')}
         </p>
         <p className="text-sm text-slate-500">
-          No growth history yet. Save measurements over time to see progress.
+          {i18n.t('No growth history yet. Save measurements over time to see progress.')}
         </p>
       </div>
     );
@@ -401,9 +419,13 @@ const GrowthProgressChart: React.FC<{
   return (
     <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
       <p className="mb-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-        Growth Progress
+        {i18n.t('Growth Progress')}
       </p>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full" aria-label="Growth progress chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-40 w-full"
+        aria-label={i18n.t('Growth progress chart')}
+      >
         <line x1={paddingX} y1={bottomY} x2={width - paddingX} y2={bottomY} stroke="#d7dee7" strokeWidth="1.5" />
         <line x1={paddingX} y1={topPadding - 10} x2={paddingX} y2={bottomY} stroke="#d7dee7" strokeWidth="1.5" />
         <path d={pathData} fill="none" stroke="#f6c23e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -427,6 +449,7 @@ const GrowthProgressChart: React.FC<{
 };
 
 const AssessmentView: React.FC = () => {
+  const { t } = useTranslation();
   const [developmentalAssessments, setDevelopmentalAssessments] = useState<DetailedAssessment[]>(
     []
   );
@@ -518,7 +541,7 @@ const AssessmentView: React.FC = () => {
       } catch (error: any) {
         if (isMounted) {
           setVaccineScheduleError(
-            error?.response?.data?.message || 'Unable to load the vaccination schedule.'
+            error?.response?.data?.message || t('Unable to load the vaccination schedule.')
           );
         }
       } finally {
@@ -697,7 +720,7 @@ const AssessmentView: React.FC = () => {
     }
 
     if (Object.keys(updateData).length === 0) {
-      setSaveMeasurementError('Enter at least one valid measurement value.');
+      setSaveMeasurementError(t('Enter at least one valid measurement value.'));
       return;
     }
 
@@ -709,7 +732,7 @@ const AssessmentView: React.FC = () => {
       setIsAddingData(null);
       setMeasurementValues({});
     } catch (error: any) {
-      setSaveMeasurementError(typeof error === 'string' ? error : 'Failed to save measurement');
+      setSaveMeasurementError(typeof error === 'string' ? error : t('Failed to save measurement'));
     } finally {
       setIsSavingMeasurement(false);
     }
@@ -764,7 +787,7 @@ const AssessmentView: React.FC = () => {
       setVaccineScheduleRequestKey((current) => current + 1);
     } catch (error: any) {
       setVaccineScheduleError(
-        error?.response?.data?.message || 'Unable to update the vaccine status.'
+        error?.response?.data?.message || t('Unable to update the vaccine status.')
       );
     } finally {
       setUpdatingVaccineId(null);
@@ -777,10 +800,10 @@ const AssessmentView: React.FC = () => {
 
   return (
     <div className="pb-32 pt-4">
-      <div className="mb-8 flex items-end justify-between px-6">
+        <div className="mb-8 flex items-end justify-between px-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Assessments</h2>
-          <p className="text-sm text-slate-500">Monitor milestones and growth.</p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('Assessments')}</h2>
+          <p className="text-sm text-slate-500">{t('Monitor milestones and growth.')}</p>
         </div>
       </div>
 
@@ -788,7 +811,7 @@ const AssessmentView: React.FC = () => {
         <section ref={anthropoSectionRef}>
           <div className="mb-4 flex items-center justify-between px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
-              Anthropometric
+              {t('Anthropometric')}
             </h3>
             <button
               type="button"
@@ -829,13 +852,13 @@ const AssessmentView: React.FC = () => {
                       setHelpAssessment(item.id);
                     }}
                     className="absolute right-4 top-4 rounded-full bg-slate-50 p-1.5 text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-500"
-                    aria-label={`Open help for ${item.title}`}
+                      aria-label={t('Open help for {{title}}', { title: item.title })}
                   >
                     <InfoIcon size={16} />
                   </button>
 
                   <h4 className="max-w-[12rem] pr-6 text-[1.95rem] font-black leading-[1.02] tracking-tight text-slate-800">
-                    {item.title}
+                    {t(item.title)}
                   </h4>
 
                   <div className="mt-8 flex items-center gap-5">
@@ -860,7 +883,7 @@ const AssessmentView: React.FC = () => {
                         className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"
                       >
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                          {metric.label}
+                          {t(metric.label)}
                         </p>
                         <p className="mt-1 text-sm font-bold text-slate-700">{metric.value}</p>
                       </div>
@@ -880,7 +903,7 @@ const AssessmentView: React.FC = () => {
                     className="mt-5 flex w-full items-center justify-center gap-2 rounded-[1.45rem] bg-slate-100 py-4 text-sm font-black uppercase tracking-wide text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
                   >
                     <PlusIcon className="h-4 w-4" />
-                    {item.isRecorded ? 'Update Data' : 'Add Data'}
+                    {item.isRecorded ? t('Update Data') : t('Add Data')}
                   </button>
                 </div>
               );
@@ -891,7 +914,7 @@ const AssessmentView: React.FC = () => {
         <section ref={vaccineSectionRef}>
           <div className="mb-6 flex items-center justify-between px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
-              Vaccination Schedule
+              {t('Vaccination Schedule')}
             </h3>
             <button
               type="button"
@@ -910,23 +933,23 @@ const AssessmentView: React.FC = () => {
           {isLoadingVaccineSchedule ? (
             <div className="px-6">
               <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-center">
-                <p className="font-bold text-slate-700">Loading vaccination schedule...</p>
+                <p className="font-bold text-slate-700">{t('Loading vaccination schedule...')}</p>
                 <p className="mt-2 text-sm text-slate-500">
-                  We&apos;re checking the latest vaccine timeline for this child.
+                  {t("We're checking the latest vaccine timeline for this child.")}
                 </p>
               </div>
             </div>
           ) : vaccineScheduleError ? (
             <div className="px-6">
               <div className="rounded-[2rem] border border-rose-100 bg-rose-50 px-6 py-8 text-center">
-                <p className="font-bold text-rose-700">Couldn&apos;t load the vaccine schedule.</p>
+                <p className="font-bold text-rose-700">{t("Couldn't load the vaccine schedule.")}</p>
                 <p className="mt-2 text-sm text-rose-600">{vaccineScheduleError}</p>
                 <button
                   type="button"
                   onClick={retryVaccineScheduleFetch}
                   className="mt-5 rounded-xl bg-rose-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-md transition-all active:scale-[0.98]"
                 >
-                  Retry
+                  {t('Retry')}
                 </button>
               </div>
             </div>
@@ -955,17 +978,17 @@ const AssessmentView: React.FC = () => {
                       </span>
                     </div>
                     <p className="mb-4 text-[10px] font-medium text-slate-500">
-                      Protects against: {vaccine.description}
+                      {t('Protects against:')} {vaccine.description}
                     </p>
                     <p className="mb-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      Due: <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
+                      {t('Due:')} <span className="text-slate-600">{formatDueDate(vaccine.dueDate)}</span>
                     </p>
                   </div>
 
                   {vaccine.canCheck || vaccine.isMissed || vaccine.isGiven ? (
                     <div className="flex flex-col gap-2">
                       <p className="mb-1 text-center text-[10px] font-black uppercase text-[#76A13B]">
-                        Was this vaccine given?
+                        {t('Was this vaccine given?')}
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -978,7 +1001,7 @@ const AssessmentView: React.FC = () => {
                               : 'border border-emerald-200 bg-white text-emerald-600'
                           }`}
                         >
-                          {updatingVaccineId === vaccine.id ? 'Saving...' : 'Yes'}
+                          {updatingVaccineId === vaccine.id ? t('Saving...') : t('Yes')}
                         </button>
                         <button
                           type="button"
@@ -990,7 +1013,7 @@ const AssessmentView: React.FC = () => {
                               : 'border border-rose-200 bg-white text-rose-500'
                           }`}
                         >
-                          No
+                          {t('No')}
                         </button>
                       </div>
                     </div>
@@ -1002,8 +1025,8 @@ const AssessmentView: React.FC = () => {
                         }`}
                       >
                         {vaccine.isUpcomingReminder
-                          ? 'Reminder active'
-                          : `Locked until ${formatDueDate(vaccine.dueDate)}`}
+                          ? t('Reminder active')
+                          : t('Locked until {{date}}', { date: formatDueDate(vaccine.dueDate) })}
                       </span>
                     </div>
                   )}
@@ -1013,9 +1036,9 @@ const AssessmentView: React.FC = () => {
           ) : (
             <div className="px-6">
               <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 px-6 py-8 text-center">
-                <p className="font-bold text-emerald-700">No vaccines are scheduled right now.</p>
+                <p className="font-bold text-emerald-700">{t('No vaccines are scheduled right now.')}</p>
                 <p className="mt-2 text-sm text-emerald-600">
-                  There are no vaccine schedule entries to show for this child at the moment.
+                  {t('There are no vaccine schedule entries to show for this child at the moment.')}
                 </p>
               </div>
             </div>
@@ -1025,7 +1048,7 @@ const AssessmentView: React.FC = () => {
         <section>
           <div className="mb-6 px-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
-              Developmental
+              {t('Developmental')}
             </h3>
           </div>
 
@@ -1045,7 +1068,7 @@ const AssessmentView: React.FC = () => {
                 <div className="mb-4 flex items-center justify-between px-6">
                   <h4 className="flex items-center gap-2 text-xs font-bold text-slate-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
-                    {DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory]}
+                    {t(DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory])}
                   </h4>
                   {subAlerts.length > 0 && (
                     <button
@@ -1074,12 +1097,12 @@ const AssessmentView: React.FC = () => {
                       <div>
                         <h5 className="mb-4 font-bold leading-tight">{question.title}</h5>
                         <p className="text-[10px] font-black uppercase opacity-60">
-                          Status:{' '}
+                          {t('Status:')}{' '}
                           {question.answer === 'addressed'
-                            ? 'Addressed with Doctor'
+                            ? t('Addressed with Doctor')
                             : question.answer === 'unanswered'
-                              ? 'Not Assessed'
-                              : question.answer}
+                              ? t('Not Assessed')
+                              : t(question.answer || 'No')}
                         </p>
                       </div>
 
@@ -1096,7 +1119,7 @@ const AssessmentView: React.FC = () => {
                               : 'border border-slate-200 bg-white/50 text-slate-600'
                           }`}
                         >
-                          Yes
+                          {t('Yes')}
                         </button>
                         <button
                           type="button"
@@ -1110,7 +1133,7 @@ const AssessmentView: React.FC = () => {
                               : 'border border-slate-200 bg-white/50 text-slate-600'
                           }`}
                         >
-                          No
+                          {t('No')}
                         </button>
                       </div>
                     </div>
@@ -1127,7 +1150,7 @@ const AssessmentView: React.FC = () => {
           )}
           {developmentalState.saving && (
             <div className="mt-2 px-6">
-              <p className="text-xs text-slate-500">Saving developmental answers...</p>
+              <p className="text-xs text-slate-500">{t('Saving developmental answers...')}</p>
             </div>
           )}
         </section>
@@ -1137,14 +1160,16 @@ const AssessmentView: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
           <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-8 text-center shadow-2xl">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-rose-50 text-3xl shadow-inner">
-              <span role="img" aria-label="doctor">
+              <span role="img" aria-label={t('Doctor')}>
                 👨‍⚕️
               </span>
             </div>
-            <h4 className="mb-3 text-xl font-black text-slate-800">Notice Something?</h4>
+            <h4 className="mb-3 text-xl font-black text-slate-800">{t('Notice Something?')}</h4>
             <p className="mb-8 text-sm leading-relaxed text-slate-600">
-              If you are unsure or ticked <strong>"No"</strong> for "{recommendationModal.title}",
-              we recommend consulting with your pediatrician for a professional evaluation.
+              {t(
+                'If you are unsure or ticked "No" for "{{title}}", we recommend consulting with your pediatrician for a professional evaluation.',
+                { title: recommendationModal.title }
+              )}
             </p>
             <div className="space-y-3">
               <button
@@ -1152,7 +1177,7 @@ const AssessmentView: React.FC = () => {
                 onClick={() => setRecommendationModal(null)}
                 className="w-full rounded-2xl bg-slate-900 py-4 font-black text-white"
               >
-                I Understand
+                {t('I Understand')}
               </button>
               <button
                 type="button"
@@ -1162,7 +1187,7 @@ const AssessmentView: React.FC = () => {
                 }}
                 className="w-full py-3 font-bold text-sky-500"
               >
-                Already talked to doctor
+                {t('Already talked to doctor')}
               </button>
             </div>
           </div>
@@ -1176,12 +1201,14 @@ const AssessmentView: React.FC = () => {
             <div className="mb-8 flex items-center justify-between">
               <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800">
                 {notificationType === 'anthropometric'
-                  ? 'Outdated Measurements'
+                  ? t('Outdated Measurements')
                   : notificationType === 'vaccine'
-                    ? 'Vaccination Alerts'
+                    ? t('Vaccination Alerts')
                     : notificationType?.startsWith('dev-')
-                      ? `${notificationType.replace('dev-', '')} Concerns`
-                      : 'Concerns'}
+                      ? t('{{category}} Concerns', {
+                          category: t(notificationType.replace('dev-', '')),
+                        })
+                      : t('Concerns')}
               </h3>
               <button
                 type="button"
@@ -1214,13 +1241,13 @@ const AssessmentView: React.FC = () => {
                         }}
                         className="rounded-xl border border-amber-200 bg-white px-4 py-2 text-[10px] font-black text-amber-600"
                       >
-                        Update
+                        {t('Update')}
                       </button>
                     </div>
                   ))
                 ) : (
                   <p className="py-10 text-center font-bold text-slate-400">
-                    All measurements are up to date!
+                    {t('All measurements are up to date!')}
                   </p>
                 )
               ) : notificationType === 'vaccine' ? (
@@ -1248,10 +1275,10 @@ const AssessmentView: React.FC = () => {
                           }`}
                         >
                           {vaccine.isMissed
-                            ? `Marked No • ${formatDueDate(vaccine.dueDate)}`
+                            ? t('Marked No • {{date}}', { date: formatDueDate(vaccine.dueDate) })
                             : vaccine.canCheck
-                              ? `Due today • ${formatDueDate(vaccine.dueDate)}`
-                              : `Due within 7 days • ${formatDueDate(vaccine.dueDate)}`}
+                              ? t('Due today • {{date}}', { date: formatDueDate(vaccine.dueDate) })
+                              : t('Due within 7 days • {{date}}', { date: formatDueDate(vaccine.dueDate) })}
                         </p>
                       </div>
                       <button
@@ -1267,13 +1294,13 @@ const AssessmentView: React.FC = () => {
                         }}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black text-slate-800 shadow-sm"
                       >
-                        View
+                        {t('View')}
                       </button>
                     </div>
                   ))
                 ) : (
                   <p className="py-10 text-center font-bold text-slate-400">
-                    No vaccine alerts right now.
+                    {t('No vaccine alerts right now.')}
                   </p>
                 )
               ) : notificationType?.startsWith('dev-') ? (
@@ -1290,11 +1317,11 @@ const AssessmentView: React.FC = () => {
                           <div>
                             <h5 className="font-bold text-slate-800">{assessment.title}</h5>
                             <p className="text-[10px] font-black uppercase text-rose-600">
-                              {assessment.subCategory}
+                              {t(assessment.subCategory || 'Developmental')}
                             </p>
                           </div>
                           <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[8px] font-black uppercase text-rose-500">
-                            Action Needed
+                            {t('Action Needed')}
                           </span>
                         </div>
                         <div className="flex gap-2">
@@ -1303,14 +1330,14 @@ const AssessmentView: React.FC = () => {
                             onClick={() => markAsAddressed(assessment.id)}
                             className="flex-1 rounded-xl border border-sky-100 bg-white py-2 text-[10px] font-black text-sky-500 shadow-sm"
                           >
-                            Addressed with Doctor
+                            {t('Addressed with Doctor')}
                           </button>
                         </div>
                       </div>
                     ))
                   ) : (
                     <p className="py-10 text-center font-bold text-slate-400">
-                      No unaddressed concerns here. Great job!
+                      {t('No unaddressed concerns here. Great job!')}
                     </p>
                   );
                 })()
@@ -1321,7 +1348,7 @@ const AssessmentView: React.FC = () => {
               onClick={() => setNotificationType(null)}
               className="mt-8 w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400"
             >
-              Close Notifications
+              {t('Close Notifications')}
             </button>
           </div>
         </div>
@@ -1330,7 +1357,7 @@ const AssessmentView: React.FC = () => {
       <BottomSheet
         isOpen={!!helpAssessment}
         onClose={() => setHelpAssessment(null)}
-        title={helpAssessment ? MEASUREMENT_GUIDES[helpAssessment]?.title : undefined}
+        title={helpAssessment ? t(MEASUREMENT_GUIDES[helpAssessment]?.title || '') : undefined}
       >
         {helpAssessment && MEASUREMENT_GUIDES[helpAssessment] && (
           <div className="px-2">
@@ -1340,14 +1367,14 @@ const AssessmentView: React.FC = () => {
                   <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-600">
                     {index + 1}
                   </span>
-                  <span className="pt-1 text-sm leading-relaxed text-slate-700">{step}</span>
+                  <span className="pt-1 text-sm leading-relaxed text-slate-700">{t(step)}</span>
                 </li>
               ))}
             </ol>
             <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
               <p className="text-sm italic text-sky-700">
-                <span className="font-bold not-italic">Tip: </span>
-                {MEASUREMENT_GUIDES[helpAssessment].tip}
+                <span className="font-bold not-italic">{t('Tip:')} </span>
+                {t(MEASUREMENT_GUIDES[helpAssessment].tip)}
               </p>
             </div>
             <button
@@ -1355,7 +1382,7 @@ const AssessmentView: React.FC = () => {
               onClick={() => setHelpAssessment(null)}
               className="mb-2 mt-6 w-full py-4 font-bold text-slate-400 transition-colors hover:text-slate-600"
             >
-              Close
+              {t('Close')}
             </button>
           </div>
         )}
@@ -1372,8 +1399,8 @@ const AssessmentView: React.FC = () => {
           isAddingData
             ? `${
                 ANTHROPOMETRIC_ASSESSMENTS.find((assessment) => assessment.id === isAddingData)
-                  ?.title || 'Measurement'
-              } Entry`
+                  ?.title || t('Measurement')
+              } ${t('Entry')}`
             : undefined
         }
       >
@@ -1383,7 +1410,7 @@ const AssessmentView: React.FC = () => {
               {MEASUREMENT_FIELDS[isAddingData].map((field) => (
                 <div key={field.key}>
                   <div className="mb-2 flex items-center justify-between">
-                    <label className="ml-1 text-sm font-bold text-slate-600">{field.label}</label>
+                    <label className="ml-1 text-sm font-bold text-slate-600">{t(field.label)}</label>
                     <button
                       type="button"
                       onClick={() => setActiveHelp(activeHelp === field.key ? null : field.key)}
@@ -1394,14 +1421,14 @@ const AssessmentView: React.FC = () => {
                   </div>
                   {activeHelp === field.key && (
                     <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50 p-3">
-                      <p className="text-xs text-sky-700">{field.help}</p>
+                      <p className="text-xs text-sky-700">{t(field.help)}</p>
                     </div>
                   )}
                   <input
                     type="number"
                     step="0.1"
                     min="0"
-                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                    placeholder={t('Enter {{field}}', { field: t(field.label).toLowerCase() })}
                     className="w-full rounded-2xl border-2 border-slate-200 bg-white px-5 py-4 font-medium text-slate-800 outline-none transition-all focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                     value={measurementValues[field.key] || ''}
                     onChange={(event) =>
@@ -1432,7 +1459,7 @@ const AssessmentView: React.FC = () => {
                 disabled={isSavingMeasurement}
                 className="rounded-2xl border-2 border-slate-200 px-6 py-4 font-bold text-slate-600 transition-all active:scale-95 disabled:opacity-50"
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 type="button"
@@ -1440,7 +1467,7 @@ const AssessmentView: React.FC = () => {
                 disabled={isSavingMeasurement}
                 className="flex-1 rounded-2xl bg-sky-500 py-4 font-bold text-white shadow-lg shadow-sky-200 transition-all active:scale-95 disabled:opacity-50"
               >
-                {isSavingMeasurement ? 'Saving...' : 'Save Measurement'}
+                {isSavingMeasurement ? t('Saving...') : t('Save Measurement')}
               </button>
             </div>
           </div>
@@ -1450,9 +1477,9 @@ const AssessmentView: React.FC = () => {
       <BottomSheet isOpen={!!selectedAssessment} onClose={() => setSelectedAssessmentId(null)}>
         {selectedAssessment && (
           <div className="flex flex-col items-center text-center">
-            <h2 className="mb-2 text-2xl font-bold text-slate-800">{selectedAssessment.title}</h2>
+            <h2 className="mb-2 text-2xl font-bold text-slate-800">{t(selectedAssessment.title)}</h2>
             <p className="mb-8 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-              {selectedAssessment.category}
+              {t(selectedAssessment.category)}
             </p>
 
             <div className="mb-6 w-full rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
@@ -1476,7 +1503,7 @@ const AssessmentView: React.FC = () => {
             <div className="mb-8 w-full space-y-4 text-left">
               <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
                 <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  Interpretation
+                  {t('Interpretation')}
                 </p>
                 <p className="text-sm leading-relaxed text-slate-700">
                   {selectedAssessment.interpretation}
@@ -1485,7 +1512,7 @@ const AssessmentView: React.FC = () => {
 
               <div className="rounded-[2rem] border border-sky-100 bg-sky-50 p-5">
                 <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-500">
-                  Last Updated
+                  {t('Last Updated')}
                 </p>
                 <p className="text-sm font-semibold text-slate-700">
                   {selectedAssessment.lastUpdatedText}
@@ -1493,10 +1520,10 @@ const AssessmentView: React.FC = () => {
                 {selectedAssessment.isStale && (
                   <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-600">
                     <p className="text-xs font-black uppercase tracking-[0.12em]">
-                      Warning
+                      {t('Warning')}
                     </p>
                     <p className="mt-1 text-xs font-semibold leading-relaxed">
-                      ⚠️ Measurements taken before a month. Please update for accuracy.
+                      {t('Measurements taken before a month. Please update for accuracy.')}
                     </p>
                   </div>
                 )}
@@ -1505,7 +1532,7 @@ const AssessmentView: React.FC = () => {
               {selectedAssessment.suggestedAction && (
                 <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
                   <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-lime-600">
-                    Suggested Action
+                    {t('Suggested Action')}
                   </p>
                   <p className="text-sm font-semibold italic text-slate-700">
                     {selectedAssessment.suggestedAction}
@@ -1516,15 +1543,15 @@ const AssessmentView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    WHO Classification
+                    {t('WHO Classification')}
                   </p>
                   <p className="text-sm font-bold text-slate-800">
-                    {selectedAssessment.whoClassification || 'Waiting for measurements'}
+                    {selectedAssessment.whoClassification || t('Waiting for measurements')}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    Z-Score
+                    {t('Z-Score')}
                   </p>
                   <p className="text-sm font-bold text-slate-800">
                     {selectedAssessment.zScore !== null
@@ -1539,7 +1566,7 @@ const AssessmentView: React.FC = () => {
                   key={metric.label}
                   className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4"
                 >
-                  <span className="text-xs font-black uppercase text-slate-400">{metric.label}</span>
+                  <span className="text-xs font-black uppercase text-slate-400">{t(metric.label)}</span>
                   <span className="text-sm font-bold text-slate-800">{metric.value}</span>
                 </div>
               ))}
@@ -1559,7 +1586,7 @@ const AssessmentView: React.FC = () => {
               }}
               className="w-full rounded-3xl bg-sky-500 py-5 font-black text-white shadow-2xl shadow-sky-100 transition-transform active:scale-95"
             >
-              {selectedAssessment.isRecorded ? 'Update Measurements' : 'Add Measurements'}
+              {selectedAssessment.isRecorded ? t('Update Measurements') : t('Add Measurements')}
             </button>
 
             <button
@@ -1567,7 +1594,7 @@ const AssessmentView: React.FC = () => {
               onClick={() => setSelectedAssessmentId(null)}
               className="mb-4 mt-6 w-full py-4 font-bold text-slate-400 transition-colors hover:text-slate-600"
             >
-              Close Assessment
+              {t('Close Assessment')}
             </button>
           </div>
         )}

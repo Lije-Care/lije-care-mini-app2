@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { requestContact } from '@telegram-apps/sdk-react';
+import { useTranslation } from 'react-i18next';
 import useTelegramAuth from '@/hooks/useTelegramAuth';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/api/axios';
@@ -10,6 +11,7 @@ import { normalizePhoneNumber } from '@/utils/phone';
 type RegistrationStep = 'welcome' | 'registering' | 'done';
 
 const AuthGate = ({ children }: { children: React.ReactNode }) => {
+  const { t } = useTranslation();
   const { refreshAuth } = useAuth();
   const { status, telegramUser } = useTelegramAuth(refreshAuth);
   const [regStep, setRegStep] = useState<RegistrationStep>('welcome');
@@ -29,7 +31,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       setRegError(null);
       const normalizedPhone = normalizePhoneNumber(phone);
       if (!normalizedPhone) {
-        throw new Error('Invalid phone number');
+        throw new Error(t('Invalid phone number'));
       }
 
       setRegStep('registering');
@@ -52,7 +54,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       }
     } catch {
       setRegStep('welcome');
-      setRegError('Registration failed. Please try again.');
+      setRegError(t('Registration failed. Please try again.'));
     }
   };
 
@@ -67,7 +69,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
 
       if (!canUseTelegramContactRequest) {
         setRegError(
-          'Phone sharing only works inside Telegram. For local development, set VITE_DEV_PHONE_NUMBER in .env.development.'
+          t('Phone sharing only works inside Telegram. For local development, set VITE_DEV_PHONE_NUMBER in .env.development.')
         );
         return;
       }
@@ -75,7 +77,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       const { contact } = await requestContact();
       await registerWithPhone(contact.phoneNumber);
     } catch {
-      setRegError('Unable to get your phone number. Please open the mini app in Telegram and try again.');
+      setRegError(t('Unable to get your phone number. Please open the mini app in Telegram and try again.'));
     }
   };
 
@@ -101,10 +103,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
         <div className="text-center">
           <img
             src={logo}
-            alt="Lije Care"
+            alt={t('Lije Care')}
             className="w-24 h-24 mx-auto mb-4"
           />
-          <p className="text-gray-500 font-['Quicksand']">Loading...</p>
+          <p className="text-gray-500 font-['Quicksand']">{t('Loading...')}</p>
         </div>
       </div>
     );
@@ -115,10 +117,10 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 p-6">
         <div className="text-center">
           <p className="text-gray-700 font-['Quicksand'] text-lg mb-2">
-            Unable to authenticate
+            {t('Unable to authenticate')}
           </p>
           <p className="text-gray-500 font-['Quicksand'] text-sm">
-            Please open this app from the Telegram bot.
+            {t('Please open this app from the Telegram bot.')}
           </p>
         </div>
       </div>
@@ -133,14 +135,14 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
           <div className="text-center max-w-sm">
             <img
               src={logo}
-              alt="Lije Care"
+              alt={t('Lije Care')}
               className="w-24 h-24 mx-auto mb-6"
             />
             <h1 className="text-2xl font-bold text-gray-800 font-['Quicksand'] mb-3">
-              Welcome to Lije Care!
+              {t('Welcome to Lije Care!')}
             </h1>
             <p className="text-gray-600 font-['Quicksand'] mb-8">
-              To get started, please share your phone number so we can create your account.
+              {t('To get started, please share your phone number so we can create your account.')}
             </p>
             {regError && (
               <p className="text-red-500 font-['Quicksand'] text-sm mb-4">
@@ -151,7 +153,7 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
               onClick={handleSharePhone}
               className="w-full bg-blue-600 text-white font-['Quicksand'] font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors"
             >
-              Share Phone Number
+              {t('Share Phone Number')}
             </button>
           </div>
         </div>
@@ -164,11 +166,11 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50">
           <div className="text-center">
             <img
-              src={logo}
-              alt="Lije Care"
-              className="w-24 h-24 mx-auto mb-4"
-            />
-            <p className="text-gray-500 font-['Quicksand']">Creating your account...</p>
+            src={logo}
+            alt={t('Lije Care')}
+            className="w-24 h-24 mx-auto mb-4"
+          />
+            <p className="text-gray-500 font-['Quicksand']">{t('Creating your account...')}</p>
           </div>
         </div>
       );
@@ -181,20 +183,20 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
           <div className="text-center max-w-sm">
             <img
               src={logo}
-              alt="Lije Care"
+              alt={t('Lije Care')}
               className="w-24 h-24 mx-auto mb-6"
             />
             <h1 className="text-2xl font-bold text-gray-800 font-['Quicksand'] mb-3">
-              Thank you for registering!
+              {t('Thank you for registering!')}
             </h1>
             <p className="text-gray-600 font-['Quicksand'] mb-8">
-              Your account has been created. Let's set up your child's profile.
+              {t("Your account has been created. Let's set up your child's profile.")}
             </p>
             <button
               onClick={handleLaunch}
               className="w-full bg-blue-600 text-white font-['Quicksand'] font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors"
             >
-              Get Started
+              {t('Get Started')}
             </button>
           </div>
         </div>

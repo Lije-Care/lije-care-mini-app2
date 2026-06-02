@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui';
 import type { UserProfile } from '@/design-system/types';
 
@@ -13,6 +14,7 @@ const genderOptions = [
 ];
 
 const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSkip }) => {
+  const { t } = useTranslation();
   const [parentData, setParentData] = useState<UserProfile>({
     name: '',
     gender: '',
@@ -34,14 +36,14 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
       <div className="sticky top-0 bg-gradient-to-b from-[#FFFBF0]/95 via-[#FFFBF0]/90 to-transparent backdrop-blur-sm z-10 px-6 pt-6 pb-4">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">About You</h2>
-            <p className="text-slate-500 text-sm mt-1">Tell us a bit about yourself</p>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{t('About You')}</h2>
+            <p className="text-slate-500 text-sm mt-1">{t('Tell us a bit about yourself')}</p>
           </div>
           <button
             onClick={onSkip}
             className="text-slate-400 font-semibold text-sm hover:text-slate-600 transition-colors px-3 py-2 hover:bg-white/60 rounded-xl"
           >
-            Skip for now
+            {t('Skip for now')}
           </button>
         </div>
       </div>
@@ -55,15 +57,15 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
 
         <form onSubmit={handleSubmit} className="space-y-6 max-w-sm mx-auto">
           <Input
-            label="Your Name"
-            placeholder="e.g. Sara"
+            label={t('Your Name')}
+            placeholder={t('e.g. Sara')}
             value={parentData.name}
             onChange={(e) => setParentData({ ...parentData, name: e.target.value })}
           />
 
           <div>
             <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
-              Gender
+              {t('Gender')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               {genderOptions.map(({ value, label, emoji }) => (
@@ -78,7 +80,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
                   }`}
                 >
                   <span className="text-xl block mb-1">{emoji}</span>
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -86,7 +88,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
 
           <div>
             <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
-              Date of Birth
+              {t('Date of Birth')}
             </label>
             <div className="relative">
               <input
@@ -111,7 +113,7 @@ const ParentProfileStep: React.FC<ParentProfileStepProps> = ({ onComplete, onSki
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
-              Continue
+              {t('Continue')}
             </button>
           </div>
         </form>

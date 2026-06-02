@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui';
 import type { Gender } from '@/design-system/types';
 
@@ -80,6 +81,7 @@ const parseDateValue = (value: string) => {
 };
 
 const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const selectedDate = useMemo(() => parseDateValue(data.birthDate), [data.birthDate]);
   const today = useMemo(() => new Date(), []);
@@ -157,15 +159,15 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
   return (
     <div className="space-y-6">
       <Input
-        label="Child's Name"
-        placeholder="e.g. Abenezer"
+        label={t("Child's Name")}
+        placeholder={t("e.g. Abenezer")}
         value={data.name}
         onChange={(e) => onChange({ ...data, name: e.target.value })}
       />
 
       <div>
         <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
-          Gender
+          {t('Gender')}
         </label>
         <div className="grid grid-cols-2 gap-3">
           {genderOptions.map(({ value, label, emoji }) => (
@@ -176,7 +178,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
               className={`py-4 rounded-2xl border-2 text-sm font-bold transition-all active:scale-95 ${getGenderStyles(value, data.gender === value)}`}
             >
               <span className="text-xl block mb-1">{emoji}</span>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -184,7 +186,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
 
       <div>
         <label className="block text-sm font-bold text-slate-600 mb-3 ml-1">
-          Date of Birth
+          {t('Date of Birth')}
         </label>
         <div className="relative" ref={pickerRef}>
           <button
@@ -198,7 +200,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
             type="button"
             onClick={openBirthDatePicker}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-xl"
-            aria-label="Open date picker"
+            aria-label={t('Open date picker')}
           >
             📅
           </button>
@@ -210,7 +212,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
                   type="button"
                   onClick={() => changeVisibleMonth(-1)}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-                  aria-label="Previous month"
+                  aria-label={t('Previous month')}
                 >
                   {"<"}
                 </button>
@@ -225,7 +227,7 @@ const ChildBasicsForm: React.FC<ChildBasicsFormProps> = ({ data, onChange }) => 
                   onClick={() => changeVisibleMonth(1)}
                   disabled={!canMoveForward}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 disabled:opacity-40"
-                  aria-label="Next month"
+                  aria-label={t('Next month')}
                 >
                   {">"}
                 </button>

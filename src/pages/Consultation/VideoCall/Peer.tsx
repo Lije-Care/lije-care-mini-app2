@@ -5,8 +5,10 @@ import {
   useVideo,
   useHMSStore,
 } from "@100mslive/react-sdk";
+import { useTranslation } from "react-i18next";
 
 function Peer({ peer } : {peer: any}) {
+  const { t } = useTranslation();
   const { videoRef } = useVideo({
     trackId: peer.videoTrack,
   });
@@ -46,7 +48,7 @@ function Peer({ peer } : {peer: any}) {
         </div>
       ) : null}
       <div className="peer-name">
-        {peer.name} {peer.isLocal ? "(You)" : ""}
+        {peer.name} {peer.isLocal ? `(${t("You")})` : ""}
       </div>
     </div>
   );

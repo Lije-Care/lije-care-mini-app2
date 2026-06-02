@@ -5,6 +5,7 @@ import { RootState } from "@/redux/store";
 import { clearCart } from "@/redux/slices/cartSlice";
 import api from "@/api/axios";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n/i18n";
 // import axios from "axios";
 // import { ChapaInitializeResponse } from "@/types/chapa";
 
@@ -80,7 +81,7 @@ const CheckoutPage = () => {
 
     // Validate cart & form
     if (cartItems.length === 0) {
-      setError("Your cart is empty.");
+      setError(t("Your cart is empty."));
       setIsSubmitting(false);
       return;
     }
@@ -112,7 +113,7 @@ const CheckoutPage = () => {
           dispatch(clearCart());
           window.Telegram.WebApp.openLink(response.data.data.checkout_url);
         } else {
-          setError("Payment initialization failed");
+          setError(t("Payment initialization failed."));
         }
       } else {
         // 2️⃣ Cash payment: directly create order
@@ -123,13 +124,13 @@ const CheckoutPage = () => {
 
         if (cashResponse.data.id) {
           dispatch(clearCart());
-          setSuccess("Order placed successfully!");
+          setSuccess(t("Order placed successfully!"));
         } else {
-          setError("Failed to save order");
+          setError(t("Failed to save order."));
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to place order");
+      setError(err instanceof Error ? err.message : t("Failed to place order."));
     } finally {
       setIsSubmitting(false);
     }
@@ -138,13 +139,6 @@ const CheckoutPage = () => {
   // Calculate dynamic pickup date
   const pickupDate = new Date();
   pickupDate.setDate(pickupDate.getDate() + 3);
-  const formattedPickupDate = pickupDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
   return (
     <div>
       <div className="bg-[#013222] p-4 flex items-center gap-3">
@@ -152,7 +146,7 @@ const CheckoutPage = () => {
           type="button"
           onClick={() => navigate(-1)}
           className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
-          aria-label="Go back"
+          aria-label={t("Go back")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6"/>
@@ -185,7 +179,7 @@ const CheckoutPage = () => {
                       value={formData.customerName}
                       onChange={handleInputChange}
                       className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 "
-                      placeholder="Bonnie Green"
+                      placeholder={t("Enter your name")}
                       required
                     />
                   </div>
@@ -202,7 +196,7 @@ const CheckoutPage = () => {
                       value={formData.customerPhone}
                       onChange={handleInputChange}
                       className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 "
-                      placeholder="+251961197371"
+                      placeholder={t("Enter phone number")}
                       required
                     />
                   </div>
@@ -219,7 +213,7 @@ const CheckoutPage = () => {
                       value={formData.customerEmail}
                       onChange={handleInputChange}
                       className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500"
-                      placeholder="you@example.com"
+                      placeholder={t("Enter email")}
                     />
                   </div>
                   <div>
@@ -235,7 +229,7 @@ const CheckoutPage = () => {
                       value={formData.city}
                       onChange={handleInputChange}
                       className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500"
-                      placeholder="Addis Ababa"
+                      placeholder={t("Enter city")}
                       required
                     />
                   </div>
@@ -368,7 +362,13 @@ const CheckoutPage = () => {
                           id="fedex-text"
                           className="mt-1 text-xs font-normal text-gray-500 "
                         >
-                          {t("Get it by")} {formattedPickupDate}
+                          {t("Get it by")}{" "}
+                          {pickupDate.toLocaleDateString(i18n.language === "am" ? "am-ET" : "en-US", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </p>
                       </div>
                     </div>
@@ -446,9 +446,9 @@ const CheckoutPage = () => {
               >
                 <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z" />
               </svg>
-              <span className="sr-only">Info</span>
+              <span className="sr-only">{t("Info")}</span>
               <div>
-                <span className="font-medium">Danger alert!</span> {error}
+                <span className="font-medium">{t("Danger alert!")}</span> {error}
               </div>
             </div>
           )}
@@ -466,9 +466,9 @@ const CheckoutPage = () => {
               >
                 <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z" />
               </svg>
-              <span className="sr-only">Info</span>
+              <span className="sr-only">{t("Info")}</span>
               <div>
-                <span className="font-medium">Success alert!</span> {success}
+                <span className="font-medium">{t("Success alert!")}</span> {success}
               </div>
             </div>
           )}

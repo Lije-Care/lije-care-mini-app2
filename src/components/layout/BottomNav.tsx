@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '@/design-system/colors';
 import {
   HomeIcon,
@@ -17,20 +18,20 @@ interface NavItem {
   path: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'home', label: 'Home', icon: <HomeIcon />, color: COLORS.sky, path: '/' },
-  { id: 'assessment', label: 'Assess', icon: <AssessmentIcon />, color: COLORS.mint, path: '/assessment' },
-  { id: 'meals', label: 'Meals', icon: <MealsIcon />, color: COLORS.yellow, path: '/meals' },
-  { id: 'shop', label: 'Shop', icon: <ShopIcon />, color: COLORS.coral, path: '/ecommerce' },
-  { id: 'help', label: 'Help', icon: <CallCenterIcon />, color: COLORS.purple, path: '/consultation' },
-];
-
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
+  const navItems: NavItem[] = [
+    { id: 'home', label: t('Home'), icon: <HomeIcon />, color: COLORS.sky, path: '/' },
+    { id: 'assessment', label: t('Assess'), icon: <AssessmentIcon />, color: COLORS.mint, path: '/assessment' },
+    { id: 'meals', label: t('Meals'), icon: <MealsIcon />, color: COLORS.yellow, path: '/meals' },
+    { id: 'shop', label: t('Shop'), icon: <ShopIcon />, color: COLORS.coral, path: '/ecommerce' },
+    { id: 'help', label: t('Help'), icon: <CallCenterIcon />, color: COLORS.purple, path: '/consultation' },
+  ];
 
   // Find active index based on current path
-  const activeIndex = NAV_ITEMS.findIndex((item) => {
+  const activeIndex = navItems.findIndex((item) => {
     if (item.path === '/') {
       return location.pathname === '/';
     }
@@ -39,7 +40,7 @@ const BottomNav: React.FC = () => {
 
   // Default to home if no match found
   const safeActiveIndex = activeIndex >= 0 ? activeIndex : 0;
-  const slotWidth = 100 / NAV_ITEMS.length;
+  const slotWidth = 100 / navItems.length;
 
   return (
     <div className="fixed bottom-6 left-4 right-4 z-50 max-w-md mx-auto">
@@ -55,14 +56,14 @@ const BottomNav: React.FC = () => {
           <div
             className="h-full mx-2 rounded-xl"
             style={{
-              backgroundColor: NAV_ITEMS[safeActiveIndex]?.color + '20',
-              border: `1.5px solid ${NAV_ITEMS[safeActiveIndex]?.color}40`,
+              backgroundColor: navItems[safeActiveIndex]?.color + '20',
+              border: `1.5px solid ${navItems[safeActiveIndex]?.color}40`,
             }}
           />
         </div>
 
         <div className="relative flex items-center h-full">
-          {NAV_ITEMS.map((item, index) => {
+          {navItems.map((item, index) => {
             const isActive = index === safeActiveIndex;
             return (
               <button

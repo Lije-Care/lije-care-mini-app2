@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui';
 import type { Gender, ChildProfile } from '@/design-system/types';
 import ChildBasicsForm, { type ChildBasicsData } from '@/components/forms/ChildBasicsForm';
@@ -13,6 +14,7 @@ interface ProfileStepProps {
 }
 
 const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
+  const { t } = useTranslation();
   const [subStep, setSubStep] = useState<SubStep>(1);
 
   const [basics, setBasics] = useState<ChildBasicsData>({
@@ -72,16 +74,16 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-              {subStep === 1 && 'Child Profile'}
-              {subStep === 2 && 'Growth Stats'}
-              {subStep === 3 && 'Allergen Check'}
-              {subStep === 4 && 'All Set!'}
+              {subStep === 1 && t('Child Profile')}
+              {subStep === 2 && t('Growth Stats')}
+              {subStep === 3 && t('Allergen Check')}
+              {subStep === 4 && t('All Set!')}
             </h2>
             <p className="text-slate-500 text-sm mt-1">
-              {subStep === 1 && 'Tell us about your little one'}
-              {subStep === 2 && 'Optional growth measurements'}
-              {subStep === 3 && 'Any food allergies?'}
-              {subStep === 4 && "You're ready to go"}
+              {subStep === 1 && t('Tell us about your little one')}
+              {subStep === 2 && t('Optional growth measurements')}
+              {subStep === 3 && t('Any food allergies?')}
+              {subStep === 4 && t("You're ready to go")}
             </p>
           </div>
           {subStep < 4 && (
@@ -89,7 +91,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
               onClick={subStep === 1 ? onSkip : () => setSubStep((subStep + 1) as SubStep)}
               className="text-slate-400 font-semibold text-sm hover:text-slate-600 transition-colors px-3 py-2 hover:bg-white/60 rounded-xl"
             >
-              {subStep === 1 ? 'Skip for now' : 'Skip'}
+              {subStep === 1 ? t('Skip for now') : t('Skip')}
             </button>
           )}
         </div>
@@ -113,9 +115,9 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                 <div className="flex gap-3">
                   <span className="text-2xl">💡</span>
                   <div>
-                    <p className="text-emerald-800 font-bold text-sm mb-1">Why do we need this?</p>
+                    <p className="text-emerald-800 font-bold text-sm mb-1">{t('Why do we need this?')}</p>
                     <p className="text-emerald-700 text-sm leading-relaxed">
-                      We use your child's info to provide personalized meal plans, growth tracking, and age-appropriate health recommendations.
+                      {t("We use your child's info to provide personalized meal plans, growth tracking, and age-appropriate health recommendations.")}
                     </p>
                   </div>
                 </div>
@@ -129,7 +131,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   onClick={() => canProceedStep1 && setSubStep(2)}
                   disabled={!canProceedStep1}
                 >
-                  Continue
+                  {t('Continue')}
                 </Button>
               </div>
             </>
@@ -149,7 +151,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   onClick={() => setSubStep(1)}
                   className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
                 >
-                  Back
+                  {t('Back')}
                 </button>
                 <Button
                   color="mint"
@@ -158,7 +160,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   className="shadow-xl shadow-emerald-200"
                   onClick={() => setSubStep(3)}
                 >
-                  Continue
+                  {t('Continue')}
                 </Button>
               </div>
             </>
@@ -178,7 +180,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   onClick={() => setSubStep(2)}
                   className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
                 >
-                  Back
+                  {t('Back')}
                 </button>
                 <Button
                   color="mint"
@@ -187,7 +189,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   className="shadow-xl shadow-emerald-200"
                   onClick={() => setSubStep(4)}
                 >
-                  Continue
+                  {t('Continue')}
                 </Button>
               </div>
             </>
@@ -202,49 +204,49 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                 </div>
               </div>
               <h3 className="text-2xl font-black text-slate-800 mb-3">
-                Welcome, {basics.name}!
+                {t('Welcome, {{name}}!', { name: basics.name })}
               </h3>
               <p className="text-slate-500 leading-relaxed mb-8">
-                Everything is set up. You can always update your child's profile from the settings page.
+                {t("Everything is set up. You can always update your child's profile from the settings page.")}
               </p>
 
               {/* Summary Card */}
               <div className="bg-white rounded-3xl p-6 shadow-lg shadow-slate-100 border border-slate-100 text-left mb-8">
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-slate-400 font-bold">Name</span>
+                    <span className="text-sm text-slate-400 font-bold">{t('Name')}</span>
                     <span className="text-sm text-slate-700 font-bold">{basics.name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-slate-400 font-bold">Gender</span>
-                    <span className="text-sm text-slate-700 font-bold capitalize">{basics.gender}</span>
+                    <span className="text-sm text-slate-400 font-bold">{t('Gender')}</span>
+                    <span className="text-sm text-slate-700 font-bold capitalize">{t(basics.gender)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-slate-400 font-bold">Birth Date</span>
+                    <span className="text-sm text-slate-400 font-bold">{t('Birth Date')}</span>
                     <span className="text-sm text-slate-700 font-bold">{basics.birthDate}</span>
                   </div>
                   {growth.weight && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-400 font-bold">Weight</span>
+                      <span className="text-sm text-slate-400 font-bold">{t('Weight')}</span>
                       <span className="text-sm text-slate-700 font-bold">{growth.weight} kg</span>
                     </div>
                   )}
                   {growth.height && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-400 font-bold">Height</span>
+                      <span className="text-sm text-slate-400 font-bold">{t('Height')}</span>
                       <span className="text-sm text-slate-700 font-bold">{growth.height} cm</span>
                     </div>
                   )}
                   {growth.muac && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-400 font-bold">MUAC</span>
+                      <span className="text-sm text-slate-400 font-bold">{t('MUAC')}</span>
                       <span className="text-sm text-slate-700 font-bold">{growth.muac} cm</span>
                     </div>
                   )}
                   {allergens.length > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-400 font-bold">Allergens</span>
-                      <span className="text-sm text-rose-600 font-bold">{allergens.join(', ')}</span>
+                      <span className="text-sm text-slate-400 font-bold">{t('Allergies')}</span>
+                      <span className="text-sm text-rose-600 font-bold">{allergens.map((item) => t(item)).join(', ')}</span>
                     </div>
                   )}
                 </div>
@@ -255,7 +257,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   onClick={() => setSubStep(3)}
                   className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold transition-all active:scale-95"
                 >
-                  Back
+                  {t('Back')}
                 </button>
                 <Button
                   color="mint"
@@ -264,7 +266,7 @@ const ProfileStep: React.FC<ProfileStepProps> = ({ onComplete, onSkip }) => {
                   className="shadow-xl shadow-emerald-200"
                   onClick={handleFinish}
                 >
-                  Finish Setup
+                  {t('Finish Setup')}
                 </Button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ALLERGEN_LIST } from '@/data/allergens';
 
 interface AllergenSelectorProps {
@@ -21,6 +22,7 @@ const ALLERGEN_EMOJIS: Record<string, string> = {
 };
 
 const AllergenSelector: React.FC<AllergenSelectorProps> = ({ selected, onChange }) => {
+  const { t } = useTranslation();
   const toggle = (allergen: string) => {
     if (selected.includes(allergen)) {
       onChange(selected.filter((a) => a !== allergen));
@@ -32,7 +34,7 @@ const AllergenSelector: React.FC<AllergenSelectorProps> = ({ selected, onChange 
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500 leading-relaxed">
-        Select any allergens your child has. This helps us filter meal recommendations.
+        {t('Select any allergens your child has. This helps us filter meal recommendations.')}
       </p>
       <div className="grid grid-cols-2 gap-3">
         {ALLERGEN_LIST.map((allergen) => {
@@ -49,10 +51,10 @@ const AllergenSelector: React.FC<AllergenSelectorProps> = ({ selected, onChange 
               }`}
             >
               <span className="text-xl block mb-1">{ALLERGEN_EMOJIS[allergen] || '🔴'}</span>
-              <span className="text-sm font-bold">{allergen}</span>
+              <span className="text-sm font-bold">{t(allergen)}</span>
               {isSelected && (
                 <span className="block text-[10px] font-bold uppercase text-rose-500 mt-1">
-                  Allergic
+                  {t('Allergic')}
                 </span>
               )}
             </button>
@@ -63,10 +65,10 @@ const AllergenSelector: React.FC<AllergenSelectorProps> = ({ selected, onChange 
       {selected.length > 0 && (
         <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
           <p className="text-rose-700 text-sm font-bold mb-1">
-            {selected.length} allergen{selected.length > 1 ? 's' : ''} selected
+            {t('Selected allergens count', { count: selected.length })}
           </p>
           <p className="text-rose-600 text-xs">
-            {selected.join(', ')}
+            {selected.map((item) => t(item)).join(', ')}
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface GrowthStatsData {
   weight: string;
@@ -19,18 +20,19 @@ const fields = [
 ];
 
 const GrowthStatsForm: React.FC<GrowthStatsFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5">
       {fields.map(({ key, label, unit, emoji, placeholder }) => (
         <div key={key}>
           <label className="block text-sm font-bold text-slate-600 mb-2 ml-1">
-            {emoji} {label} ({unit})
+            {emoji} {t(label)} ({unit})
           </label>
           <input
             type="number"
             step="0.1"
             min="0"
-            placeholder={placeholder}
+            placeholder={t(placeholder)}
             className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 text-slate-800 font-medium transition-all"
             value={data[key]}
             onChange={(e) => onChange({ ...data, [key]: e.target.value })}
@@ -40,7 +42,7 @@ const GrowthStatsForm: React.FC<GrowthStatsFormProps> = ({ data, onChange }) => 
 
       <div>
         <label className="block text-sm font-bold text-slate-600 mb-2 ml-1">
-          🏃 Activity Level
+          🏃 {t('Activity Level')}
         </label>
         <div className="flex gap-2">
           {(['Active', 'Moderate', 'Sedentary'] as const).map((level) => (
@@ -54,7 +56,7 @@ const GrowthStatsForm: React.FC<GrowthStatsFormProps> = ({ data, onChange }) => 
                   : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
               }`}
             >
-              {level}
+              {t(level)}
             </button>
           ))}
         </div>
@@ -62,7 +64,7 @@ const GrowthStatsForm: React.FC<GrowthStatsFormProps> = ({ data, onChange }) => 
 
       <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
         <p className="text-sky-700 text-sm leading-relaxed">
-          <span className="font-bold">Tip:</span> These measurements help track your child's growth. You can skip this and add them later.
+          <span className="font-bold">{t('Tip:')}</span> {t("These measurements help track your child's growth. You can skip this and add them later.")}
         </p>
       </div>
     </div>

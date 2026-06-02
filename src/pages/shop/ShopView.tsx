@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchProducts } from '@/redux/slices/productSlice';
 import { addToCart, removeFromCart, updateQuantity } from '@/redux/slices/cartSlice';
@@ -38,8 +39,10 @@ const ProductDetail = ({
   onIncrement: () => void;
   onDecrement: () => void;
   onNavigateCart: () => void;
-}) => (
-  <motion.div
+}) => {
+  const { t } = useTranslation();
+  return (
+    <motion.div
     initial={{ opacity: 0, y: '100%' }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: '100%' }}
@@ -79,12 +82,11 @@ const ProductDetail = ({
           className="w-full flex items-center justify-center gap-3 bg-[#0B1A12] text-white py-5 rounded-[2rem] font-black shadow-xl mb-8 active:scale-95 transition-transform"
         >
           <CallCenterIcon size={18} />
-          Call to Order
+          {t('Call to Order')}
         </a>
       ) : (
         <p className="w-full text-center text-sm text-slate-400 mb-8">
-          {/* TODO: Set VITE_SHOP_ORDER_PHONE in your environment to enable Call to Order */}
-          Order by phone — contact info not configured.
+          {t('Order by phone — contact info not configured.')}
         </p>
       )}
 
@@ -107,20 +109,22 @@ const ProductDetail = ({
             onClick={onNavigateCart}
             className="flex-1 py-3 bg-[#76A13B] text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform"
           >
-            Go to Cart
+            {t('Go to Cart')}
           </button>
         </div>
       )}
 
       <div className="space-y-3">
-        <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Description</h3>
+        <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">{t('Description')}</h3>
         <p className="text-slate-600 leading-relaxed text-sm">{product.description}</p>
       </div>
     </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 const ShopView: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [activeCategory, setActiveCategory] = useState('All');
@@ -134,6 +138,10 @@ const ShopView: React.FC = () => {
   const products = Array.isArray(productsState?.products) ? productsState.products : [];
   const loading = productsState?.loading || false;
   const cartItemCount = cart?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+  const categoryLabel = (value: string) => {
+    const translatable = ['All', 'Food', 'Toys', 'Lunch Boxes', 'Utensils', 'Essentials'];
+    return translatable.includes(value) ? t(value) : value;
+  };
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -191,7 +199,7 @@ const ShopView: React.FC = () => {
       <div className="pb-32 pt-4 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#76A13B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 font-medium">Loading products...</p>
+          <p className="text-slate-400 font-medium">{t('Loading products...')}</p>
         </div>
       </div>
     );
@@ -237,8 +245,8 @@ const ShopView: React.FC = () => {
 
               <div className="px-6 flex justify-between items-end mb-6 flex-shrink-0">
                 <div>
-                  <h3 className="text-2xl font-black text-slate-800">Your Cart</h3>
-                  <p className="text-sm text-slate-400 font-medium">{cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}</p>
+                  <h3 className="text-2xl font-black text-slate-800">{t('Your Cart')}</h3>
+                  <p className="text-sm text-slate-400 font-medium">{t(cartItemCount === 1 ? '{{count}} item' : '{{count}} items', { count: cartItemCount })}</p>
                 </div>
                 <span className="text-2xl font-black text-slate-900">
                   {cart?.items?.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0).toFixed(0)} <span className="text-xs font-medium text-slate-400">ETB</span>
@@ -249,7 +257,7 @@ const ShopView: React.FC = () => {
                 {cart?.items?.length === 0 ? (
                   <div className="py-16 text-center">
                     <div className="text-5xl mb-4 opacity-20">🛒</div>
-                    <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Cart is empty</p>
+                    <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">{t('Cart is empty')}</p>
                   </div>
                 ) : (
                   cart?.items?.map((item: any) => (
@@ -297,14 +305,14 @@ const ShopView: React.FC = () => {
                   onClick={() => setIsCartOpen(false)}
                   className="w-full py-4 text-slate-400 font-black uppercase text-xs tracking-widest"
                 >
-                  Continue Shopping
+                  {t('Continue Shopping')}
                 </button>
                 <button
                   disabled={cartItemCount === 0}
                   onClick={() => { setIsCartOpen(false); navigate('/checkout/page'); }}
                   className="w-full py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl active:scale-95 transition-transform uppercase text-xs tracking-widest disabled:opacity-40"
                 >
-                  Proceed to Checkout
+                  {t('Proceed to Checkout')}
                 </button>
               </div>
             </motion.div>
@@ -315,8 +323,8 @@ const ShopView: React.FC = () => {
       {/* Header */}
       <div className="px-6 mb-6 flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Lije Shop</h2>
-          <p className="text-slate-500 text-sm">Essential tools for growth.</p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('Lije Shop')}</h2>
+          <p className="text-slate-500 text-sm">{t('Essential tools for growth.')}</p>
         </div>
         <button
           onClick={() => setIsCartOpen(true)}
@@ -337,7 +345,7 @@ const ShopView: React.FC = () => {
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search items..."
+            placeholder={t('Search items...')}
             className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-[#76A13B] shadow-sm font-medium text-sm"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -356,7 +364,7 @@ const ShopView: React.FC = () => {
                 sortMode === mode.id ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'
               }`}
             >
-              {mode.label}
+              {t(mode.label)}
             </button>
           ))}
         </div>
@@ -374,7 +382,7 @@ const ShopView: React.FC = () => {
                 : 'bg-white border border-slate-100 text-slate-500'
             }`}
           >
-            {c}
+            {categoryLabel(c)}
           </button>
         ))}
       </div>
@@ -429,7 +437,7 @@ const ShopView: React.FC = () => {
               </div>
               <div className="pt-3 border-t border-slate-50 px-1 pb-1">
                 <div className="flex flex-col items-center">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Price</span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{t('Price')}</span>
                   <span className="text-base font-black text-slate-900">
                     {product.price} <span className="text-[10px]">ETB</span>
                   </span>
@@ -445,8 +453,8 @@ const ShopView: React.FC = () => {
           <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <SearchIcon className="w-8 h-8 text-slate-300" />
           </div>
-          <p className="text-slate-400 font-medium">No products found</p>
-          <p className="text-slate-300 text-sm mt-1">Try a different search term</p>
+          <p className="text-slate-400 font-medium">{t('No products found')}</p>
+          <p className="text-slate-300 text-sm mt-1">{t('Try a different search term')}</p>
         </div>
       )}
     </div>

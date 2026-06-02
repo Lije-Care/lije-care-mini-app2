@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import api from '@/api/axios';
 import { ChevronLeftIcon } from '@/design-system/icons';
+import i18n from '@/i18n/i18n';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchAllNotifications } from '@/redux/slices/notificationSlice';
 import type { AppDispatch, RootState } from '@/redux/store';
@@ -29,31 +31,40 @@ interface VaccineAlertItem {
 const STALE_CUTOFF_DAYS = 30;
 
 const formatRelativeTime = (isoDate?: string) => {
-  if (!isoDate) return 'Never updated';
+  if (!isoDate) return i18n.t('Never updated');
 
   const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return i18n.t('Unknown');
 
   const diffMs = Date.now() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays <= 0) return 'Updated today';
-  if (diffDays === 1) return 'Updated 1 day ago';
-  if (diffDays < 7) return `Updated ${diffDays} days ago`;
+  if (diffDays <= 0) return i18n.t('Updated today');
+  if (diffDays === 1) return i18n.t('Updated 1 day ago');
+  if (diffDays < 7) return i18n.t('Updated {{count}} days ago', { count: diffDays });
 
   const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 5) return `Updated ${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+  if (diffWeeks < 5) {
+    return i18n.t(diffWeeks > 1 ? 'Updated {{count}} weeks ago' : 'Updated {{count}} week ago', {
+      count: diffWeeks,
+    });
+  }
 
   const diffMonths = Math.floor(diffDays / 30);
-  return `Updated ${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
+  return i18n.t(diffMonths > 1 ? 'Updated {{count}} months ago' : 'Updated {{count}} month ago', {
+    count: diffMonths,
+  });
 };
 
 const toStatusText = (lastUpdatedText: string, isRecorded: boolean) => {
-  if (!isRecorded) return 'NOT RECORDED YET';
-  return `OUTDATED · ${lastUpdatedText.replace(/^Updated\s+/i, '').toUpperCase()}`;
+  if (!isRecorded) return i18n.t('Not recorded yet');
+  return i18n.t('Outdated status', {
+    value: lastUpdatedText.replace(/^Updated\s+/i, '').toUpperCase(),
+  });
 };
 
 const NotificationsPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [vaccineAlerts, setVaccineAlerts] = useState<VaccineAlertItem[]>([]);
@@ -178,12 +189,12 @@ const NotificationsPage = () => {
             type="button"
             onClick={() => navigate(-1)}
             className="absolute left-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500"
-            aria-label="Go back"
+            aria-label={t('Go back')}
           >
             <ChevronLeftIcon size={22} />
           </button>
           <h1 className="text-center text-[1.9rem] font-black tracking-tight text-slate-800">
-            NOTIFICATIONS
+            {t('Notifications')}
           </h1>
         </div>
       </div>
@@ -191,12 +202,12 @@ const NotificationsPage = () => {
       <div className="space-y-10 px-6 py-10">
         <section>
           <h2 className="mb-8 text-[1.8rem] font-black tracking-tight text-slate-800">
-            EXPIRED MEASUREMENTS
+            {t('Expired Measurements')}
           </h2>
 
           {childrenState.loading && childrenState.data.length === 0 ? (
             <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-center text-sm font-semibold text-slate-500">
-              Loading measurements...
+              {t('Loading measurements...')}
             </div>
           ) : expiredMeasurements.length > 0 ? (
             <div className="space-y-5">
@@ -225,16 +236,16 @@ const NotificationsPage = () => {
                     }
                     className="rounded-[1.1rem] border border-[#f0d36e] bg-white px-5 py-3 text-sm font-black text-amber-600 shadow-sm transition-transform active:scale-[0.98]"
                   >
-                    Update
+                    {t('Update')}
                   </button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="rounded-[2rem] border border-emerald-100 bg-white px-6 py-8 text-center">
-              <p className="text-lg font-black text-slate-800">All measurements are up to date.</p>
+              <p className="text-lg font-black text-slate-800">{t('All measurements are up to date.')}</p>
               <p className="mt-2 text-sm font-medium text-slate-500">
-                There is nothing to update right now.
+                {t('There is nothing to update right now.')}
               </p>
             </div>
           )}
@@ -242,12 +253,12 @@ const NotificationsPage = () => {
 
         <section>
           <h2 className="mb-8 text-[1.8rem] font-black tracking-tight text-slate-800">
-            VACCINATION ALERTS
+            {t('Vaccination Alerts')}
           </h2>
 
           {isLoadingVaccineAlerts ? (
             <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-center text-sm font-semibold text-slate-500">
-              Loading vaccine alerts...
+              {t('Loading vaccine alerts...')}
             </div>
           ) : vaccineAlerts.length > 0 ? (
             <div className="space-y-5">
@@ -270,18 +281,18 @@ const NotificationsPage = () => {
                       }`}
                     >
                       {item.isMissed
-                        ? `Not given • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                        ? `${t('Not given')} • ${new Date(item.dueDate).toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
                             month: 'numeric',
                             day: 'numeric',
                             year: 'numeric',
                           })}`
                         : item.canCheck
-                          ? `Due now • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                          ? `${t('Due now')} • ${new Date(item.dueDate).toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
                               month: 'numeric',
                               day: 'numeric',
                               year: 'numeric',
                             })}`
-                          : `Due within 7 days • ${new Date(item.dueDate).toLocaleDateString('en-US', {
+                          : `${t('Due within 7 days')} • ${new Date(item.dueDate).toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
                               month: 'numeric',
                               day: 'numeric',
                               year: 'numeric',
@@ -300,16 +311,16 @@ const NotificationsPage = () => {
                     }
                     className="rounded-[1.1rem] border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition-transform active:scale-[0.98]"
                   >
-                    View
+                    {t('View')}
                   </button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="rounded-[2rem] border border-emerald-100 bg-white px-6 py-8 text-center">
-              <p className="text-lg font-black text-slate-800">No vaccine alerts right now.</p>
+              <p className="text-lg font-black text-slate-800">{t('No vaccine alerts right now.')}</p>
               <p className="mt-2 text-sm font-medium text-slate-500">
-                Upcoming reminders and missed vaccines will appear here.
+                {t('Upcoming reminders and missed vaccines will appear here.')}
               </p>
             </div>
           )}
@@ -318,7 +329,7 @@ const NotificationsPage = () => {
         {notificationsState.data.length > 0 && (
           <section>
             <h2 className="mb-5 text-[1.35rem] font-black tracking-tight text-slate-800">
-              SYSTEM UPDATES
+              {t('System Updates')}
             </h2>
             <div className="space-y-4">
               {notificationsState.data.slice(0, 5).map((notification) => (
@@ -329,7 +340,7 @@ const NotificationsPage = () => {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="text-base font-black text-slate-800">
-                        {notification.title || 'Notification'}
+                        {notification.title || t('Notification')}
                       </h3>
                       <p className="mt-2 text-sm leading-relaxed text-slate-600">
                         {notification.message}

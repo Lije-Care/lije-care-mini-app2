@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import api from '@/api/axios';
 import { AppDispatch, RootState } from '@/redux/store';
 import { fetchSpecialists } from '@/redux/slices/specialistSlice';
@@ -10,6 +11,7 @@ import type { Professional } from '@/design-system/types';
 import type { AvailabilitySlot } from '@/types/specialist';
 import type { Booking } from '@/types/booking';
 import type { ConsultationOrder } from '@/types/consultationOrder';
+import i18n from '@/i18n/i18n';
 
 const getDateKey = (isoDate: string) => isoDate.split('T')[0];
 const SESSION_MODE_STORAGE_KEY = 'consultation_session_modes';
@@ -43,14 +45,14 @@ const getStartingFee = (pro: Professional): { amount: number; hasRange: boolean 
 };
 
 /** Map backend ConsultationOrder status values to user-facing labels */
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  PENDING_ADMIN_CONFIRMATION: 'Waiting for approval',
-  CONFIRMED: 'Approved',
-  REJECTED: 'Rejected',
+const getOrderStatusLabel = (status: string): string => {
+  const labels: Record<string, string> = {
+    PENDING_ADMIN_CONFIRMATION: i18n.t('Waiting for approval'),
+    CONFIRMED: i18n.t('Approved'),
+    REJECTED: i18n.t('Rejected'),
+  };
+  return labels[status] ?? status;
 };
-
-const getOrderStatusLabel = (status: string): string =>
-  ORDER_STATUS_LABEL[status] ?? status;
 
 // Support contact — mirrors the VITE_SHOP_ORDER_PHONE pattern used in ShopView.
 const SUPPORT_PHONE: string = (import.meta.env.VITE_SUPPORT_PHONE as string | undefined) ?? '';
@@ -60,9 +62,18 @@ const formatDateOption = (isoDate: string) => {
   const date = new Date(isoDate);
   return {
     id: getDateKey(isoDate),
-    full: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-    date: date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+    full: date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+    day: date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
+      weekday: 'short',
+    }),
+    date: date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
+      day: 'numeric',
+      month: 'short',
+    }),
   };
 };
 
@@ -110,6 +121,7 @@ const isFutureSlot = (slot: AvailabilitySlot) => {
 };
 
 const CallCenterView: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<'Doctor' | 'Nutritionist' | 'Support' | 'Sessions'>('Doctor');
@@ -142,7 +154,7 @@ const CallCenterView: React.FC = () => {
     if (!telegramUser?.id) {
       setBookings([]);
       setConsultationOrders([]);
-      setSessionsError('User not found');
+      setSessionsError(t('User not found'));
       return;
     }
 
@@ -165,10 +177,10 @@ const CallCenterView: React.FC = () => {
 
       if (bookingsRes.status === 'rejected') {
         const err = bookingsRes.reason as any;
-        setSessionsError(err?.response?.data?.message || 'Failed to load bookings');
+        setSessionsError(err?.response?.data?.message || t('Failed to load bookings'));
       }
     } catch (error: any) {
-      setSessionsError(error.response?.data?.message || 'Failed to load bookings');
+      setSessionsError(error.response?.data?.message || t('Failed to load bookings'));
       setBookings([]);
       setConsultationOrders([]);
     } finally {
@@ -190,17 +202,17 @@ const CallCenterView: React.FC = () => {
 
     return {
       id: s.id,
-      name: `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Specialist',
+      name: `${s.firstName || ''} ${s.lastName || ''}`.trim() || t('Specialist'),
       title: s.SpecialistProfile?.specialty || roleToType(s.role),
       type: roleToType(s.role),
       image: s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.id}`,
-      availability: 'Available for booking',
+      availability: t('Available for booking'),
       rating: 4.8, // Backend doesn't have rating, using default
       fee: Number(s.SpecialistProfile?.consultationFee ?? 0),
       textFee: s.SpecialistProfile?.textPrice != null ? Number(s.SpecialistProfile.textPrice) : null,
       callFee: s.SpecialistProfile?.callPrice != null ? Number(s.SpecialistProfile.callPrice) : null,
       videoFee: s.SpecialistProfile?.videoCallPrice != null ? Number(s.SpecialistProfile.videoCallPrice) : null,
-      specialty: s.SpecialistProfile?.specialty || 'Child Care',
+      specialty: s.SpecialistProfile?.specialty || t('Child Care'),
     };
   });
 
@@ -243,7 +255,7 @@ const CallCenterView: React.FC = () => {
     } catch (error: any) {
       setAvailabilitySlots([]);
       setSelectedDateKey('');
-      setAvailabilityError(error.response?.data?.message || 'Unable to load availability right now.');
+      setAvailabilityError(error.response?.data?.message || t('Unable to load availability right now.'));
     } finally {
       setLoadingAvailability(false);
     }
@@ -297,7 +309,7 @@ const CallCenterView: React.FC = () => {
     const favoriteChildId = localStorage.getItem('favorite_child_id');
 
     if (!telegramUser?.id || !favoriteChildId) {
-      setBookingError('Select an active child before booking a consultation.');
+      setBookingError(t('Select an active child before booking a consultation.'));
       return;
     }
 
@@ -344,7 +356,7 @@ const CallCenterView: React.FC = () => {
       // Show success message inside the sheet; the user closes it explicitly via "Close".
       setSubmissionSuccess(true);
     } catch (error: any) {
-      setBookingError(error.response?.data?.message || 'Booking failed. Try again.');
+      setBookingError(error.response?.data?.message || t('Booking failed. Try again.'));
     } finally {
       setUploadingOrder(false);
     }
@@ -354,8 +366,8 @@ const CallCenterView: React.FC = () => {
     <div className="pb-32 pt-4">
       <div className="px-6 mb-8 flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Expert Care</h2>
-          <p className="text-slate-500 text-sm">Consult with verified child experts.</p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('Expert Care')}</h2>
+          <p className="text-slate-500 text-sm">{t('Consult with verified child experts.')}</p>
         </div>
         <button
           onClick={() => {
@@ -366,7 +378,7 @@ const CallCenterView: React.FC = () => {
             activeTab === 'Sessions' ? 'bg-[#76A13B] text-white' : 'bg-slate-100 text-slate-400'
           }`}
         >
-          My Sessions
+          {t('My Sessions')}
         </button>
       </div>
 
@@ -380,7 +392,7 @@ const CallCenterView: React.FC = () => {
               activeTab === type ? 'bg-[#0B1A12] text-white shadow-xl shadow-emerald-100' : 'bg-white border border-slate-100 text-slate-500'
             }`}
           >
-            {type}
+            {t(type)}
           </button>
         ))}
       </div>
@@ -392,11 +404,11 @@ const CallCenterView: React.FC = () => {
             onClick={() => setActiveTab('Doctor')}
             className="text-sm font-bold text-[#76A13B] transition-colors hover:text-[#5E832D]"
           >
-            ← Back to Help
+            {t('← Back to Help')}
           </button>
           {loadingSessions ? (
             <div className="bg-slate-50 rounded-[3rem] p-12 text-center border border-slate-100">
-              <p className="text-slate-400 font-medium">Loading sessions...</p>
+              <p className="text-slate-400 font-medium">{t('Loading sessions...')}</p>
             </div>
           ) : sessionsError ? (
             <div className="bg-rose-50 rounded-[3rem] p-12 text-center border border-rose-100">
@@ -405,8 +417,8 @@ const CallCenterView: React.FC = () => {
           ) : bookings.length === 0 ? (
             <div className="bg-slate-50 rounded-[3rem] p-12 text-center border-2 border-dashed border-slate-200">
               <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-sm">🗓️</div>
-              <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest mb-2">No Sessions Yet</h3>
-              <p className="text-slate-400 text-xs font-medium">Your booked consultations will appear here.</p>
+              <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest mb-2">{t('No Sessions Yet')}</h3>
+              <p className="text-slate-400 text-xs font-medium">{t('Your booked consultations will appear here.')}</p>
             </div>
           ) : (
             bookings.map((booking) => {
@@ -418,7 +430,7 @@ const CallCenterView: React.FC = () => {
                 <div key={booking.id} className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden">
                   {isActive && (
                     <div className="absolute top-0 right-0 bg-[#76A13B] text-white px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] rounded-bl-2xl">
-                      ACTIVE NOW
+                      {t('Active Now')}
                     </div>
                   )}
                   <div className="flex gap-4 mb-6">
@@ -446,7 +458,7 @@ const CallCenterView: React.FC = () => {
                       )}
                       {sessionMode && (
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-[8px] font-black text-slate-500 uppercase tracking-widest">{sessionMode}</span>
+                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-[8px] font-black text-slate-500 uppercase tracking-widest">{t(sessionMode)}</span>
                         </div>
                       )}
                     </div>
@@ -454,7 +466,7 @@ const CallCenterView: React.FC = () => {
 
                   <div className="flex items-center justify-between mb-8 px-2">
                     <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Date & Time</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('Date & Time')}</span>
                       <span className="text-xs font-black text-slate-700">
                         {formatDateOption(booking.slot.date).full} • {formatDisplayTime(booking.slot.startTime)}
                       </span>
@@ -499,8 +511,8 @@ const CallCenterView: React.FC = () => {
         <div className="px-6 animate-in fade-in slide-in-from-bottom">
           <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm flex flex-col items-center text-center">
             <div className="w-24 h-24 bg-[#76A13B]/10 rounded-[2.5rem] flex items-center justify-center mb-8 text-4xl shadow-inner">🎧</div>
-            <h3 className="text-2xl font-black text-slate-800 mb-3 leading-tight">Instant App Help</h3>
-            <p className="text-slate-500 text-sm mb-10 leading-relaxed font-medium">Talk to our customer success team for any technical or general app queries. No booking needed.</p>
+            <h3 className="text-2xl font-black text-slate-800 mb-3 leading-tight">{t('Instant App Help')}</h3>
+            <p className="text-slate-500 text-sm mb-10 leading-relaxed font-medium">{t('Talk to our customer success team for any technical or general app queries. No booking needed.')}</p>
             <div className="flex flex-col gap-4 w-full">
               {/* Instant Live Chat — navigates to the real chat screen with the support agent */}
               <Button
@@ -511,11 +523,11 @@ const CallCenterView: React.FC = () => {
                   if (SUPPORT_AGENT_ID) {
                     navigate(`/chat/${SUPPORT_AGENT_ID}`);
                   } else {
-                    alert('Live chat is not available right now. Please call us instead.');
+                    alert(t('Live chat is not available right now. Please call us instead.'));
                   }
                 }}
               >
-                Instant Live Chat
+                {t('Instant Live Chat')}
               </Button>
 
               {/* Emergency Audio Call — opens native phone dialer, same pattern as ShopView */}
@@ -524,11 +536,11 @@ const CallCenterView: React.FC = () => {
                   href={`tel:${SUPPORT_PHONE}`}
                   className="w-full py-4 text-lg bg-[#0B1A12] hover:bg-[#1B3B2B] text-white font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-slate-300"
                 >
-                  Emergency Audio Call
+                  {t('Emergency Audio Call')}
                 </a>
               ) : (
                 <p className="text-center text-sm text-slate-400">
-                  Call support — contact not configured (set VITE_SUPPORT_PHONE)
+                  {t('Call support — contact not configured (set VITE_SUPPORT_PHONE)')}
                 </p>
               )}
             </div>
@@ -538,7 +550,7 @@ const CallCenterView: React.FC = () => {
         <div className="px-6 py-12 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-[#76A13B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-400 font-medium">Loading specialists...</p>
+            <p className="text-slate-400 font-medium">{t('Loading specialists...')}</p>
           </div>
         </div>
       ) : professionals.filter(p => p.type === activeTab).length === 0 ? (
@@ -546,8 +558,8 @@ const CallCenterView: React.FC = () => {
           <div className="w-20 h-20 bg-[#76A13B]/10 rounded-[2rem] flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">👨‍⚕️</span>
           </div>
-          <p className="text-slate-600 font-bold mb-2">No {activeTab}s Available</p>
-          <p className="text-slate-400 text-sm">Please check back later for available specialists.</p>
+          <p className="text-slate-600 font-bold mb-2">{t('No {{type}}s Available', { type: t(activeTab) })}</p>
+          <p className="text-slate-400 text-sm">{t('Please check back later for available specialists.')}</p>
         </div>
       ) : (
         <div className="px-6 space-y-6">
@@ -573,7 +585,7 @@ const CallCenterView: React.FC = () => {
               </div>
               <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Session Fee</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('Session Fee')}</span>
                   <span className="text-xl font-black text-slate-900">
                     {getStartingFee(pro).amount} <span className="text-[10px] font-bold">ETB</span>
                   </span>
@@ -589,7 +601,7 @@ const CallCenterView: React.FC = () => {
                   }}
                   className="px-8 py-4 bg-[#0B1A12] text-white font-black rounded-[1.5rem] text-xs shadow-xl shadow-emerald-50 active:scale-95 transition-transform"
                 >
-                  Check Availability
+                  {t('Check Availability')}
                 </button>
               </div>
             </div>
@@ -613,14 +625,14 @@ const CallCenterView: React.FC = () => {
                   <h2 className="text-3xl font-black text-slate-800">{selectedPro.name}</h2>
                   <p className="text-sm font-black text-[#76A13B] uppercase tracking-[0.2em] mt-1">{selectedPro.title}</p>
                   <div className="mt-6 px-6 py-3 bg-slate-50 rounded-2xl text-[10px] font-black text-slate-400 border border-slate-100 tracking-wider">
-                    {loadingAvailability ? 'LOADING AVAILABILITY...' : `OPEN SLOTS: ${availableSlots.length}`}
+                    {loadingAvailability ? t('Loading availability...') : t('Open slots: {{count}}', { count: availableSlots.length })}
                   </div>
                 </div>
 
                 <div className="space-y-6 mb-10">
-                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">Select Date</h4>
+                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">{t('Select Date')}</h4>
                   {loadingAvailability ? (
-                    <div className="px-2 text-sm font-medium text-slate-400">Loading available dates...</div>
+                    <div className="px-2 text-sm font-medium text-slate-400">{t('Loading available dates...')}</div>
                   ) : dateOptions.length > 0 ? (
                     <div className="flex gap-3 overflow-x-auto pb-2 px-2">
                       {dateOptions.map((option) => (
@@ -641,15 +653,15 @@ const CallCenterView: React.FC = () => {
                     </div>
                   ) : (
                     <div className="px-2 text-sm font-medium text-slate-400">
-                      {availabilityError || 'No available dates for this specialist.'}
+                      {availabilityError || t('No available dates for this specialist.')}
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-6 mb-10">
-                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">Available Time Slots</h4>
+                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">{t('Available Time Slots')}</h4>
                   {loadingAvailability ? (
-                    <div className="px-2 text-sm font-medium text-slate-400">Loading time slots...</div>
+                    <div className="px-2 text-sm font-medium text-slate-400">{t('Loading time slots...')}</div>
                   ) : slotsForSelectedDate.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3 px-2">
                       {slotsForSelectedDate.map((slot) => (
@@ -668,13 +680,13 @@ const CallCenterView: React.FC = () => {
                     </div>
                   ) : (
                     <div className="px-2 text-sm font-medium text-slate-400">
-                      {selectedDateKey ? 'No open slots for this date.' : 'Choose a date to see time slots.'}
+                      {selectedDateKey ? t('No open slots for this date.') : t('Choose a date to see time slots.')}
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-4 mb-10">
-                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">Communication Mode</h4>
+                  <h4 className="font-black text-slate-800 text-[10px] uppercase tracking-widest px-2">{t('Communication Mode')}</h4>
                   <div className="grid grid-cols-3 gap-4">
                     {(['Text', 'Audio', 'Video'] as const).map(mode => (
                       <button
@@ -693,7 +705,7 @@ const CallCenterView: React.FC = () => {
                         </div>
                         <span className={`text-[10px] font-black uppercase ${
                           selectedMode === mode ? 'text-[#76A13B]' : 'text-slate-500 group-hover:text-[#76A13B]'
-                        }`}>{mode}</span>
+                        }`}>{t(mode)}</span>
                         <span className={`text-[9px] font-bold ${
                           selectedMode === mode ? 'text-[#76A13B]' : 'text-slate-400'
                         }`}>
@@ -706,9 +718,9 @@ const CallCenterView: React.FC = () => {
                   {selectedMode && selectedSlot && (
                     <div className="mx-2 mt-4 p-6 bg-slate-900 rounded-[2rem] flex items-center justify-between text-white">
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Booking Summary</span>
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">{t('Booking Summary')}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black px-2 py-0.5 bg-[#76A13B] rounded-lg tracking-widest">{selectedMode}</span>
+                          <span className="text-[10px] font-black px-2 py-0.5 bg-[#76A13B] rounded-lg tracking-widest">{t(selectedMode)}</span>
                           <span className="text-[10px] font-black text-slate-300">{formatDateOption(selectedSlot.date).full}</span>
                         </div>
                         <span className="mt-2 text-xs font-black">{formatSlotRange(selectedSlot)}</span>
@@ -729,7 +741,7 @@ const CallCenterView: React.FC = () => {
                     onClick={resetBookingState}
                     className="flex-1 py-5 text-slate-400 font-black uppercase text-xs tracking-widest"
                   >
-                    Back
+                    {t('Back')}
                   </button>
                   <Button
                     color="purple"
@@ -738,7 +750,7 @@ const CallCenterView: React.FC = () => {
                     disabled={!selectedSlot || !selectedMode || loadingAvailability}
                     onClick={() => setBookingStep('payment')}
                   >
-                    Confirm & Book
+                    {t('Confirm & Book')}
                   </Button>
                 </div>
               </>
@@ -750,21 +762,21 @@ const CallCenterView: React.FC = () => {
                     <div className="w-24 h-24 bg-emerald-50 rounded-[2rem] flex items-center justify-center mb-6 text-5xl shadow-inner">
                       ✅
                     </div>
-                    <h3 className="text-2xl font-black text-slate-800 mb-3">Submitted!</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mb-3">{t('Submitted!')}</h3>
                     <p className="text-slate-500 text-sm font-medium leading-relaxed mb-10 px-2">
-                      Payment screenshot submitted successfully.{' '}
-                      <span className="font-black text-slate-700">Your booking is awaiting approval.</span>
+                      {t('Payment screenshot submitted successfully.')} {' '}
+                      <span className="font-black text-slate-700">{t('Your booking is awaiting approval.')}</span>
                     </p>
                     <div className="bg-amber-50 p-5 rounded-3xl border border-amber-100 mb-10 w-full">
                       <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
-                        Our team will review your payment and confirm your session shortly.
+                        {t('Our team will review your payment and confirm your session shortly.')}
                       </p>
                     </div>
                     <button
                       onClick={resetBookingState}
                       className="w-full py-5 bg-[#0B1A12] text-white font-black rounded-3xl shadow-xl shadow-emerald-200 active:scale-95 transition-transform uppercase text-xs tracking-widest"
                     >
-                      Close
+                      {t('Close')}
                     </button>
                   </div>
                 ) : (
@@ -772,18 +784,23 @@ const CallCenterView: React.FC = () => {
                   <>
                     <div className="text-center mb-10">
                       <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-3xl">💳</div>
-                      <h3 className="text-2xl font-black text-slate-800 mb-2">Payment Details</h3>
+                      <h3 className="text-2xl font-black text-slate-800 mb-2">{t('Payment Details')}</h3>
                       <p className="text-slate-500 text-sm font-medium">
-                        Please complete the payment for <span className="font-black text-slate-800">{getPriceForMode(selectedPro, selectedMode)} ETB</span> to secure your slot on{' '}
-                        <span className="text-[#76A13B] font-black">{selectedSlot ? formatDateOption(selectedSlot.date).full : ''}</span> at{' '}
-                        <span className="text-[#76A13B] font-black">{selectedSlot ? selectedSlot.startTime : ''}</span>.
+                        {t(
+                          'Please complete the payment for {{amount}} ETB to secure your slot on {{date}} at {{time}}.',
+                          {
+                            amount: getPriceForMode(selectedPro, selectedMode),
+                            date: selectedSlot ? formatDateOption(selectedSlot.date).full : '',
+                            time: selectedSlot ? selectedSlot.startTime : '',
+                          }
+                        )}
                       </p>
                     </div>
 
                     <div className="space-y-4 mb-12">
                       <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                         <div className="flex justify-between items-center mb-4">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank - CBE</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Bank - CBE')}</span>
                         </div>
                         <p className="text-lg font-black text-slate-800 mb-1">1000123456789</p>
                         <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE TECHNOLOGIES</p>
@@ -791,7 +808,7 @@ const CallCenterView: React.FC = () => {
 
                       <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                         <div className="flex justify-between items-center mb-4">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mobile Money - Telebirr</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Mobile Money - Telebirr')}</span>
                         </div>
                         <p className="text-lg font-black text-slate-800 mb-1">+251 912 345 678</p>
                         <p className="text-[10px] font-black text-[#76A13B] uppercase tracking-widest">LIJE CARE SERVICES</p>
@@ -801,7 +818,7 @@ const CallCenterView: React.FC = () => {
                     {/* Payment screenshot upload */}
                     <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 mb-4">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
-                        Payment Screenshot <span className="text-rose-400">*</span>
+                        {t('Payment Screenshot')} <span className="text-rose-400">*</span>
                       </p>
                       <label className="flex flex-col items-center gap-3 cursor-pointer">
                         <input
@@ -820,8 +837,8 @@ const CallCenterView: React.FC = () => {
                         ) : (
                           <div className="flex flex-col items-center gap-2 py-4 text-slate-400">
                             <span className="text-3xl">📎</span>
-                            <span className="text-xs font-bold">Tap to attach screenshot</span>
-                            <span className="text-[10px]">JPEG or PNG · max 2 MB</span>
+                            <span className="text-xs font-bold">{t('Tap to attach screenshot')}</span>
+                            <span className="text-[10px]">{t('JPEG or PNG · max 2 MB')}</span>
                           </div>
                         )}
                       </label>
@@ -829,7 +846,7 @@ const CallCenterView: React.FC = () => {
 
                     <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-10">
                       <p className="text-[10px] text-amber-700 font-bold leading-relaxed text-center">
-                        Attach your payment screenshot above, then tap <strong>Done</strong>. Your booking will be reviewed by our team.
+                        {t('Attach your payment screenshot above, then tap')} <strong>{t('Done')}</strong>. {t('Your booking will be reviewed by our team.')}
                       </p>
                     </div>
 
@@ -843,14 +860,14 @@ const CallCenterView: React.FC = () => {
                         onClick={() => setBookingStep('selection')}
                         className="flex-1 py-5 text-slate-400 font-black uppercase text-[10px] tracking-widest"
                       >
-                        Change Info
+                        {t('Change Info')}
                       </button>
                       {/* Close — dismisses the sheet without submitting anything */}
                       <button
                         onClick={resetBookingState}
                         className="flex-1 py-5 border-2 border-slate-200 text-slate-500 font-black rounded-3xl uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
                       >
-                        Close
+                        {t('Close')}
                       </button>
                       {/* Done — submits the screenshot; disabled until a file is chosen or while loading */}
                       <button
@@ -862,7 +879,7 @@ const CallCenterView: React.FC = () => {
                             : 'active:scale-95'
                         }`}
                       >
-                        {uploadingOrder ? 'Submitting…' : 'Done'}
+                        {uploadingOrder ? t('Submitting...') : t('Done')}
                       </button>
                     </div>
                   </>

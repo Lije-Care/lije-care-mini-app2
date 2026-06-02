@@ -103,8 +103,8 @@ const BookingCheckout = () => {
             <h2 className="text-lg font-bold text-gray-200 ">{pkg.title}</h2>
             <p className="text-sm text-gray-200 ">{pkg.description}</p>
             <p className="mt-2 text-gray-200 ">
-              <strong>Sessions:</strong> {pkg.sessionsAllowed} |{" "}
-              <strong>Validity:</strong> {pkg.validityDays} days
+              <strong>{t("Sessions")}:</strong> {pkg.sessionsAllowed} |{" "}
+              <strong>{t("Validity")}:</strong> {pkg.validityDays} {t("days")}
             </p>
             <p className="mt-2 text-lg font-semibold text-[#0B8FAC]">
               ETB {pkg.price.toFixed(2)}
@@ -122,7 +122,7 @@ const BookingCheckout = () => {
                 type="text"
                 id="customerName"
                 value={formData.customerName}
-                placeholder="Enter you name"
+                placeholder={t("Enter your name")}
                 onChange={handleInputChange}
                 className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900"
                 required
@@ -138,7 +138,7 @@ const BookingCheckout = () => {
                 id="customerPhone"
                 value={formData.customerPhone}
                 onChange={handleInputChange}
-                placeholder="Enter phone number"
+                placeholder={t("Enter phone number")}
                 className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900"
                 required
               />
@@ -152,7 +152,7 @@ const BookingCheckout = () => {
                 type="text"
                 id="city"
                 value={formData.city}
-                placeholder="Enter address"
+                placeholder={t("Enter city")}
                 onChange={handleInputChange}
                 className="block w-full rounded-lg border border-black bg-white p-2.5 text-sm text-gray-900"
                 required

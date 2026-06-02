@@ -17,6 +17,7 @@ import { MdVideoCameraFront } from "react-icons/md";
 import { FaMicrophone, FaMicrophoneSlash, FaPaperPlane } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import api from "@/api/axios";
 import socket from "@/utils/socket";
 import MessageList from "./MessageList";
@@ -25,6 +26,7 @@ import { useBookings } from "@/hooks/useBookings";
 import { APP_BACK_INTENT_EVENT } from "@/navigation/back";
 
 const ChatScreen = () => {
+  const { t } = useTranslation();
   const { bookings } = useBookings();
   const { doctorId } = useParams();
   const navigate = useNavigate();
@@ -203,11 +205,11 @@ const ChatScreen = () => {
           </div>
         )}
         <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-          {peer.name} {peer.isLocal && "(You)"}
+          {peer.name} {peer.isLocal && `(${t("You")})`}
         </div>
         {!isAudioEnabled && (
           <div className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded">
-            Mic Off
+            {t("Mic Off")}
           </div>
         )}
       </div>
@@ -218,7 +220,7 @@ const ChatScreen = () => {
   const joinRoom = async () => {
     if (!guestVideoRoomCode || !activeSlotBooking) {
       alert(
-        "Video room or active slot not ready. Please wait for the slot to start."
+        t("Video room or active slot not ready. Please wait for the slot to start.")
       );
       return;
     }
@@ -230,7 +232,7 @@ const ChatScreen = () => {
       await hmsActions.join({ userName: "Parent", authToken });
     } catch (e) {
       console.error("Failed to join room:", e);
-      alert("Failed to join video call. Please try again.");
+      alert(t("Failed to join video call. Please try again."));
     }
   };
 
@@ -283,7 +285,7 @@ const ChatScreen = () => {
           </h2>
           {countdown && isConnected && (
             <span className="text-sm text-red-600 font-medium">
-              Call ends in {countdown}
+              {t("Call ends in")} {countdown}
             </span>
           )}
           <div className="flex space-x-2">
@@ -296,7 +298,7 @@ const ChatScreen = () => {
                 </button>
               )}
             {isLoadingRoom && (
-              <span className="text-sm text-gray-500">Loading room...</span>
+              <span className="text-sm text-gray-500">{t("Loading room...")}</span>
             )}
 
             {isConnected && peers.some((peer) => peer.videoTrack) && (
@@ -312,7 +314,7 @@ const ChatScreen = () => {
                   )}
                 </button>
                 <button className="p-2 text-red-600" onClick={leaveRoom}>
-                  Leave
+                  {t("Leave")}
                 </button>
               </>
             )}
@@ -326,7 +328,7 @@ const ChatScreen = () => {
             ))}
             <div className="flex justify-center gap-6">
               <button
-                title="Toggle Mic"
+                title={t("Toggle Mic")}
                 className="border rounded-full p-3 shadow-md"
                 onClick={toggleAudio}
               >
@@ -354,7 +356,7 @@ const ChatScreen = () => {
           <input
             type="text"
             className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-            placeholder="Write here..."
+            placeholder={t("Write here...")}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}

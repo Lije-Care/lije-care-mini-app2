@@ -2,6 +2,7 @@ import { RootState } from "@/redux/store";
 import { SendHorizontal } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
+import { useTranslation } from "react-i18next";
 
 type Message = {
   role: "user" | "assistant";
@@ -15,6 +16,7 @@ interface ChatBoxProps {
 }
 
 export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
+  const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -45,17 +47,18 @@ export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
     setMessages((prev) => [...prev, newMessage]);
 
     try {
+      const languageLabel = i18n.language === "am" ? "Amharic" : "English";
       const res = await fetch(`${backendUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: parentId,
           chatId,
-          message: input,
+          message: `[Reply language: ${languageLabel}] ${input}`,
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to send message");
+      if (!res.ok) throw new Error(t("Failed to send message"));
 
       const data: { reply: string } = await res.json();
       const botMessage: Message = { role: "assistant", content: data.reply };
@@ -65,7 +68,7 @@ export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
       console.error(error);
       const errorMessage: Message = {
         role: "assistant",
-        content: "Sorry, something went wrong.",
+        content: t("Sorry, something went wrong."),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -104,7 +107,7 @@ export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           className="flex-1 border rounded px-3 py-2"
-          placeholder="Ask something..."
+          placeholder={t("Ask something...")}
         />
         <button
           onClick={sendMessage}

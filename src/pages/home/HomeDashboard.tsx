@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
@@ -54,9 +55,12 @@ const FALLBACK_PRODUCT = {
 };
 
 const HomeDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const [dailyTip] = useState('Talk to your child throughout the day, describing what you see and do together. This helps build their vocabulary and language skills.');
+  const dailyTip = t(
+    'Talk to your child throughout the day, describing what you see and do together. This helps build their vocabulary and language skills.'
+  );
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
   const [promotionsError, setPromotionsError] = useState('');
@@ -112,7 +116,7 @@ const HomeDashboard: React.FC = () => {
       setPromoIndex(0);
     } catch (error: any) {
       setPromotionsError(
-        error?.response?.data?.message || 'Failed to load promotions.'
+        error?.response?.data?.message || t('Failed to load promotions.')
       );
     } finally {
       setPromotionsLoading(false);
@@ -182,12 +186,18 @@ const HomeDashboard: React.FC = () => {
     volume: `${meals[0].totalVolume}ml`,
   } : FALLBACK_MEAL;
 
+  const nutrientLabels = MEAL_OF_THE_DAY.nutrients.map((nutrient) => t(nutrient));
+  const mealTypeLabel =
+    meals.length > 0 ? MEAL_OF_THE_DAY.type : t(MEAL_OF_THE_DAY.type);
+  const featuredProductName =
+    products.length > 0 ? FEATURED_PRODUCT.name : t(FEATURED_PRODUCT.name);
+
   return (
     <div className="flex flex-col gap-8 pb-32 pt-4 px-4 overflow-x-hidden">
       {/* 1. Assessment Prompts Section - Development Trace */}
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800 text-lg">Development Trace</h3>
+          <h3 className="font-bold text-slate-800 text-lg">{t('Development Trace')}</h3>
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
             <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
@@ -210,11 +220,11 @@ const HomeDashboard: React.FC = () => {
                       : 'bg-emerald-100 text-emerald-600'
                   }`}
                 >
-                  {prompt.category}
+                  {t(prompt.category)}
                 </span>
               </div>
               <p className="font-semibold text-slate-700 text-base mb-6 min-h-[48px]">
-                {prompt.question}
+                {prompt.id === GROWTH_PROMPT.id ? t(prompt.question) : prompt.question}
               </p>
 
               {prompt.category === 'growth' ? (
@@ -224,18 +234,18 @@ const HomeDashboard: React.FC = () => {
                   leftIcon={<PlusIcon />}
                   onClick={() => navigate('/assessment')}
                 >
-                  Add Measurement
+                  {t('Add Measurement')}
                 </Button>
               ) : (
                 <div className="flex gap-2">
                   <button className="flex-1 py-3 bg-slate-50 hover:bg-emerald-50 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
-                    Yes
+                    {t('Yes')}
                   </button>
                   <button className="flex-1 py-3 bg-slate-50 hover:bg-rose-50 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
-                    No
+                    {t('No')}
                   </button>
                   <button className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
-                    Not Sure
+                    {t('Not Sure')}
                   </button>
                 </div>
               )}
@@ -247,7 +257,7 @@ const HomeDashboard: React.FC = () => {
       {/* 2. Promotion Section */}
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800 text-lg">Promotions</h3>
+          <h3 className="font-bold text-slate-800 text-lg">{t('Promotions')}</h3>
           <div className="flex gap-1.5">
             {promotions.map((_, index) => (
               <div
@@ -262,7 +272,7 @@ const HomeDashboard: React.FC = () => {
 
         {promotionsLoading && (
           <Card className="text-sm font-medium text-slate-500" padding="lg">
-            Loading promotions...
+            {t('Loading promotions...')}
           </Card>
         )}
 
@@ -270,14 +280,14 @@ const HomeDashboard: React.FC = () => {
           <Card className="space-y-4" padding="lg">
             <p className="text-sm font-medium text-rose-500">{promotionsError}</p>
             <Button color="emerald" size="sm" onClick={fetchPromotionItems}>
-              Retry
+              {t('Retry')}
             </Button>
           </Card>
         )}
 
         {!promotionsLoading && !promotionsError && promotions.length === 0 && (
           <Card className="text-sm font-medium text-slate-500" padding="lg">
-            No promotions found.
+            {t('No promotions found.')}
           </Card>
         )}
 
@@ -338,7 +348,7 @@ const HomeDashboard: React.FC = () => {
                   type="button"
                   onClick={showPreviousPromotion}
                   className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-label="Previous promotion"
+                  aria-label={t('Previous promotion')}
                 >
                   <ChevronLeftIcon size={16} />
                 </button>
@@ -346,7 +356,7 @@ const HomeDashboard: React.FC = () => {
                   type="button"
                   onClick={showNextPromotion}
                   className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-label="Next promotion"
+                  aria-label={t('Next promotion')}
                 >
                   <ChevronLeftIcon size={16} className="rotate-180" />
                 </button>
@@ -358,20 +368,20 @@ const HomeDashboard: React.FC = () => {
 
       {/* 3. Today's Meal Section - Healthy Bites */}
       <section>
-        <h3 className="font-bold text-slate-800 text-lg mb-4">Healthy Bites</h3>
+        <h3 className="font-bold text-slate-800 text-lg mb-4">{t('Healthy Bites')}</h3>
         <div
           className="relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 group cursor-pointer"
           onClick={() => navigate('/meals')}
         >
           <div className="absolute top-4 left-4 z-10">
             <div className="bg-amber-400 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-              Next: {MEAL_OF_THE_DAY.type}
+              {t('Next:')} {mealTypeLabel}
             </div>
           </div>
           <div className="h-48 overflow-hidden">
             <img
               src={MEAL_OF_THE_DAY.image}
-              alt="Meal"
+              alt={t('Meal')}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
             />
           </div>
@@ -380,7 +390,7 @@ const HomeDashboard: React.FC = () => {
               {MEAL_OF_THE_DAY.name}
             </h4>
             <div className="flex flex-wrap gap-2 mb-4">
-              {MEAL_OF_THE_DAY.nutrients.map((n) => (
+              {nutrientLabels.map((n) => (
                 <span
                   key={n}
                   className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100"
@@ -390,7 +400,7 @@ const HomeDashboard: React.FC = () => {
               ))}
             </div>
             <Button color="slate" fullWidth>
-              View Full Plan
+              {t('View Full Plan')}
             </Button>
           </div>
         </div>
@@ -399,25 +409,25 @@ const HomeDashboard: React.FC = () => {
       {/* 4. Featured Product Section - Shop Essentials */}
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800 text-lg">Shop Essentials</h3>
+          <h3 className="font-bold text-slate-800 text-lg">{t('Shop Essentials')}</h3>
           <button
             onClick={() => navigate('/ecommerce')}
             className="text-rose-500 text-sm font-bold"
           >
-            See All
+            {t('See All')}
           </button>
         </div>
         <Card className="flex gap-5" padding="md">
           <div className="w-24 h-24 bg-rose-50 rounded-2xl overflow-hidden flex-shrink-0">
             <img
               src={FEATURED_PRODUCT.image}
-              alt="Product"
+              alt={t('Product')}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="flex-1 flex flex-col justify-between py-1">
             <div>
-              <h4 className="font-bold text-slate-800">{FEATURED_PRODUCT.name}</h4>
+              <h4 className="font-bold text-slate-800">{featuredProductName}</h4>
               <div className="flex items-center gap-1 mt-1 text-amber-400">
                 <StarIcon />
                 <span className="text-xs font-bold text-slate-400">
@@ -444,7 +454,7 @@ const HomeDashboard: React.FC = () => {
       {/* 5. Featured Articles Section */}
       {articles.length > 0 && (
         <section>
-          <h3 className="font-bold text-slate-800 text-lg mb-4">Featured Articles</h3>
+          <h3 className="font-bold text-slate-800 text-lg mb-4">{t('Featured Articles')}</h3>
           <div className="relative group">
             <div ref={articlesScrollRef} className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-4 px-4 pb-2">
               {articles.slice(0, 5).map((article) => (
@@ -472,14 +482,14 @@ const HomeDashboard: React.FC = () => {
             <button
               onClick={() => articlesScrollRef.current?.scrollBy({ left: -272, behavior: 'smooth' })}
               className="absolute left-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-md backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label="Scroll articles left"
+              aria-label={t('Scroll articles left')}
             >
               <ChevronLeftIcon size={16} />
             </button>
             <button
               onClick={() => articlesScrollRef.current?.scrollBy({ left: 272, behavior: 'smooth' })}
               className="absolute right-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-md backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label="Scroll articles right"
+              aria-label={t('Scroll articles right')}
             >
               <ChevronLeftIcon size={16} className="rotate-180" />
             </button>
@@ -499,7 +509,7 @@ const HomeDashboard: React.FC = () => {
                 <span className="text-xl">💡</span>
               </div>
               <h3 className="font-black text-slate-900 tracking-tight">
-                Parenting Tip
+                {t('Parenting Tip')}
               </h3>
             </div>
             <p className="text-slate-900/80 font-medium leading-relaxed italic">

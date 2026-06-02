@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { routes } from "@/navigation/routes.tsx";
 import {
@@ -158,6 +159,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
 export function App() {
   const lp = useLaunchParams();
+  const { t } = useTranslation();
 
   return (
     <AppRoot
@@ -170,7 +172,7 @@ export function App() {
             <Suspense
               fallback={
                 <div className="flex min-h-[40vh] items-center justify-center px-6 text-sm font-medium text-slate-500">
-                  Loading...
+                  {t("Loading...")}
                 </div>
               }
             >
