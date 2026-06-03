@@ -1146,12 +1146,37 @@ function looksLikeId(value?: string | null) {
   );
 }
 
-function getDisplayLabel(value?: string | null, fallback = 'Nutrient') {
+const DISPLAY_LABEL_TRANSLATION_KEYS: Record<string, string> = {
+  Energy: 'Energy',
+  Protein: 'Protein',
+  Carbohydrate: 'Carbohydrate',
+  Fat: 'Fat',
+  Iron: 'Iron',
+  Calcium: 'Calcium',
+  Zinc: 'Zinc',
+  Fiber: 'Fiber',
+  'Vitamin A': 'Vitamin A',
+  'Vitamin D': 'Vitamin D',
+  Water: 'Water',
+};
+
+function getDisplayLabel(
+  value: string | null | undefined,
+  translate?: (key: string) => string,
+  fallback = 'Nutrient'
+) {
   if (!value || looksLikeId(value)) {
     return fallback;
   }
 
-  return value;
+  const normalizedValue = value.trim();
+  const translationKey = DISPLAY_LABEL_TRANSLATION_KEYS[normalizedValue];
+
+  if (translationKey && translate) {
+    return translate(translationKey);
+  }
+
+  return normalizedValue;
 }
 
 const VOLUME_UNITS = [
@@ -1301,6 +1326,7 @@ const MealLibraryDetailOverlay = ({
   unitLabelsById: Record<string, string>;
   unitRecordsById: Record<string, UnitLookupRecord>;
 }) => {
+  const { t } = useTranslation();
   const [displayUnit, setDisplayUnit] = useState<
     | (typeof VOLUME_UNITS)[number]['value']
     | (typeof MASS_UNITS)[number]['value']
@@ -1387,7 +1413,7 @@ const MealLibraryDetailOverlay = ({
 
       scaledMeal?.mealIngredients?.forEach((item) => {
         (item.ingredient?.nutrientAmounts || []).forEach((entry) => {
-          const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
+          const nutrientName = getDisplayLabel(entry.nutrient?.name, t, t('Nutrient'));
           const baseUnitId = getNutrientUnitId(entry.nutrient);
           const compatibleUnits = getCompatibleUnits(baseUnitId, unitRecordsById);
           const current = nutrientTotals.get(nutrientName);
@@ -1420,7 +1446,7 @@ const MealLibraryDetailOverlay = ({
 
       return Array.from(nutrientTotals.values());
     },
-    [scaledMeal, unitLabelsById, unitRecordsById]
+    [scaledMeal, t, unitLabelsById, unitRecordsById]
   );
 
   const calorieSummary = useMemo(
@@ -1508,7 +1534,7 @@ const MealLibraryDetailOverlay = ({
         >
           <ChevronDownIcon className="rotate-90" />
         </button>
-        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">Meal Details</h3>
+        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">{t('Meal Details')}</h3>
         <div className="w-10" />
       </div>
 
@@ -1717,7 +1743,7 @@ const MealLibraryDetailOverlay = ({
                             : 'text-slate-400'
                         }`}
                       >
-                        Ingredients
+                        {t('Ingredients')}
                       </button>
                       <button
                         type="button"
@@ -1728,7 +1754,7 @@ const MealLibraryDetailOverlay = ({
                             : 'text-slate-400'
                         }`}
                       >
-                        Directions
+                        {t('Directions')}
                       </button>
                     </div>
                   </div>
@@ -1858,7 +1884,7 @@ const MealLibraryDetailOverlay = ({
               {nutrients.length > 0 && (
                 <div className="mt-10 border-t border-slate-100 pt-8">
                   <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Nutrients Acquired
+                    {t('Nutrients Acquired')}
                   </label>
                   <div className="overflow-hidden rounded-2xl border border-slate-100">
                     <table className="w-full text-left text-xs">
@@ -1918,7 +1944,7 @@ const IngredientLibraryDetailOverlay = ({
     }>();
 
     (ingredient?.nutrientAmounts || []).forEach((entry) => {
-      const nutrientName = getDisplayLabel(entry.nutrient?.name, 'Nutrient');
+      const nutrientName = getDisplayLabel(entry.nutrient?.name, t, t('Nutrient'));
       const baseUnitId = getNutrientUnitId(entry.nutrient);
       const compatibleUnits = getCompatibleUnits(baseUnitId, unitRecordsById);
       const current = nutrientTotals.get(nutrientName);
@@ -1997,7 +2023,7 @@ const IngredientLibraryDetailOverlay = ({
               </div>
               <h2 className="mb-4 text-2xl font-black text-slate-800">{ingredient.name}</h2>
               <div className="mb-10 text-xl font-black uppercase tracking-[0.22em] text-[#76A13B]">
-                {getDisplayLabel(ingredient.foodGroup, 'Food')}
+                {getDisplayLabel(ingredient.foodGroup, t, t('Food'))}
               </div>
 
               <div className="mb-10">
