@@ -4591,13 +4591,13 @@ const MealsView: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-[#0B1A12] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-100">
             <div className="relative z-10">
-              <h3 className="text-2xl font-black mb-2 leading-tight">Smart Child<br/>Meal Planning</h3>
-              <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">Design balanced nutrition tailored to your little one's growth.</p>
+              <h3 className="text-2xl font-black mb-2 leading-tight">{t('Smart Child')}<br/>{t('Meal Planning')}</h3>
+              <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">{t("Design balanced nutrition tailored to your little one's growth.")}</p>
               <button
                 onClick={openNewPlanBuilder}
                 className="bg-[#F9C846] text-[#0B1A12] px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
               >
-              Create New Plan
+              {t('Create New Plan')}
               </button>
             </div>
             <div className="absolute bottom-0 right-0 w-40 h-40 bg-sky-400 rounded-full -mb-20 -mr-20"></div>
@@ -4608,13 +4608,13 @@ const MealsView: React.FC = () => {
               onClick={() => setPlanSourceTab('parent')}
               className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'parent' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
             >
-              My Plans
+              {t('My Plans')}
             </button>
             <button
               onClick={() => setPlanSourceTab('nutritionist')}
               className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${planSourceTab === 'nutritionist' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-400'}`}
             >
-              Nutritionist Plans
+              {t('Nutritionist Plans')}
             </button>
           </div>
 
@@ -5068,7 +5068,7 @@ const MealsView: React.FC = () => {
                     disabled={mealsLoading}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {mealsLoading ? 'Loading more...' : 'Load More Meals'}
+                    {mealsLoading ? t('Loading more...') : t('Load More Meals')}
                   </button>
                 ) : null}
               </div>
@@ -5179,7 +5179,7 @@ const MealsView: React.FC = () => {
                 disabled={mealsLoading}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {mealsLoading ? 'Loading more...' : 'Load More Meals'}
+                {mealsLoading ? t('Loading more...') : t('Load More Meals')}
               </button>
             ) : null}
           </>
@@ -5226,7 +5226,7 @@ const MealsView: React.FC = () => {
                 disabled={ingredientsLoading}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-600 transition-colors hover:border-[#76A13B] hover:text-[#76A13B] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {ingredientsLoading ? 'Loading more...' : 'Load More Ingredients'}
+                {ingredientsLoading ? t('Loading more...') : t('Load More Ingredients')}
               </button>
             ) : null}
           </>
@@ -5324,8 +5324,8 @@ const MealsView: React.FC = () => {
       {!activeViewPlan && !isCreatingPlan && (
         <>
           <div className="px-6 mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Nutri-Meal</h2>
-            <p className="text-slate-500 text-sm">Balanced food for bright futures.</p>
+            <h2 className="text-2xl font-bold text-slate-800">{t('Nutri-Meal')}</h2>
+            <p className="text-slate-500 text-sm">{t('Balanced food for bright futures.')}</p>
           </div>
 
           <div className="px-6 mb-8">
@@ -5334,13 +5334,13 @@ const MealsView: React.FC = () => {
                 onClick={() => setSubTab('planning')}
                 className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab === 'planning' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-500'}`}
               >
-                Planning
+                {t('Planning')}
               </button>
               <button
                 onClick={() => setSubTab('mealLib')}
                 className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${subTab !== 'planning' ? 'bg-white shadow-sm text-[#76A13B]' : 'text-slate-500'}`}
               >
-                Libraries
+                {t('Libraries')}
               </button>
             </div>
           </div>

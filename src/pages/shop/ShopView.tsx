@@ -14,6 +14,26 @@ const SHOP_ORDER_PHONE: string = (import.meta.env.VITE_SHOP_ORDER_PHONE as strin
 
 const DEFAULT_CATEGORIES = ['All', 'Food', 'Toys', 'Lunch Boxes', 'Utensils', 'Essentials'];
 
+const CATEGORY_TRANSLATION_KEYS: Record<string, string> = {
+  ALL: 'All',
+  FOOD: 'Food',
+  TOYS: 'Toys',
+  TOY: 'Toys',
+  LUNCH_BOXES: 'Lunch Boxes',
+  LUNCH_BOX: 'Lunch Boxes',
+  UTENSILS: 'Utensils',
+  UTENSIL: 'Utensils',
+  ESSENTIALS: 'Essentials',
+  ESSENTIAL: 'Essentials',
+  EDUCATIONAL_MATERIAL: 'Educational Material',
+  EDUCATIONAL_MATERIALS: 'Educational Materials',
+};
+
+function getCategoryTranslationKey(value: string) {
+  const normalized = value.trim().replace(/\s+/g, '_').toUpperCase();
+  return CATEGORY_TRANSLATION_KEYS[normalized] ?? value;
+}
+
 interface TransformedProduct {
   id: string;
   name: string;
@@ -41,6 +61,7 @@ const ProductDetail = ({
   onNavigateCart: () => void;
 }) => {
   const { t } = useTranslation();
+  const categoryLabel = (value: string) => t(getCategoryTranslationKey(value));
   return (
     <motion.div
     initial={{ opacity: 0, y: '100%' }}
@@ -58,7 +79,7 @@ const ProductDetail = ({
       </button>
       <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
       <div className="absolute top-6 right-6 px-3 py-1.5 bg-[#F9C846]/90 backdrop-blur rounded-xl">
-        <span className="text-[10px] font-black text-[#0B1A12] uppercase tracking-widest">{product.category}</span>
+        <span className="text-[10px] font-black text-[#0B1A12] uppercase tracking-widest">{categoryLabel(product.category)}</span>
       </div>
     </div>
 
@@ -139,8 +160,7 @@ const ShopView: React.FC = () => {
   const loading = productsState?.loading || false;
   const cartItemCount = cart?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
   const categoryLabel = (value: string) => {
-    const translatable = ['All', 'Food', 'Toys', 'Lunch Boxes', 'Utensils', 'Essentials'];
-    return translatable.includes(value) ? t(value) : value;
+    return t(getCategoryTranslationKey(value));
   };
 
   useEffect(() => {
@@ -404,7 +424,7 @@ const ShopView: React.FC = () => {
                   alt={product.name}
                 />
                 <div className="absolute top-2 left-2 px-2.5 py-1 bg-white/80 backdrop-blur rounded-lg text-[8px] font-black text-[#76A13B] uppercase tracking-widest">
-                  {product.category}
+                  {categoryLabel(product.category)}
                 </div>
                 {/* Thumbnail Quantity Counter */}
                 <div
