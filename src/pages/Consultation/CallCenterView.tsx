@@ -14,7 +14,6 @@ import type { ConsultationOrder } from '@/types/consultationOrder';
 import i18n from '@/i18n/i18n';
 
 const getDateKey = (isoDate: string) => isoDate.split('T')[0];
-const SESSION_MODE_STORAGE_KEY = 'consultation_session_modes';
 
 /** Map frontend mode labels to backend ConsultationType enum values */
 const MODE_TO_CONSULTATION_TYPE: Record<'Text' | 'Audio' | 'Video', string> = {
@@ -89,18 +88,10 @@ const formatDisplayTime = (time: string) => {
   return `${normalizedHour}:${minute} ${suffix}`;
 };
 
-const getStoredSessionModes = (): Record<string, 'Text' | 'Audio' | 'Video'> => {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_MODE_STORAGE_KEY) || '{}');
-  } catch {
-    return {};
-  }
-};
-
-const storeSessionMode = (slotId: string, mode: 'Text' | 'Audio' | 'Video') => {
-  const existing = getStoredSessionModes();
-  existing[slotId] = mode;
-  localStorage.setItem(SESSION_MODE_STORAGE_KEY, JSON.stringify(existing));
+const CONSULTATION_TYPE_TO_MODE: Record<'TEXT' | 'AUDIO' | 'VIDEO', 'Text' | 'Audio' | 'Video'> = {
+  TEXT: 'Text',
+  AUDIO: 'Audio',
+  VIDEO: 'Video',
 };
 
 const isFutureSlot = (slot: AvailabilitySlot) => {
@@ -118,6 +109,54 @@ const isFutureSlot = (slot: AvailabilitySlot) => {
   } catch {
     return false;
   }
+};
+
+const getSlotWindowState = (slot: Booking['slot']) => {
+  try {
+    const slotDate = slot.date.split('T')[0];
+    const start = new Date(`${slotDate}T${slot.startTime}:00`);
+    const end = new Date(`${slotDate}T${slot.endTime}:00`);
+    const now = new Date();
+
+    if (now < start) return 'upcoming' as const;
+    if (now > end) return 'ended' as const;
+    return 'active' as const;
+  } catch {
+    return 'unknown' as const;
+  }
+};
+
+const getActionAvailability = (
+  order: ConsultationOrder | undefined,
+  slot: Booking['slot'],
+  actionType: 'TEXT' | 'AUDIO' | 'VIDEO',
+) => {
+  if (!order) {
+    return { enabled: false, reason: 'Consultation details unavailable' };
+  }
+
+  if (order.status === 'PENDING_ADMIN_CONFIRMATION') {
+    return { enabled: false, reason: 'This consultation is awaiting approval.' };
+  }
+
+  if (order.status === 'REJECTED') {
+    return { enabled: false, reason: 'This consultation was rejected.' };
+  }
+
+  if (order.consultationType !== actionType) {
+    return { enabled: false, reason: 'This action is not included in the booked consultation type.' };
+  }
+
+  const windowState = getSlotWindowState(slot);
+  if (windowState === 'upcoming') {
+    return { enabled: false, reason: 'This consultation will open when the booked time starts.' };
+  }
+
+  if (windowState === 'ended') {
+    return { enabled: false, reason: 'This consultation time has ended.' };
+  }
+
+  return { enabled: true, reason: '' };
 };
 
 const CallCenterView: React.FC = () => {
@@ -285,23 +324,6 @@ const CallCenterView: React.FC = () => {
     setSelectedSlotId(null);
   }, [selectedDateKey]);
 
-  const isSessionActive = (slot: Booking['slot']) => {
-    try {
-      const [hour, minute] = slot.startTime.split(':').map(Number);
-      const date = new Date(slot.date);
-      const slotDateTime = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        hour,
-        minute,
-      );
-      return Date.now() >= slotDateTime.getTime();
-    } catch {
-      return false;
-    }
-  };
-
   const handleBookConsultation = async () => {
     if (!selectedPro || !selectedMode || !selectedSlot || !screenshotFile) return;
 
@@ -351,7 +373,6 @@ const CallCenterView: React.FC = () => {
         paymentScreenshotUrl,
       });
 
-      storeSessionMode(selectedSlot.id, selectedMode);
       await fetchBookings();
       // Show success message inside the sheet; the user closes it explicitly via "Close".
       setSubmissionSuccess(true);
@@ -422,10 +443,13 @@ const CallCenterView: React.FC = () => {
             </div>
           ) : (
             bookings.map((booking) => {
-              const sessionMode = getStoredSessionModes()[booking.slotId];
-              const isActive = isSessionActive(booking.slot);
-              // Look up the consultation order linked to this booking to get admin approval status
               const order = consultationOrders.find(o => o.bookingId === booking.id);
+              const sessionMode = order ? CONSULTATION_TYPE_TO_MODE[order.consultationType] : null;
+              const windowState = getSlotWindowState(booking.slot);
+              const isActive = windowState === 'active';
+              const textAction = getActionAvailability(order, booking.slot, 'TEXT');
+              const audioAction = getActionAvailability(order, booking.slot, 'AUDIO');
+              const videoAction = getActionAvailability(order, booking.slot, 'VIDEO');
               return (
                 <div key={booking.id} className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden">
                   {isActive && (
@@ -471,37 +495,58 @@ const CallCenterView: React.FC = () => {
                         {formatDateOption(booking.slot.date).full} • {formatDisplayTime(booking.slot.startTime)}
                       </span>
                     </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      {windowState === 'active'
+                        ? t('Active Now')
+                        : windowState === 'upcoming'
+                        ? t('Upcoming')
+                        : windowState === 'ended'
+                        ? t('Ended')
+                        : t('Unavailable')}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <button
-                      disabled={!isActive || sessionMode !== 'Text'}
-                      onClick={() => navigate(`/chat/${booking.expert.id}`)}
+                      disabled={!textAction.enabled}
+                      onClick={() => navigate(`/chat/${booking.expert.id}?bookingId=${booking.id}&actionType=TEXT`)}
+                      title={textAction.reason ? t(textAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
-                        isActive && sessionMode === 'Text' ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
+                        textAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
                       }`}
                     >
                       <MessageIcon />
                     </button>
                     <button
-                      disabled={!isActive || sessionMode !== 'Audio'}
-                      onClick={() => navigate('/video-call')}
+                      disabled={!audioAction.enabled}
+                      onClick={() => navigate(`/chat/${booking.expert.id}?bookingId=${booking.id}&actionType=AUDIO`)}
+                      title={audioAction.reason ? t(audioAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
-                        isActive && sessionMode === 'Audio' ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
+                        audioAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
                       }`}
                     >
                       <CallCenterIcon className="w-4 h-4" />
                     </button>
                     <button
-                      disabled={!isActive || sessionMode !== 'Video'}
-                      onClick={() => navigate('/video-call')}
+                      disabled={!videoAction.enabled}
+                      onClick={() => navigate(`/chat/${booking.expert.id}?bookingId=${booking.id}&actionType=VIDEO`)}
+                      title={videoAction.reason ? t(videoAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
-                        isActive && sessionMode === 'Video' ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
+                        videoAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
                       }`}
                     >
                       <VideoIcon />
                     </button>
                   </div>
+                  {!textAction.enabled && sessionMode === 'Text' && (
+                    <p className="mt-3 text-[10px] font-bold text-slate-400">{t(textAction.reason)}</p>
+                  )}
+                  {!audioAction.enabled && sessionMode === 'Audio' && (
+                    <p className="mt-3 text-[10px] font-bold text-slate-400">{t(audioAction.reason)}</p>
+                  )}
+                  {!videoAction.enabled && sessionMode === 'Video' && (
+                    <p className="mt-3 text-[10px] font-bold text-slate-400">{t(videoAction.reason)}</p>
+                  )}
                 </div>
               );
             })
