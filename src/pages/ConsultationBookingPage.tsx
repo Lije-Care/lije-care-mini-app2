@@ -8,6 +8,7 @@ import { fetchSpecialists } from "@/redux/slices/specialistSlice";
 import { Page } from "@/components/Page";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { isFutureConsultationSlot } from "@/utils/consultationTime";
 // import { MdWidthFull } from "react-icons/md";
 
 export default function ConsultationTab() {
@@ -29,20 +30,7 @@ export default function ConsultationTab() {
   const hasFutureUnbookedSlot = (slots: any[] = []) => {
     return slots.some((slot) => {
       if (!slot || slot.isBooked || !slot.startTime || !slot.date) return false;
-      try {
-        const [hour, minute] = slot.startTime.split(":").map(Number);
-        const dateObj = new Date(slot.date);
-        const slotDateTime = new Date(
-          dateObj.getFullYear(),
-          dateObj.getMonth(),
-          dateObj.getDate(),
-          hour,
-          minute
-        );
-        return slotDateTime.getTime() > Date.now();
-      } catch {
-        return false;
-      }
+      return isFutureConsultationSlot(slot);
     });
   };
 

@@ -25,22 +25,10 @@ import { Page } from "@/components/Page";
 import { useBookings } from "@/hooks/useBookings";
 import { APP_BACK_INTENT_EVENT } from "@/navigation/back";
 import type { ConsultationOrder } from "@/types/consultationOrder";
-import type { Booking } from "@/types/booking";
-
-const getSlotWindowState = (slot: Booking["slot"]) => {
-  try {
-    const slotDate = slot.date.split("T")[0];
-    const start = new Date(`${slotDate}T${slot.startTime}:00`);
-    const end = new Date(`${slotDate}T${slot.endTime}:00`);
-    const now = new Date();
-
-    if (now < start) return "upcoming" as const;
-    if (now > end) return "ended" as const;
-    return "active" as const;
-  } catch {
-    return "unknown" as const;
-  }
-};
+import {
+  getConsultationSlotRemainingMs,
+  getConsultationSlotWindowState,
+} from "@/utils/consultationTime";
 
 const getReadableMediaError = (
   error: unknown,
@@ -167,7 +155,7 @@ const ChatScreen = () => {
       doctorId &&
       (selectedBooking.expertId !== doctorId || selectedBooking.parentId !== currentUserId),
   );
-  const slotWindowState = selectedBooking ? getSlotWindowState(selectedBooking.slot) : "unknown";
+  const slotWindowState = selectedBooking ? getConsultationSlotWindowState(selectedBooking.slot) : "unknown";
   const isConfirmedBooking = selectedOrder?.status === "CONFIRMED";
   const consultationType = selectedOrder?.consultationType ?? null;
   const canSendMessages =
@@ -243,7 +231,7 @@ const ChatScreen = () => {
     }
 
     const checkActiveSlot = () => {
-      const isActive = getSlotWindowState(selectedBooking.slot) === "active";
+      const isActive = getConsultationSlotWindowState(selectedBooking.slot) === "active";
       setActiveSlotBooking(isActive ? selectedBooking : null);
     };
 
@@ -258,20 +246,16 @@ const ChatScreen = () => {
     if (!activeSlotBooking || !activeSlotBooking.slot) return;
 
     const slot = activeSlotBooking.slot;
-    const end = new Date(`${slot.date.split("T")[0]}T${slot.endTime}:00`);
-
     const updateCountdown = () => {
-      const now = new Date();
-      const diffMs = end.getTime() - now.getTime();
-
+      const diffMs = getConsultationSlotRemainingMs(slot);
       if (diffMs <= 0) {
         setCountdown("00:00");
         if (isConnected) leaveRoom();
         return;
       }
 
-      const minutes = Math.floor(diffMs / 1000 / 60);
-      const seconds = Math.floor((diffMs / 1000) % 60);
+      const minutes = Math.max(0, Math.floor(diffMs / 1000 / 60));
+      const seconds = Math.max(0, Math.floor((diffMs / 1000) % 60));
       setCountdown(
         `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
           2,

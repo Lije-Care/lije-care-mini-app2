@@ -6,6 +6,10 @@ import { Spinner, Button } from "@telegram-apps/telegram-ui";
 import { Page } from "@/components/Page";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import {
+  compareConsultationSlots,
+  isFutureConsultationSlot,
+} from "@/utils/consultationTime";
 import { FaPlus } from "react-icons/fa";
 
 export default function DoctorDetailPage() {
@@ -188,48 +192,9 @@ export default function DoctorDetailPage() {
                     .filter((slot) => {
                       if (slot.isBooked || !slot.startTime || !slot.date)
                         return false;
-
-                      try {
-                        const [hour, minute] = slot.startTime
-                          .split(":")
-                          .map(Number);
-                        const dateObj = new Date(slot.date);
-                        const slotDateTime = new Date(
-                          dateObj.getFullYear(),
-                          dateObj.getMonth(),
-                          dateObj.getDate(),
-                          hour,
-                          minute
-                        );
-
-                        return slotDateTime.getTime() > Date.now();
-                      } catch {
-                        return false;
-                      }
+                      return isFutureConsultationSlot(slot);
                     })
-                    .sort((a, b) => {
-                      const [ah, am] = a.startTime.split(":").map(Number);
-                      const [bh, bm] = b.startTime.split(":").map(Number);
-                      const ad = new Date(a.date);
-                      const bd = new Date(b.date);
-
-                      const aTime = new Date(
-                        ad.getFullYear(),
-                        ad.getMonth(),
-                        ad.getDate(),
-                        ah,
-                        am
-                      );
-                      const bTime = new Date(
-                        bd.getFullYear(),
-                        bd.getMonth(),
-                        bd.getDate(),
-                        bh,
-                        bm
-                      );
-
-                      return aTime.getTime() - bTime.getTime();
-                    })
+                    .sort(compareConsultationSlots)
                     .map((slot) => (
                       <option key={slot.id} value={slot.id}>
                         {slot.date.split("T")[0]} - {slot.startTime} to{" "}

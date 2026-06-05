@@ -12,6 +12,11 @@ import type { AvailabilitySlot } from '@/types/specialist';
 import type { Booking } from '@/types/booking';
 import type { ConsultationOrder } from '@/types/consultationOrder';
 import i18n from '@/i18n/i18n';
+import {
+  compareConsultationSlots,
+  getConsultationSlotWindowState,
+  isFutureConsultationSlot,
+} from '@/utils/consultationTime';
 
 const getDateKey = (isoDate: string) => isoDate.split('T')[0];
 
@@ -94,38 +99,6 @@ const CONSULTATION_TYPE_TO_MODE: Record<'TEXT' | 'AUDIO' | 'VIDEO', 'Text' | 'Au
   VIDEO: 'Video',
 };
 
-const isFutureSlot = (slot: AvailabilitySlot) => {
-  try {
-    const [hour, minute] = slot.startTime.split(':').map(Number);
-    const date = new Date(slot.date);
-    const slotDateTime = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      hour,
-      minute,
-    );
-    return slotDateTime.getTime() > Date.now();
-  } catch {
-    return false;
-  }
-};
-
-const getSlotWindowState = (slot: Booking['slot']) => {
-  try {
-    const slotDate = slot.date.split('T')[0];
-    const start = new Date(`${slotDate}T${slot.startTime}:00`);
-    const end = new Date(`${slotDate}T${slot.endTime}:00`);
-    const now = new Date();
-
-    if (now < start) return 'upcoming' as const;
-    if (now > end) return 'ended' as const;
-    return 'active' as const;
-  } catch {
-    return 'unknown' as const;
-  }
-};
-
 const getActionAvailability = (
   order: ConsultationOrder | undefined,
   slot: Booking['slot'],
@@ -147,7 +120,7 @@ const getActionAvailability = (
     return { enabled: false, reason: 'This action is not included in the booked consultation type.' };
   }
 
-  const windowState = getSlotWindowState(slot);
+  const windowState = getConsultationSlotWindowState(slot);
   if (windowState === 'upcoming') {
     return { enabled: false, reason: 'This consultation will open when the booked time starts.' };
   }
@@ -256,12 +229,8 @@ const CallCenterView: React.FC = () => {
   });
 
   const availableSlots = availabilitySlots
-    .filter((slot) => !slot.isBooked && slot.startTime && slot.date && isFutureSlot(slot))
-    .sort((a, b) => {
-      const aDateTime = new Date(`${getDateKey(a.date)}T${a.startTime}`);
-      const bDateTime = new Date(`${getDateKey(b.date)}T${b.startTime}`);
-      return aDateTime.getTime() - bDateTime.getTime();
-    });
+    .filter((slot) => !slot.isBooked && slot.startTime && slot.date && isFutureConsultationSlot(slot))
+    .sort(compareConsultationSlots);
 
   const dateOptions = availableSlots.reduce<Array<ReturnType<typeof formatDateOption>>>((acc, slot) => {
     const option = formatDateOption(slot.date);
@@ -281,12 +250,8 @@ const CallCenterView: React.FC = () => {
       const response = await api.get<AvailabilitySlot[]>(`/availability/find-availability/${expertId}`);
       const slots = response.data ?? [];
       const nextAvailableSlots = slots
-        .filter((slot) => !slot.isBooked && slot.startTime && slot.date && isFutureSlot(slot))
-        .sort((a, b) => {
-          const aDateTime = new Date(`${getDateKey(a.date)}T${a.startTime}`);
-          const bDateTime = new Date(`${getDateKey(b.date)}T${b.startTime}`);
-          return aDateTime.getTime() - bDateTime.getTime();
-        });
+        .filter((slot) => !slot.isBooked && slot.startTime && slot.date && isFutureConsultationSlot(slot))
+        .sort(compareConsultationSlots);
 
       setAvailabilitySlots(nextAvailableSlots);
       setBookingStep('selection');
@@ -445,7 +410,7 @@ const CallCenterView: React.FC = () => {
             bookings.map((booking) => {
               const order = consultationOrders.find(o => o.bookingId === booking.id);
               const sessionMode = order ? CONSULTATION_TYPE_TO_MODE[order.consultationType] : null;
-              const windowState = getSlotWindowState(booking.slot);
+              const windowState = getConsultationSlotWindowState(booking.slot);
               const isActive = windowState === 'active';
               const textAction = getActionAvailability(order, booking.slot, 'TEXT');
               const audioAction = getActionAvailability(order, booking.slot, 'AUDIO');
