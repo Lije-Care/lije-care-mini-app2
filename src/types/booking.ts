@@ -4,13 +4,15 @@ export interface Booking {
     slotId: string;
     parentId: string;
     expertId: string;
-    userPackageId: string;
+    userPackageId?: string;
     createdAt: string;
     status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'; // extend as needed
+    consultationTimeZone?: string;
+    sessionWindowState?: 'upcoming' | 'active' | 'ended' | 'unknown';
     parent: Parent;
     expert: Expert;
     slot: Slot;
-    userPackage: UserPackage;
+    userPackage?: UserPackage;
   }
   
   export interface Parent {
@@ -30,7 +32,7 @@ export interface Booking {
     deletedAt: string | null;
   }
   
-  export interface Expert {
+export interface Expert {
     id: string;
     telegram_username: string | null;
     firstName: string;
@@ -45,6 +47,9 @@ export interface Booking {
     createdAt: string;
     updatedAt: string;
     deletedAt: string | null;
+    SpecialistProfile?: {
+      timeZone?: string | null;
+    } | null;
   }
   
   export interface Slot {

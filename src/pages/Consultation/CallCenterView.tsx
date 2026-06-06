@@ -14,7 +14,7 @@ import type { ConsultationOrder } from '@/types/consultationOrder';
 import i18n from '@/i18n/i18n';
 import {
   compareConsultationSlots,
-  getConsultationSlotWindowState,
+  getBookingSessionWindowState,
   isFutureConsultationSlot,
 } from '@/utils/consultationTime';
 
@@ -62,8 +62,13 @@ const getOrderStatusLabel = (status: string): string => {
 const SUPPORT_PHONE: string = (import.meta.env.VITE_SUPPORT_PHONE as string | undefined) ?? '';
 const SUPPORT_AGENT_ID: string = (import.meta.env.VITE_SUPPORT_AGENT_ID as string | undefined) ?? '';
 
+const parseCalendarDate = (isoDate: string) => {
+  const [year = '1970', month = '01', day = '01'] = getDateKey(isoDate).split('-');
+  return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0);
+};
+
 const formatDateOption = (isoDate: string) => {
-  const date = new Date(isoDate);
+  const date = parseCalendarDate(isoDate);
   return {
     id: getDateKey(isoDate),
     full: date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
@@ -101,7 +106,7 @@ const CONSULTATION_TYPE_TO_MODE: Record<'TEXT' | 'AUDIO' | 'VIDEO', 'Text' | 'Au
 
 const getActionAvailability = (
   order: ConsultationOrder | undefined,
-  slot: Booking['slot'],
+  booking: Pick<Booking, 'slot' | 'consultationTimeZone' | 'sessionWindowState'>,
   actionType: 'TEXT' | 'AUDIO' | 'VIDEO',
 ) => {
   if (!order) {
@@ -120,13 +125,17 @@ const getActionAvailability = (
     return { enabled: false, reason: 'This action is not included in the booked consultation type.' };
   }
 
-  const windowState = getConsultationSlotWindowState(slot);
+  const windowState = getBookingSessionWindowState(booking);
   if (windowState === 'upcoming') {
     return { enabled: false, reason: 'This consultation will open when the booked time starts.' };
   }
 
   if (windowState === 'ended') {
     return { enabled: false, reason: 'This consultation time has ended.' };
+  }
+
+  if (windowState !== 'active') {
+    return { enabled: false, reason: 'This consultation is unavailable right now.' };
   }
 
   return { enabled: true, reason: '' };
@@ -410,11 +419,11 @@ const CallCenterView: React.FC = () => {
             bookings.map((booking) => {
               const order = consultationOrders.find(o => o.bookingId === booking.id);
               const sessionMode = order ? CONSULTATION_TYPE_TO_MODE[order.consultationType] : null;
-              const windowState = getConsultationSlotWindowState(booking.slot);
+              const windowState = getBookingSessionWindowState(booking);
               const isActive = windowState === 'active';
-              const textAction = getActionAvailability(order, booking.slot, 'TEXT');
-              const audioAction = getActionAvailability(order, booking.slot, 'AUDIO');
-              const videoAction = getActionAvailability(order, booking.slot, 'VIDEO');
+              const textAction = getActionAvailability(order, booking, 'TEXT');
+              const audioAction = getActionAvailability(order, booking, 'AUDIO');
+              const videoAction = getActionAvailability(order, booking, 'VIDEO');
               return (
                 <div key={booking.id} className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden">
                   {isActive && (
@@ -457,7 +466,7 @@ const CallCenterView: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('Date & Time')}</span>
                       <span className="text-xs font-black text-slate-700">
-                        {formatDateOption(booking.slot.date).full} • {formatDisplayTime(booking.slot.startTime)}
+                        {formatDateOption(booking.slot.date).full} • {formatDisplayTime(booking.slot.startTime)} - {formatDisplayTime(booking.slot.endTime)}
                       </span>
                     </div>
                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -484,7 +493,7 @@ const CallCenterView: React.FC = () => {
                     </button>
                     <button
                       disabled={!audioAction.enabled}
-                      onClick={() => navigate(`/chat/${booking.expert.id}?bookingId=${booking.id}&actionType=AUDIO`)}
+                      onClick={() => navigate(`/session-call/${booking.expert.id}?bookingId=${booking.id}&actionType=AUDIO`)}
                       title={audioAction.reason ? t(audioAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
                         audioAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
@@ -494,7 +503,7 @@ const CallCenterView: React.FC = () => {
                     </button>
                     <button
                       disabled={!videoAction.enabled}
-                      onClick={() => navigate(`/chat/${booking.expert.id}?bookingId=${booking.id}&actionType=VIDEO`)}
+                      onClick={() => navigate(`/session-call/${booking.expert.id}?bookingId=${booking.id}&actionType=VIDEO`)}
                       title={videoAction.reason ? t(videoAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
                         videoAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'

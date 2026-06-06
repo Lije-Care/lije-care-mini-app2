@@ -81,6 +81,19 @@ export const getConsultationSlotWindowState = (
   }
 };
 
+export const getBookingSessionWindowState = (
+  booking: Pick<Booking, "slot" | "consultationTimeZone" | "sessionWindowState">,
+) => {
+  if (booking.sessionWindowState && booking.sessionWindowState !== "unknown") {
+    return booking.sessionWindowState;
+  }
+
+  return getConsultationSlotWindowState(
+    booking.slot,
+    booking.consultationTimeZone || DEFAULT_CONSULTATION_TIME_ZONE,
+  );
+};
+
 export const getConsultationSlotRemainingMs = (
   slot: Pick<Booking["slot"], "date" | "startTime" | "endTime">,
   timeZone = DEFAULT_CONSULTATION_TIME_ZONE,

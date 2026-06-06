@@ -27,7 +27,7 @@ import ProfileOverlay from "@/components/ProfileOverlay";
 const MealComponent = lazy(() => import("@/pages/meal/MealPlan"));
 const MealPlanSummary = lazy(() => import("@/pages/meal/MealPlanSummary"));
 const EditMealPlan = lazy(() => import("@/pages/meal/EditMealPLan"));
-const VideoCall = lazy(() => import("@/pages/Consultation/VideoCall"));
+const SessionCallPage = lazy(() => import("@/pages/Consultation/SessionCallPage"));
 const MealDetails = lazy(() => import("@/pages/meal/MealView"));
 const ArticlesPage = lazy(() => import("@/pages/knowledgebase/ArticleSlider"));
 const ArticleDetail = lazy(() => import("@/pages/knowledgebase/ArticleDetail"));
@@ -309,11 +309,11 @@ export function App() {
                 }
               />
               <Route
-                path="/video-call"
+                path="/session-call/:doctorId"
                 element={
                   <AuthGate>
                     <ProtectedRoute>
-                      <VideoCall />
+                      <SessionCallPage />
                     </ProtectedRoute>
                   </AuthGate>
                 }

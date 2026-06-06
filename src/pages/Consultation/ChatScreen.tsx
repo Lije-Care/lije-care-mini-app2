@@ -26,8 +26,8 @@ import { useBookings } from "@/hooks/useBookings";
 import { APP_BACK_INTENT_EVENT } from "@/navigation/back";
 import type { ConsultationOrder } from "@/types/consultationOrder";
 import {
+  getBookingSessionWindowState,
   getConsultationSlotRemainingMs,
-  getConsultationSlotWindowState,
 } from "@/utils/consultationTime";
 
 const getReadableMediaError = (
@@ -155,7 +155,7 @@ const ChatScreen = () => {
       doctorId &&
       (selectedBooking.expertId !== doctorId || selectedBooking.parentId !== currentUserId),
   );
-  const slotWindowState = selectedBooking ? getConsultationSlotWindowState(selectedBooking.slot) : "unknown";
+  const slotWindowState = selectedBooking ? getBookingSessionWindowState(selectedBooking) : "unknown";
   const isConfirmedBooking = selectedOrder?.status === "CONFIRMED";
   const consultationType = selectedOrder?.consultationType ?? null;
   const canSendMessages =
@@ -173,6 +173,19 @@ const ChatScreen = () => {
     (consultationType === "AUDIO" || consultationType === "VIDEO") &&
     slotWindowState === "active";
   const isReadOnlyChat = isSessionScopedChat && !canSendMessages;
+
+  useEffect(() => {
+    if (
+      bookingId &&
+      doctorId &&
+      (requestedActionType === "AUDIO" || requestedActionType === "VIDEO")
+    ) {
+      navigate(
+        `/session-call/${doctorId}?bookingId=${bookingId}&actionType=${requestedActionType}`,
+        { replace: true },
+      );
+    }
+  }, [bookingId, doctorId, navigate, requestedActionType]);
 
   const hmsActions = useHMSActions();
   const isConnected = useHMSStore(selectIsConnectedToRoom);
@@ -231,7 +244,7 @@ const ChatScreen = () => {
     }
 
     const checkActiveSlot = () => {
-      const isActive = getConsultationSlotWindowState(selectedBooking.slot) === "active";
+      const isActive = getBookingSessionWindowState(selectedBooking) === "active";
       setActiveSlotBooking(isActive ? selectedBooking : null);
     };
 
@@ -247,7 +260,10 @@ const ChatScreen = () => {
 
     const slot = activeSlotBooking.slot;
     const updateCountdown = () => {
-      const diffMs = getConsultationSlotRemainingMs(slot);
+      const diffMs = getConsultationSlotRemainingMs(
+        slot,
+        activeSlotBooking.consultationTimeZone,
+      );
       if (diffMs <= 0) {
         setCountdown("00:00");
         if (isConnected) leaveRoom();
