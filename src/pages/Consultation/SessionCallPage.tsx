@@ -26,6 +26,72 @@ import {
   getConsultationSlotRemainingMs,
 } from "@/utils/consultationTime";
 
+const getReadableMediaError = (
+  error: unknown,
+  consultationType: "AUDIO" | "VIDEO" | null,
+  t: (key: string) => string,
+) => {
+  const fallback =
+    consultationType === "VIDEO"
+      ? t("Camera or microphone access is blocked. Please allow access and try again.")
+      : t("Microphone access is blocked. Please allow access and try again.");
+
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  const normalized = `${error.name} ${error.message}`.toLowerCase();
+
+  if (
+    normalized.includes("notallowederror") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("permission dismissed") ||
+    normalized.includes("denied permission")
+  ) {
+    return consultationType === "VIDEO"
+      ? t("Camera or microphone permission was denied. Please allow both in your browser settings and try again.")
+      : t("Microphone permission was denied. Please allow it in your browser settings and try again.");
+  }
+
+  if (
+    normalized.includes("notfounderror") ||
+    normalized.includes("devicesnotfounderror") ||
+    normalized.includes("requested device not found")
+  ) {
+    return consultationType === "VIDEO"
+      ? t("No camera or microphone was found on this device.")
+      : t("No microphone was found on this device.");
+  }
+
+  if (
+    normalized.includes("notreadableerror") ||
+    normalized.includes("trackstarterror") ||
+    normalized.includes("could not start video source")
+  ) {
+    return consultationType === "VIDEO"
+      ? t("Camera or microphone is busy in another app. Close the other app and try again.")
+      : t("Microphone is busy in another app. Close the other app and try again.");
+  }
+
+  if (
+    normalized.includes("overconstrainederror") ||
+    normalized.includes("constraint")
+  ) {
+    return consultationType === "VIDEO"
+      ? t("This device could not satisfy the requested camera or microphone settings.")
+      : t("This device could not satisfy the requested microphone settings.");
+  }
+
+  if (
+    normalized.includes("notsupportederror") ||
+    normalized.includes("media devices api unavailable")
+  ) {
+    return t("Your device does not support in-app audio/video permissions.");
+  }
+
+  return error.message || fallback;
+};
+
 const SessionCallPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -55,6 +121,10 @@ const SessionCallPage = () => {
     ? consultationOrders.find((order) => order.bookingId === bookingId)
     : null;
   const consultationType = selectedOrder?.consultationType ?? requestedActionType;
+  const callConsultationType =
+    consultationType === "AUDIO" || consultationType === "VIDEO"
+      ? consultationType
+      : requestedActionType;
   const slotWindowState = selectedBooking
     ? getBookingSessionWindowState(selectedBooking)
     : "unknown";
@@ -181,14 +251,30 @@ const SessionCallPage = () => {
         await hmsActions.setLocalAudioEnabled(true);
         await hmsActions.setLocalVideoEnabled(consultationType === "VIDEO");
       } catch (error) {
-        const nextMessage =
-          error instanceof Error ? error.message : t("Failed to update call media.");
+        const nextMessage = getReadableMediaError(error, callConsultationType, t);
         setMediaError(nextMessage);
       }
     };
 
     void syncPublishedTracks();
-  }, [consultationType, hmsActions, isConnected, t]);
+  }, [callConsultationType, hmsActions, isConnected, t]);
+
+  const requestDeviceAccess = async () => {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      throw new Error(t("Your device does not support in-app audio/video permissions."));
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: callConsultationType === "VIDEO",
+    });
+
+    stream.getTracks().forEach((track) => track.stop());
+  };
 
   const joinRoom = async () => {
     if (!canJoinCall || !guestVideoRoomCode) {
@@ -202,6 +288,7 @@ const SessionCallPage = () => {
     try {
       setIsJoiningCall(true);
       setMediaError(null);
+      await requestDeviceAccess();
       const authToken = await hmsActions.getAuthTokenByRoomCode({
         roomCode: guestVideoRoomCode,
       });
@@ -210,8 +297,7 @@ const SessionCallPage = () => {
         authToken,
       });
     } catch (error) {
-      const nextMessage =
-        error instanceof Error ? error.message : t("Failed to join video call. Please try again.");
+      const nextMessage = getReadableMediaError(error, callConsultationType, t);
       setMediaError(nextMessage);
     } finally {
       setIsJoiningCall(false);
@@ -226,22 +312,24 @@ const SessionCallPage = () => {
   const toggleAudio = async () => {
     try {
       setMediaError(null);
+      if (!isAudioOn) {
+        await requestDeviceAccess();
+      }
       await hmsActions.setLocalAudioEnabled(!isAudioOn);
     } catch (error) {
-      setMediaError(
-        error instanceof Error ? error.message : t("Failed to update microphone."),
-      );
+      setMediaError(getReadableMediaError(error, "AUDIO", t));
     }
   };
 
   const toggleVideo = async () => {
     try {
       setMediaError(null);
+      if (!isVideoOn) {
+        await requestDeviceAccess();
+      }
       await hmsActions.setLocalVideoEnabled(!isVideoOn);
     } catch (error) {
-      setMediaError(
-        error instanceof Error ? error.message : t("Failed to update camera."),
-      );
+      setMediaError(getReadableMediaError(error, "VIDEO", t));
     }
   };
 
