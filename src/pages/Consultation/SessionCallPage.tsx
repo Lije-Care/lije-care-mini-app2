@@ -242,23 +242,6 @@ const SessionCallPage = () => {
     };
   }, [hmsActions, isConnected]);
 
-  useEffect(() => {
-    if (!isConnected || !consultationType) return;
-
-    const syncPublishedTracks = async () => {
-      try {
-        setMediaError(null);
-        await hmsActions.setLocalAudioEnabled(true);
-        await hmsActions.setLocalVideoEnabled(consultationType === "VIDEO");
-      } catch (error) {
-        const nextMessage = getReadableMediaError(error, callConsultationType, t);
-        setMediaError(nextMessage);
-      }
-    };
-
-    void syncPublishedTracks();
-  }, [callConsultationType, hmsActions, isConnected, t]);
-
   const ensureMediaSupport = () => {
     if (
       typeof navigator === "undefined" ||
