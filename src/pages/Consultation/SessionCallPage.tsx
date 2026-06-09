@@ -259,7 +259,7 @@ const SessionCallPage = () => {
     void syncPublishedTracks();
   }, [callConsultationType, hmsActions, isConnected, t]);
 
-  const requestDeviceAccess = async () => {
+  const ensureMediaSupport = () => {
     if (
       typeof navigator === "undefined" ||
       !navigator.mediaDevices ||
@@ -267,13 +267,6 @@ const SessionCallPage = () => {
     ) {
       throw new Error(t("Your device does not support in-app audio/video permissions."));
     }
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: callConsultationType === "VIDEO",
-    });
-
-    stream.getTracks().forEach((track) => track.stop());
   };
 
   const joinRoom = async () => {
@@ -288,7 +281,7 @@ const SessionCallPage = () => {
     try {
       setIsJoiningCall(true);
       setMediaError(null);
-      await requestDeviceAccess();
+      ensureMediaSupport();
       const authToken = await hmsActions.getAuthTokenByRoomCode({
         roomCode: guestVideoRoomCode,
       });
@@ -312,9 +305,6 @@ const SessionCallPage = () => {
   const toggleAudio = async () => {
     try {
       setMediaError(null);
-      if (!isAudioOn) {
-        await requestDeviceAccess();
-      }
       await hmsActions.setLocalAudioEnabled(!isAudioOn);
     } catch (error) {
       setMediaError(getReadableMediaError(error, "AUDIO", t));
@@ -324,9 +314,6 @@ const SessionCallPage = () => {
   const toggleVideo = async () => {
     try {
       setMediaError(null);
-      if (!isVideoOn) {
-        await requestDeviceAccess();
-      }
       await hmsActions.setLocalVideoEnabled(!isVideoOn);
     } catch (error) {
       setMediaError(getReadableMediaError(error, "VIDEO", t));
