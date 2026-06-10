@@ -142,6 +142,11 @@ const SessionCallPage = () => {
   const hasWebRTCSupport =
     typeof window !== "undefined" &&
     typeof (window as Window & { RTCPeerConnection?: unknown }).RTCPeerConnection !== "undefined";
+  const isTelegramWebView =
+    typeof window !== "undefined" &&
+    typeof (window as Window & { Telegram?: unknown }).Telegram !== "undefined";
+  const shouldPreferExternalBrowser =
+    consultationType === "VIDEO" && isTelegramWebView;
 
   const hmsActions = useHMSActions();
   const isConnected = useHMSStore(selectIsConnectedToRoom);
@@ -286,17 +291,47 @@ const SessionCallPage = () => {
   };
 
   const openInBrowser = () => {
-    const url = window.location.href;
+    const url = new URL(window.location.href);
+    const accessToken = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+    const storedUser = localStorage.getItem("user");
+    const hasChildren = localStorage.getItem("has_children");
+    const onboardingCompleted = localStorage.getItem("onboarding_completed");
+    const hashValue = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+    const [hashPath, hashSearch = ""] = hashValue.split("?");
+    const hashParams = new URLSearchParams(hashSearch);
+
+    if (accessToken) {
+      hashParams.set("browserAuthToken", accessToken);
+    }
+
+    if (refreshToken) {
+      hashParams.set("browserRefreshToken", refreshToken);
+    }
+
+    if (storedUser) {
+      hashParams.set("browserUser", encodeURIComponent(storedUser));
+    }
+
+    if (hasChildren) {
+      hashParams.set("browserHasChildren", hasChildren);
+    }
+
+    if (onboardingCompleted) {
+      hashParams.set("browserOnboardingCompleted", onboardingCompleted);
+    }
+
+    url.hash = `${hashPath}?${hashParams.toString()}`;
     const telegramOpenLink = (window as Window & {
       Telegram?: { WebApp?: { openLink?: (href: string) => void } };
     }).Telegram?.WebApp?.openLink;
 
     if (telegramOpenLink) {
-      telegramOpenLink(url);
+      telegramOpenLink(url.toString());
       return;
     }
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
 
   const joinRoom = async () => {
@@ -404,11 +439,20 @@ const SessionCallPage = () => {
               <p className="text-sm text-slate-300 leading-relaxed">
                 {mediaError || roomAccessError || callStateMessage || t("Join when your consultation window is active.")}
               </p>
-              {!hasWebRTCSupport ? (
+              {shouldPreferExternalBrowser ? (
+                <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-100">
+                  {t("Telegram's in-app browser can interrupt video calls on some phones. If the call closes after permissions, open it in your external browser.")}
+                </div>
+              ) : null}
+              {!hasWebRTCSupport || shouldPreferExternalBrowser ? (
                 <button
                   type="button"
                   onClick={openInBrowser}
-                  className="mt-4 w-full rounded-2xl border border-white/15 px-5 py-4 font-black text-white"
+                  className={`w-full rounded-2xl px-5 py-4 font-black ${
+                    shouldPreferExternalBrowser
+                      ? "mt-6 bg-emerald-400 text-slate-950"
+                      : "mt-4 border border-white/15 text-white"
+                  }`}
                 >
                   {t("Open Call in Browser")}
                 </button>
@@ -417,7 +461,9 @@ const SessionCallPage = () => {
                 type="button"
                 onClick={() => void joinRoom()}
                 disabled={!hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall}
-                className={`mt-8 w-full rounded-2xl px-5 py-4 font-black transition ${
+                className={`w-full rounded-2xl px-5 py-4 font-black transition ${
+                  shouldPreferExternalBrowser ? "mt-4" : "mt-8"
+                } ${
                   !hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall
                     ? "bg-white/10 text-slate-500 cursor-not-allowed"
                     : "bg-emerald-400 text-slate-950"

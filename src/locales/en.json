@@ -697,6 +697,7 @@
   "In-app calling is not supported in this Telegram browser. Open the call in your external browser.": "In-app calling is not supported in this Telegram browser. Open the call in your external browser.",
   "Open Call in Browser": "Open Call in Browser",
   "The call connection was interrupted. Please try again or open the call in your external browser.": "The call connection was interrupted. Please try again or open the call in your external browser.",
+  "Telegram's in-app browser can interrupt video calls on some phones. If the call closes after permissions, open it in your external browser.": "Telegram's in-app browser can interrupt video calls on some phones. If the call closes after permissions, open it in your external browser.",
   "You": "You",
   "You are using too old Telegram client to run this application": "You are using too old Telegram client to run this application",
   "You're ready to go": "You're ready to go",

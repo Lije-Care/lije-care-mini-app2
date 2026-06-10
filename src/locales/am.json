@@ -712,6 +712,7 @@
   "In-app calling is not supported in this Telegram browser. Open the call in your external browser.": "በዚህ የTelegram አሳሽ ውስጥ የመተግበሪያ ውስጥ ጥሪ አይደገፍም። ጥሪውን በውጫዊ አሳሽዎ ውስጥ ይክፈቱ።",
   "Open Call in Browser": "ጥሪውን በአሳሽ ይክፈቱ",
   "The call connection was interrupted. Please try again or open the call in your external browser.": "የጥሪው ግንኙነት ተቋርጧል። እባክዎ ደግመው ይሞክሩ ወይም ጥሪውን በውጫዊ አሳሽዎ ውስጥ ይክፈቱ።",
+  "Telegram's in-app browser can interrupt video calls on some phones. If the call closes after permissions, open it in your external browser.": "የቴሌግራም ውስጣዊ አሳሽ በአንዳንድ ስልኮች ላይ የቪዲዮ ጥሪን ሊያቋርጥ ይችላል። ጥሪው ከፈቃድ በኋላ ከተዘጋ በውጫዊ አሳሽ ይክፈቱት።",
   "You": "እርስዎ",
   "You are using too old Telegram client to run this application": "ይህን መተግበሪያ ለማስኬድ በጣም አሮጌ የTelegram ክላይንት እየተጠቀሙ ነው",
   "You're ready to go": "ለመጀመር ዝግጁ ነዎት",
