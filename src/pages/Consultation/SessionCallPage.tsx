@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -111,6 +111,8 @@ const SessionCallPage = () => {
   const [isLoadingRoom, setIsLoadingRoom] = useState(false);
   const [isJoiningCall, setIsJoiningCall] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
+  const hasAttemptedJoinRef = useRef(false);
+  const wasConnectedRef = useRef(false);
 
   const telegramUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = telegramUser?.id;
@@ -137,6 +139,9 @@ const SessionCallPage = () => {
     isConfirmedBooking &&
     (consultationType === "AUDIO" || consultationType === "VIDEO") &&
     slotWindowState === "active";
+  const hasWebRTCSupport =
+    typeof window !== "undefined" &&
+    typeof (window as Window & { RTCPeerConnection?: unknown }).RTCPeerConnection !== "undefined";
 
   const hmsActions = useHMSActions();
   const isConnected = useHMSStore(selectIsConnectedToRoom);
@@ -242,7 +247,35 @@ const SessionCallPage = () => {
     };
   }, [hmsActions, isConnected]);
 
+  useEffect(() => {
+    if (isConnected) {
+      wasConnectedRef.current = true;
+      setRoomAccessError(null);
+      return;
+    }
+
+    if (hasAttemptedJoinRef.current && wasConnectedRef.current) {
+      setMediaError(
+        t(
+          "The call connection was interrupted. Please try again or open the call in your external browser.",
+        ),
+      );
+      void hmsActions.leave().catch(() => undefined);
+      hasAttemptedJoinRef.current = false;
+      wasConnectedRef.current = false;
+    }
+  }, [hmsActions, isConnected, t]);
+
   const ensureMediaSupport = () => {
+    if (
+      typeof window === "undefined" ||
+      typeof (window as Window & { RTCPeerConnection?: unknown }).RTCPeerConnection === "undefined"
+    ) {
+      throw new Error(
+        t("In-app calling is not supported in this Telegram browser. Open the call in your external browser."),
+      );
+    }
+
     if (
       typeof navigator === "undefined" ||
       !navigator.mediaDevices ||
@@ -250,6 +283,20 @@ const SessionCallPage = () => {
     ) {
       throw new Error(t("Your device does not support in-app audio/video permissions."));
     }
+  };
+
+  const openInBrowser = () => {
+    const url = window.location.href;
+    const telegramOpenLink = (window as Window & {
+      Telegram?: { WebApp?: { openLink?: (href: string) => void } };
+    }).Telegram?.WebApp?.openLink;
+
+    if (telegramOpenLink) {
+      telegramOpenLink(url);
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const joinRoom = async () => {
@@ -264,6 +311,8 @@ const SessionCallPage = () => {
     try {
       setIsJoiningCall(true);
       setMediaError(null);
+      hasAttemptedJoinRef.current = true;
+      wasConnectedRef.current = false;
       ensureMediaSupport();
       const authToken = await hmsActions.getAuthTokenByRoomCode({
         roomCode: guestVideoRoomCode,
@@ -273,6 +322,8 @@ const SessionCallPage = () => {
         authToken,
       });
     } catch (error) {
+      hasAttemptedJoinRef.current = false;
+      wasConnectedRef.current = false;
       const nextMessage = getReadableMediaError(error, callConsultationType, t);
       setMediaError(nextMessage);
     } finally {
@@ -281,6 +332,8 @@ const SessionCallPage = () => {
   };
 
   const leaveRoom = async () => {
+    hasAttemptedJoinRef.current = false;
+    wasConnectedRef.current = false;
     await hmsActions.leave();
     navigate("/consultation", { replace: true });
   };
@@ -351,12 +404,21 @@ const SessionCallPage = () => {
               <p className="text-sm text-slate-300 leading-relaxed">
                 {mediaError || roomAccessError || callStateMessage || t("Join when your consultation window is active.")}
               </p>
+              {!hasWebRTCSupport ? (
+                <button
+                  type="button"
+                  onClick={openInBrowser}
+                  className="mt-4 w-full rounded-2xl border border-white/15 px-5 py-4 font-black text-white"
+                >
+                  {t("Open Call in Browser")}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void joinRoom()}
-                disabled={!canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall}
+                disabled={!hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall}
                 className={`mt-8 w-full rounded-2xl px-5 py-4 font-black transition ${
-                  !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall
+                  !hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall
                     ? "bg-white/10 text-slate-500 cursor-not-allowed"
                     : "bg-emerald-400 text-slate-950"
                 }`}
