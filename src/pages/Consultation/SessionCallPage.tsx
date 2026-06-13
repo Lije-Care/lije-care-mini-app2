@@ -290,6 +290,15 @@ const SessionCallPage = () => {
     }
   };
 
+  const requestDeviceAccess = async () => {
+    ensureMediaSupport();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: consultationType === "VIDEO",
+    });
+    stream.getTracks().forEach((track) => track.stop());
+  };
+
   const openInBrowser = () => {
     const url = new URL(window.location.href);
     const accessToken = localStorage.getItem("access_token");
@@ -335,6 +344,11 @@ const SessionCallPage = () => {
   };
 
   const joinRoom = async () => {
+    if (shouldPreferExternalBrowser) {
+      openInBrowser();
+      return;
+    }
+
     if (!canJoinCall || !guestVideoRoomCode) {
       setRoomAccessError(
         roomAccessError ||
@@ -348,7 +362,7 @@ const SessionCallPage = () => {
       setMediaError(null);
       hasAttemptedJoinRef.current = true;
       wasConnectedRef.current = false;
-      ensureMediaSupport();
+      await requestDeviceAccess();
       const authToken = await hmsActions.getAuthTokenByRoomCode({
         roomCode: guestVideoRoomCode,
       });
@@ -460,11 +474,17 @@ const SessionCallPage = () => {
               <button
                 type="button"
                 onClick={() => void joinRoom()}
-                disabled={!hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall}
+                disabled={
+                  (!shouldPreferExternalBrowser &&
+                    (!hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall)) ||
+                  (shouldPreferExternalBrowser && (!canJoinCall || isLoadingRoom))
+                }
                 className={`w-full rounded-2xl px-5 py-4 font-black transition ${
                   shouldPreferExternalBrowser ? "mt-4" : "mt-8"
                 } ${
-                  !hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall
+                  ((!shouldPreferExternalBrowser &&
+                    (!hasWebRTCSupport || !canJoinCall || !guestVideoRoomCode || isLoadingRoom || isJoiningCall)) ||
+                    (shouldPreferExternalBrowser && (!canJoinCall || isLoadingRoom)))
                     ? "bg-white/10 text-slate-500 cursor-not-allowed"
                     : "bg-emerald-400 text-slate-950"
                 }`}
@@ -473,7 +493,9 @@ const SessionCallPage = () => {
                   ? t("Loading room...")
                   : isJoiningCall
                     ? t("Joining call...")
-                    : consultationType === "VIDEO"
+                    : shouldPreferExternalBrowser
+                      ? t("Continue in Browser")
+                      : consultationType === "VIDEO"
                       ? t("Join Video Call")
                       : t("Join Audio Call")}
               </button>
