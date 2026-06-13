@@ -24,6 +24,11 @@ interface AssessmentPrompt {
   category: 'development' | 'growth';
 }
 
+interface HomeAiMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 const GROWTH_PROMPT: AssessmentPrompt = {
   id: 'growth-prompt',
   question: 'Update weight & height measurement today?',
@@ -55,7 +60,7 @@ const FALLBACK_PRODUCT = {
 };
 
 const HomeDashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const dailyTip = t(
@@ -65,8 +70,13 @@ const HomeDashboard: React.FC = () => {
   const [promotionsLoading, setPromotionsLoading] = useState(true);
   const [promotionsError, setPromotionsError] = useState('');
   const [promoIndex, setPromoIndex] = useState(0);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<HomeAiMessage[]>([]);
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
   const autoSlideRef = useRef<number | null>(null);
   const articlesScrollRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   // Redux state
   const { products } = useSelector((state: RootState) => state.products);
@@ -76,6 +86,15 @@ const HomeDashboard: React.FC = () => {
 
   const favoriteChildId = localStorage.getItem('favorite_child_id');
   const activeChild = children.find((child) => child.id === favoriteChildId) || children[0];
+  const storedUser =
+    typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  const parentUser = storedUser ? JSON.parse(storedUser) : null;
+  const parentId = parentUser?.id || '';
+  const backendUrl = import.meta.env.VITE_API_URL as string;
+  const activeChildName = activeChild?.name || t('your child');
+  const homeChatStorageKey = activeChild?.id && parentId
+    ? `ai_chat_${parentId}_${activeChild.id}`
+    : null;
 
   const childAgeInMonths = useMemo(
     () => getAgeInMonthsFromDob(activeChild?.date_of_birth),
@@ -191,6 +210,86 @@ const HomeDashboard: React.FC = () => {
     meals.length > 0 ? MEAL_OF_THE_DAY.type : t(MEAL_OF_THE_DAY.type);
   const featuredProductName =
     products.length > 0 ? FEATURED_PRODUCT.name : t(FEATURED_PRODUCT.name);
+  const initialAssistantMessage = t(
+    "Hi! I am Lije Care AI, your personalized parenting companion. I am fully aware of {{childName}}'s growth details, developmental assessments and vaccine records. Ask me anything about diet, purees, milestone support, or simple recipes!",
+    { childName: activeChildName }
+  );
+
+  useEffect(() => {
+    setChatMessages([{ role: 'assistant', content: initialAssistantMessage }]);
+  }, [initialAssistantMessage, activeChild?.id]);
+
+  useEffect(() => {
+    if (!homeChatStorageKey) {
+      setChatId(null);
+      return;
+    }
+
+    const savedChatId = localStorage.getItem(homeChatStorageKey);
+    setChatId(savedChatId || null);
+  }, [homeChatStorageKey]);
+
+  useEffect(() => {
+    chatMessagesRef.current?.scrollTo({
+      top: chatMessagesRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, [chatMessages, isSendingChat]);
+
+  const handleSendHomeChat = async (prefilledText?: string) => {
+    const outgoingText = (prefilledText ?? chatInput).trim();
+
+    if (!outgoingText || !parentId || !activeChild?.id || !backendUrl) {
+      return;
+    }
+
+    setChatMessages((prev) => [
+      ...prev,
+      { role: 'user', content: outgoingText },
+    ]);
+    setIsSendingChat(true);
+    setChatInput('');
+
+    try {
+      const languageLabel = i18n.language === 'am' ? 'Amharic' : 'English';
+      const res = await fetch(`${backendUrl}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: parentId,
+          childId: activeChild.id,
+          chatId,
+          message: `[Reply language: ${languageLabel}] ${outgoingText}`,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(t('Failed to send message'));
+      }
+
+      const data: { reply: string; chatId?: string } = await res.json();
+
+      if (data.chatId) {
+        setChatId(data.chatId);
+        if (homeChatStorageKey) {
+          localStorage.setItem(homeChatStorageKey, data.chatId);
+        }
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.reply },
+      ]);
+    } catch (error) {
+      console.error(error);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: t('Sorry, something went wrong.') },
+      ]);
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8 pb-32 pt-4 px-4 overflow-x-hidden">
@@ -498,6 +597,150 @@ const HomeDashboard: React.FC = () => {
       )}
 
       {/* 6. Daily Tip Section - Parenting Tip */}
+      <section className="bg-white rounded-[2rem] p-5 border border-[#76A13B]/10 shadow-sm flex flex-col gap-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#76A13B]/10 flex items-center justify-center text-lg">
+              🤖
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">{t('Lije Companion AI')}</h3>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {activeChild?.name
+                    ? `${activeChild.name} ${t('Aware Active')}`
+                    : t('Child-Aware AI Active')}
+                </span>
+              </div>
+            </div>
+          </div>
+          {chatMessages.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setChatMessages([{ role: 'assistant', content: initialAssistantMessage }]);
+                setChatId(null);
+                if (homeChatStorageKey) {
+                  localStorage.removeItem(homeChatStorageKey);
+                }
+              }}
+              className="text-[10px] text-rose-500 font-bold uppercase tracking-widest"
+            >
+              {t('Clear Chat')}
+            </button>
+          )}
+        </div>
+
+        <div
+          ref={chatMessagesRef}
+          className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1"
+        >
+          {chatMessages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={`flex flex-col ${
+                message.role === 'user' ? 'items-end' : 'items-start'
+              }`}
+            >
+              <span className="mb-1 px-1 text-[8px] font-black uppercase tracking-widest text-slate-400">
+                {message.role === 'user' ? t('You') : t('Lije Care AI')}
+              </span>
+              <div
+                className={`max-w-[85%] rounded-[1.5rem] px-4 py-3 text-xs font-semibold leading-relaxed shadow-sm ${
+                  message.role === 'user'
+                    ? 'rounded-tr-none bg-[#0B1A12] text-white'
+                    : 'rounded-tl-none border border-slate-100 bg-slate-50 text-slate-700'
+                }`}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))}
+
+          {isSendingChat && (
+            <div className="flex flex-col items-start">
+              <span className="mb-1 px-1 text-[8px] font-black uppercase tracking-widest text-slate-400">
+                {t('Lije Care AI')}
+              </span>
+              <div className="flex items-center gap-2 rounded-[1.5rem] rounded-tl-none border border-slate-100 bg-slate-50 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-[#76A13B]">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0ms' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '150ms' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '300ms' }} />
+                <span>{t('Analyzing stats...')}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar py-1">
+          {[
+            {
+              label: t('Recipe for {{childName}}', { childName: activeChild?.name || t('baby') }),
+              text: `What puree or meal recipe do you suggest for ${activeChild?.name || 'my baby'} based on age?`,
+            },
+            {
+              label: t('Check vaccines'),
+              text: 'Do I have any outstanding or overdue vaccinations I should worry about?',
+            },
+            {
+              label: t('Growth & milestone check'),
+              text: "Can you review my child's growth and developmental trace milestones and suggest customized supportive activities?",
+            },
+          ].map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              disabled={isSendingChat}
+              onClick={() => void handleSendHomeChat(chip.text)}
+              className="flex-shrink-0 rounded-2xl border border-[#76A13B]/10 bg-[#76A13B]/5 px-4 py-2 text-[10px] font-bold text-[#76A13B] disabled:opacity-50"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSendHomeChat();
+          }}
+          className="flex gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-1.5 focus-within:border-[#76A13B]/35"
+        >
+          <input
+            type="text"
+            value={chatInput}
+            disabled={isSendingChat || !activeChild?.id || !parentId}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder={t("Ask about {{childName}}'s health, nutrition...", {
+              childName: activeChild?.name || t('baby'),
+            })}
+            className="flex-1 bg-transparent px-4 py-3 text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={isSendingChat || !chatInput.trim() || !activeChild?.id || !parentId}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1A12] text-white disabled:opacity-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="rotate-90"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </form>
+      </section>
+
       <section>
         <div className="bg-amber-300 rounded-[2rem] p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-200/50 rounded-full -mr-8 -mt-8 blur-2xl"></div>
