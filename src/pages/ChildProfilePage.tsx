@@ -174,8 +174,8 @@ const ChildProfilePage: React.FC = () => {
           <div className="h-full mb-6 px-2 mt-4">
             <h1 className="text-2xl font-bold mb-4">Your Child Assistant</h1>
             <ChatBox
-              userId={childId as string}
-              chatId={childId as string}
+              userId={child?.parentId as string}
+              childId={childId as string}
               backendUrl={import.meta.env.VITE_API_URL}
             />
           </div>

@@ -11,18 +11,37 @@ type Message = {
 
 interface ChatBoxProps {
   userId: string;
-  chatId: string;
+  childId?: string;
+  initialChatId?: string;
   backendUrl: string; // pass NestJS URL as a prop
 }
 
-export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
+export default function ChatBox({
+  userId,
+  childId,
+  initialChatId,
+  backendUrl,
+}: ChatBoxProps) {
   const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const chatStorageKey = childId ? `ai_chat_${userId}_${childId}` : null;
+  const [chatId, setChatId] = useState<string | null>(initialChatId ?? null);
   const parentState = useSelector((state: RootState) => state.parent);
-  const parentId = parentState?.userDetails.id;
+  const fallbackParentId = parentState?.userDetails.id;
+
+  useEffect(() => {
+    if (!chatStorageKey) return;
+    const savedChatId = localStorage.getItem(chatStorageKey);
+    if (savedChatId) {
+      setChatId(savedChatId);
+      return;
+    }
+
+    setChatId(initialChatId ?? null);
+  }, [chatStorageKey, initialChatId]);
 
   // Scroll to bottom when messages change (if user is near bottom)
   useEffect(() => {
@@ -52,7 +71,8 @@ export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: parentId,
+          userId: userId || fallbackParentId,
+          childId,
           chatId,
           message: `[Reply language: ${languageLabel}] ${input}`,
         }),
@@ -60,8 +80,15 @@ export default function ChatBox({ chatId, backendUrl }: ChatBoxProps) {
 
       if (!res.ok) throw new Error(t("Failed to send message"));
 
-      const data: { reply: string } = await res.json();
+      const data: { reply: string; chatId?: string } = await res.json();
       const botMessage: Message = { role: "assistant", content: data.reply };
+
+      if (data.chatId) {
+        setChatId(data.chatId);
+        if (chatStorageKey) {
+          localStorage.setItem(chatStorageKey, data.chatId);
+        }
+      }
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
