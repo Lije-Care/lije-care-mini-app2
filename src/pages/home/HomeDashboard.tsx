@@ -16,12 +16,15 @@ import {
   getAgeInMonthsFromDob,
   getDevelopmentTracePromptsForAge,
 } from '@/data/developmentalMilestones';
+import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
+import { useDevelopmentalAssessments } from '@/hooks/useDevelopmentalAssessments';
 import { motion } from 'framer-motion';
 
 interface AssessmentPrompt {
   id: string;
   question: string;
   category: 'development' | 'growth';
+  answer?: DevAnswer;
 }
 
 interface HomeAiMessage {
@@ -74,6 +77,7 @@ const HomeDashboard: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<HomeAiMessage[]>([]);
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
+  const [recommendationModal, setRecommendationModal] = useState<DetailedAssessment | null>(null);
   const autoSlideRef = useRef<number | null>(null);
   const articlesScrollRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
@@ -100,6 +104,11 @@ const HomeDashboard: React.FC = () => {
     () => getAgeInMonthsFromDob(activeChild?.date_of_birth),
     [activeChild?.date_of_birth]
   );
+  const { developmentalAssessments, markAsAddressed, toggleAnswer } = useDevelopmentalAssessments({
+    ageInMonths: childAgeInMonths,
+    childId: activeChild?.id,
+    onNoAnswer: (assessment) => setRecommendationModal(assessment),
+  });
 
   const assessmentPrompts = useMemo<AssessmentPrompt[]>(() => {
     const developmentPrompts = getDevelopmentTracePromptsForAge(childAgeInMonths, 2).map(
@@ -107,11 +116,14 @@ const HomeDashboard: React.FC = () => {
         id: prompt.id,
         question: prompt.question,
         category: 'development' as const,
+        answer:
+          developmentalAssessments.find((assessment) => assessment.id === prompt.id)?.answer ??
+          'unanswered',
       })
     );
 
     return [...developmentPrompts, GROWTH_PROMPT];
-  }, [childAgeInMonths]);
+  }, [childAgeInMonths, developmentalAssessments]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -336,22 +348,83 @@ const HomeDashboard: React.FC = () => {
                   {t('Add Measurement')}
                 </Button>
               ) : (
-                <div className="flex gap-2">
-                  <button className="flex-1 py-3 bg-slate-50 hover:bg-emerald-50 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                    {t('Status:')}{' '}
+                    {prompt.answer === 'addressed'
+                      ? t('Addressed with Doctor')
+                      : prompt.answer === 'unanswered'
+                        ? t('Not Assessed')
+                        : t(prompt.answer || 'No')}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleAnswer(prompt.id, 'yes')}
+                      className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                        prompt.answer === 'yes'
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'border border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
                     {t('Yes')}
-                  </button>
-                  <button className="flex-1 py-3 bg-slate-50 hover:bg-rose-50 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAnswer(prompt.id, 'no')}
+                      className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                        prompt.answer === 'no'
+                          ? 'bg-rose-600 text-white shadow-md'
+                          : 'border border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
                     {t('No')}
-                  </button>
-                  <button className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl text-sm border border-slate-100 transition-colors">
-                    {t('Not Sure')}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               )}
             </Card>
           ))}
         </div>
       </section>
+
+      {recommendationModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+          <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-rose-50 text-3xl shadow-inner">
+              <span role="img" aria-label={t('Doctor')}>
+                👨‍⚕️
+              </span>
+            </div>
+            <h4 className="mb-3 text-xl font-black text-slate-800">{t('Notice Something?')}</h4>
+            <p className="mb-8 text-sm leading-relaxed text-slate-600">
+              {t(
+                'If you are unsure or ticked "No" for "{{title}}", we recommend consulting with your pediatrician for a professional evaluation.',
+                { title: recommendationModal.title }
+              )}
+            </p>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setRecommendationModal(null)}
+                className="w-full rounded-2xl bg-slate-900 py-4 font-black text-white"
+              >
+                {t('I Understand')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  markAsAddressed(recommendationModal.id);
+                  setRecommendationModal(null);
+                }}
+                className="w-full py-3 font-bold text-sky-500"
+              >
+                {t('Already talked to doctor')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Promotion Section */}
       <section>

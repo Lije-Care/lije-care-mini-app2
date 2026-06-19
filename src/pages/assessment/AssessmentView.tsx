@@ -4,20 +4,20 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import api from '@/api/axios';
+import {
+  getAssessmentInterpretationColumns,
+  getAssessmentInterpretationTable,
+} from '@/data/assessmentInterpretation';
 import { BottomSheet } from '@/components/ui';
 import {
   DEVELOPMENTAL_SUBCATEGORY_LABELS,
   DEVELOPMENTAL_SUBCATEGORY_ORDER,
   getAgeInMonthsFromDob,
-  getDevelopmentalAssessmentsForAge,
 } from '@/data/developmentalMilestones';
 import { BellIcon, InfoIcon, PlusIcon } from '@/design-system/icons';
-import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
+import type { DetailedAssessment } from '@/design-system/types';
+import { useDevelopmentalAssessments } from '@/hooks/useDevelopmentalAssessments';
 import { fetchChildrenByParentId, updateChild } from '@/redux/slices/childSlice';
-import {
-  fetchDevelopmentalAssessments,
-  saveDevelopmentalAssessmentsBulk,
-} from '@/redux/slices/developmentalAssessmentSlice';
 import type { AppDispatch, RootState } from '@/redux/store';
 import {
   getAnthropometricStatus,
@@ -450,9 +450,6 @@ const GrowthProgressChart: React.FC<{
 
 const AssessmentView: React.FC = () => {
   const { t } = useTranslation();
-  const [developmentalAssessments, setDevelopmentalAssessments] = useState<DetailedAssessment[]>(
-    []
-  );
   const [selectedAssessmentId, setSelectedAssessmentId] =
     useState<AnthropometricAssessmentId | null>(null);
   // 'anthropometric' | 'vaccine' | 'dev-Social' | 'dev-Language' | 'dev-Cognitive' | 'dev-Physical'
@@ -477,7 +474,6 @@ const AssessmentView: React.FC = () => {
   const location = useLocation();
 
   const childrenState = useSelector((state: RootState) => state.children);
-  const developmentalState = useSelector((state: RootState) => state.developmentalAssessments);
 
   const favoriteChildId =
     typeof window !== 'undefined' ? localStorage.getItem('favorite_child_id') : null;
@@ -488,11 +484,16 @@ const AssessmentView: React.FC = () => {
     () => getAgeInMonthsFromDob(activeChild?.date_of_birth),
     [activeChild?.date_of_birth]
   );
-
-  const baseDevelopmentalAssessments = useMemo(
-    () => getDevelopmentalAssessmentsForAge(childAgeInMonths),
-    [childAgeInMonths]
-  );
+  const {
+    developmentalAssessments,
+    developmentalState,
+    markAsAddressed,
+    toggleAnswer,
+  } = useDevelopmentalAssessments({
+    ageInMonths: childAgeInMonths,
+    childId: activeChild?.id,
+    onNoAnswer: (assessment) => setRecommendationModal(assessment),
+  });
 
   useEffect(() => {
     if (childrenState.data.length > 0) return;
@@ -557,21 +558,6 @@ const AssessmentView: React.FC = () => {
       isMounted = false;
     };
   }, [activeChild?.id, childrenState.data.length, childrenState.loading, vaccineScheduleRequestKey]);
-
-  useEffect(() => {
-    if (activeChild?.id) {
-      dispatch(fetchDevelopmentalAssessments(activeChild.id));
-    }
-  }, [dispatch, activeChild?.id]);
-
-  useEffect(() => {
-    setDevelopmentalAssessments(
-      baseDevelopmentalAssessments.map((item) => ({
-        ...item,
-        answer: developmentalState.byQuestionId[item.id] ?? 'unanswered',
-      }))
-    );
-  }, [baseDevelopmentalAssessments, developmentalState.byQuestionId]);
 
   useEffect(() => {
     const nextMeasurementId = (
@@ -690,6 +676,10 @@ const AssessmentView: React.FC = () => {
   const selectedAssessment =
     selectedAssessmentId &&
     anthropometricCards.find((assessment) => assessment.id === selectedAssessmentId);
+  const interpretationColumns = getAssessmentInterpretationColumns();
+  const interpretationTable = selectedAssessment
+    ? getAssessmentInterpretationTable(selectedAssessment.id)
+    : null;
 
   const handleOpenMeasurementEntry = (assessmentId: string) => {
     const fields = MEASUREMENT_FIELDS[assessmentId];
@@ -736,44 +726,6 @@ const AssessmentView: React.FC = () => {
     } finally {
       setIsSavingMeasurement(false);
     }
-  };
-
-  const persistDevelopmentalAnswers = async (nextAssessments: DetailedAssessment[]) => {
-    if (!activeChild?.id) return;
-
-    await dispatch(
-      saveDevelopmentalAssessmentsBulk({
-        childId: activeChild.id,
-        items: nextAssessments.map((item) => ({
-          questionId: item.id,
-          subCategory: item.subCategory || 'General',
-          answer: (item.answer || 'unanswered') as DevAnswer,
-        })),
-      })
-    );
-  };
-
-  const toggleAnswer = (id: string, newAnswer: DevAnswer) => {
-    const nextAssessments: DetailedAssessment[] = developmentalAssessments.map((assessment) =>
-      assessment.id === id ? { ...assessment, answer: newAnswer } : assessment
-    );
-
-    setDevelopmentalAssessments(nextAssessments);
-    void persistDevelopmentalAnswers(nextAssessments);
-
-    const matched = nextAssessments.find((assessment) => assessment.id === id);
-    if (newAnswer === 'no' && matched) {
-      setRecommendationModal(matched);
-    }
-  };
-
-  const markAsAddressed = (id: string) => {
-    const nextAssessments: DetailedAssessment[] = developmentalAssessments.map((assessment) =>
-      assessment.id === id ? { ...assessment, answer: 'addressed' as DevAnswer } : assessment
-    );
-
-    setDevelopmentalAssessments(nextAssessments);
-    void persistDevelopmentalAnswers(nextAssessments);
   };
 
   const toggleVaccination = async (vaccineId: string, response: 'yes' | 'no') => {
@@ -1068,7 +1020,7 @@ const AssessmentView: React.FC = () => {
                 <div className="mb-4 flex items-center justify-between px-6">
                   <h4 className="flex items-center gap-2 text-xs font-bold text-slate-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
-                    {t(DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory])}
+                    <span className="break-words">{t(DEVELOPMENTAL_SUBCATEGORY_LABELS[subCategory])}</span>
                   </h4>
                   {subAlerts.length > 0 && (
                     <button
@@ -1095,7 +1047,7 @@ const AssessmentView: React.FC = () => {
                       className={`flex min-h-[180px] w-64 flex-shrink-0 snap-center flex-col justify-between rounded-[2rem] border-2 p-6 transition-all ${getAnswerColor(question.answer)}`}
                     >
                       <div>
-                        <h5 className="mb-4 font-bold leading-tight">{question.title}</h5>
+                        <h5 className="mb-4 break-words font-bold leading-snug">{question.title}</h5>
                         <p className="text-[10px] font-black uppercase opacity-60">
                           {t('Status:')}{' '}
                           {question.answer === 'addressed'
@@ -1540,13 +1492,50 @@ const AssessmentView: React.FC = () => {
                 </div>
               )}
 
+              {interpretationTable && (
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    {interpretationTable.title}
+                  </p>
+                  <p className="mb-4 text-sm leading-relaxed text-slate-600">
+                    {interpretationTable.description}
+                  </p>
+                  <div className="-mx-1 overflow-x-auto">
+                    <table className="min-w-[52rem] table-fixed text-left text-xs leading-relaxed text-slate-700">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-500">
+                          <th className="w-[16%] px-3 py-2 font-black">{interpretationColumns.indicator}</th>
+                          <th className="w-[12%] px-3 py-2 font-black">{interpretationColumns.zScoreRange}</th>
+                          <th className="w-[20%] px-3 py-2 font-black">{interpretationColumns.classification}</th>
+                          <th className="w-[22%] px-3 py-2 font-black">{interpretationColumns.meaning}</th>
+                          <th className="w-[30%] px-3 py-2 font-black">{interpretationColumns.recommendedAction}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {interpretationTable.rows.map((row, index) => (
+                          <tr key={`${selectedAssessment.id}-${index}`} className="border-b border-slate-100 align-top">
+                            <td className="px-3 py-3 font-semibold text-slate-800 break-words">{row.indicator}</td>
+                            <td className="px-3 py-3 font-semibold whitespace-normal break-words">{row.zScoreRange}</td>
+                            <td className="px-3 py-3 whitespace-normal break-words">{row.classification}</td>
+                            <td className="px-3 py-3 whitespace-normal break-words">{row.meaning}</td>
+                            <td className="px-3 py-3 whitespace-normal break-words">{row.recommendedAction}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                     {t('WHO Classification')}
                   </p>
                   <p className="text-sm font-bold text-slate-800">
-                    {selectedAssessment.whoClassification || t('Waiting for measurements')}
+                    {(selectedAssessment.whoClassification
+                      ? t(selectedAssessment.whoClassification)
+                      : null) || t('Waiting for measurements')}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

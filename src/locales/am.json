@@ -175,6 +175,10 @@
   "Name is required": "ስም መሙላት አለበት",
   "Date of Birth": "የትውልድ ቀን",
   "Date of birth is required": "የትውልድ ቀን መሙላት አለበት",
+  "Date of birth cannot be in the future": "የትውልድ ቀን ወደፊት ሊሆን አይችልም",
+  "Enter a valid month between 01 and 12": "ትክክለኛ ወር ከ01 እስከ 12 ያስገቡ",
+  "Enter a valid day for the selected month": "ለተመረጠው ወር ትክክለኛ ቀን ያስገቡ",
+  "Enter a valid 4-digit year": "ትክክለኛ 4 አሃዝ ዓመት ያስገቡ",
   "Gender": "ጾታ",
   "Gender is required": "ጾታ መሙላት አለበት",
   "Male": "ወንድ",
@@ -192,7 +196,10 @@
   "Medications": "መድሃኒቶች",
   "e.g., Vitamin D Supplements": "ለምሳሌ፣ ቪታሚን ዲ ተጨማሪዎች",
   "Cancel": "ሰርዝ",
-  "Add Child": "ልጅ ያክሉ",
+  "Add Child": "ልጅ ጨምር",
+  "Previous child": "የቀድሞ ልጅ",
+  "Next child": "የሚቀጥለው ልጅ",
+  "Swipe to see more children": "ተጨማሪ ልጆችን ለማየት ያንሸራትቱ",
   "Failed to add child": "ልጅ ማክል አልተቻለም",
   
   "{{field}} is required": "{{field}} መሙላት አለበት",
@@ -467,6 +474,10 @@
   "Delivery Methods": "የማድረስ መንገዶች",
   "Development Trace": "የእድገት ክትትል",
   "Developmental": "የእድገት",
+  "Social/Emotional Milestones": "ማህበራዊ እና ስሜታዊ እድገት",
+  "Language/Communication Milestones": "የቋንቋ እና ግንኙነት እድገት",
+  "Cognitive Milestones": "የእውቀት እና ማስተዋል እድገት (መማር፣ ማሰብ፣ ችግር መፍታት)",
+  "Movement/Physical Development Milestones": "የእንቅስቃሴ እና አካላዊ እድገት",
   "Doctor": "ሐኪም",
   "Done": "ተጠናቋል",
   "Due now": "አሁን የሚያስፈልግ",
@@ -477,11 +488,13 @@
   "ETB 50 - Fast Delivery": "50 ብር - ፈጣን ማድረስ",
   "Emergency Audio Call": "አስቸኳይ የድምጽ ጥሪ",
   "Enter at least one valid measurement value.": "ቢያንስ አንድ ትክክለኛ የመለኪያ እሴት ያስገቡ።",
+  "Enter a valid date in MM/DD/YYYY format": "ቀኑን በMM/DD/YYYY ቅርጸት በትክክል ያስገቡ",
   "Enter your name": "ስምዎን ያስገቡ",
   "Enter {{field}}": "{{field}} ያስገቡ",
   "Entry": "ማስገቢያ",
   "Error": "ስህተት",
   "Essential tools for growth.": "ለእድገት አስፈላጊ መሳሪያዎች።",
+  "Experts": "ባለሙያዎች",
   "Everything is set up. You can always update your child's profile from the settings page.": "ሁሉም ተዘጋጅቷል። የልጅዎን መገለጫ ሁልጊዜ ከቅንብሮች ገጽ ማዘመን ይችላሉ።",
   "Expert Care": "የባለሙያ እንክብካቤ",
   "Expired Measurements": "ጊዜው ያለፈባቸው መለኪያዎች",
@@ -609,6 +622,8 @@
   "Screen shared by": "ስክሪኑን የሚያጋራው",
   "Search items...": "እቃዎችን ፈልግ...",
   "See All": "ሁሉን ይመልከቱ",
+  "Select month": "ወር ይምረጡ",
+  "Select year": "ዓመት ይምረጡ",
   "Select Date": "ቀን ይምረጡ",
   "Select an active child before booking a consultation.": "ምክክር ከማስያዝዎ በፊት ንቁ ልጅ ይምረጡ።",
   "Select any allergens your child has. This helps us filter meal recommendations.": "ልጅዎ ያለውን ማንኛውንም አለርጂ ይምረጡ። ይህ የምግብ ምክሮችን ለማጣራት ይረዳናል።",
@@ -735,6 +750,355 @@
   "{{count}}M": "{{count}}ወ",
   "{{count}}W": "{{count}}ሳ",
   "{{count}}Y": "{{count}}ዓ",
-  "← Back to Help": "← ወደ እገዛ ተመለስ"
-
+  "← Back to Help": "← ወደ እገዛ ተመለስ",
+  "assessmentStatus": {
+    "common": {
+      "unavailable": "አይገኝም",
+      "noData": "መረጃ የለም",
+      "addMeasurementsForGrowthStatus": "ይህን የእድገት ሁኔታ ለማስላት መለኪያዎችን ያክሉ።",
+      "addValidDobForGrowthStatus": "ይህን የእድገት ሁኔታ ለማስላት ትክክለኛ የልደት ቀን ያክሉ።",
+      "weightHeightUnavailable": "ክብደትና ቁመት ተመዝግበዋል፣ ግን የWHO ውጤት እስካሁን አልተገኘም።",
+      "heightUnavailable": "ቁመት ተመዝግቧል፣ ግን የWHO ውጤት እስካሁን አልተገኘም።",
+      "muacUnavailable": "MUAC ተመዝግቧል፣ ግን ልጁ በሚደገፈው የMUAC-ከእድሜ ማጣቀሻ ክልል ውስጥ አይደለም።",
+      "bmiUnavailable": "ክብደትና ቁመት ተመዝግበዋል፣ ግን የBMI-ከእድሜ ውጤት እስካሁን አልተገኘም።",
+      "weightUnavailable": "ክብደት ተመዝግቧል፣ ግን የክብደት-ከእድሜ ውጤት እስካሁን አልተገኘም።",
+      "addWeightAndHeightForWeightForHeight": "ክብደት ከቁመት ለማስላት ሁለቱንም ክብደትና ቁመት ያክሉ።",
+      "addHeightForHeightForAge": "ቁመት ከእድሜ ለማስላት ቁመት ያክሉ።",
+      "addWeightAndHeightForBmiForAge": "BMI ከእድሜ ለማስላት ሁለቱንም ክብደትና ቁመት ያክሉ።",
+      "addValidDobForBmiForAge": "BMI ከእድሜ ለማስላት ትክክለኛ የልደት ቀን ያክሉ።",
+      "addWeightForWeightForAge": "ክብደት ከእድሜ ለማስላት ክብደት ያክሉ።",
+      "addValidDobForWeightForAge": "ክብደት ከእድሜ ለማስላት ትክክለኛ የልደት ቀን ያክሉ።",
+      "addMuacForStatus": "የክንድ ዙሪያ ሁኔታን ለማስላት MUAC ያክሉ።"
+    },
+    "who": {
+      "weightForHeight": {
+        "severeWasting": "በከፍተኛ ሁኔታ የመነመነ/የቀጨጨ",
+        "moderateWasting": "መቅጫት/መቀጨጭ (መጠነኛ)",
+        "normal": "መደበኛ",
+        "riskOfOverweight": "ለትርፍ ክብደት የመጋለጥ ስጋት",
+        "overweight": "ከመጠን በላይ ክብደት (Overweight)",
+        "obese": "ውፍረት (Obese)"
+      },
+      "heightForAge": {
+        "severeStunting": "በከፍተኛ ሁኔታ የቆረቆዘ/የቀጨጨ",
+        "moderateStunting": "ማደግ የተሳነው/የቆረቆዘ (መጠነኛ)",
+        "normal": "መደበኛ",
+        "tallForAge": "ለእድሜው ረጅም",
+        "veryTallForAge": "ለእድሜው በጣም ረጅም"
+      },
+      "muac": {
+        "normal": "መደበኛ",
+        "moderateAcuteMalnutrition": "መጠነኛ አጣዳፊ የአልሚ ምግብ እጥረት (MAM)",
+        "severeAcuteMalnutrition": "ከፍተኛ አጣዳፊ የአልሚ ምግብ እጥረት (SAM)"
+      },
+      "weightForAge": {
+        "severeUnderweight": "በከፍተኛ ሁኔታ ክብደት ያነሰው",
+        "moderateUnderweight": "ክብደት ማነስ (መጠነኛ)",
+        "mildUnderweight": "ቀላል ክብደት ማነስ",
+        "normal": "መደበኛ",
+        "aboveAverageWeight": "ከአማካይ በላይ ክብደት",
+        "overweightForAge": "ለእድሜው ከመጠን በላይ ክብደት",
+        "obeseForAge": "ለእድሜው ውፍረት"
+      },
+      "bmiForAge": {
+        "severeThinness": "በከፍተኛ ሁኔታ መቅጠን",
+        "thinness": "መቅጠን (Thinness)",
+        "normal": "መደበኛ",
+        "riskOfOverweight": "ለትርፍ ክብደት የመጋለጥ ስጋት",
+        "overweight": "ከመጠን በላይ ክብደት (Overweight)",
+        "obese": "ውፍረት (Obese)"
+      }
+    },
+    "weightForHeight": {
+      "normal": {
+        "displayLabel": "መደበኛ",
+        "detail": "ለቁመቱ ተስማሚ የሆነ ክብደት",
+        "action": "መደበኛ እንክብካቤን መቀጠል"
+      },
+      "moderateWasting": {
+        "displayLabel": "መቅጫት/መቀጨጭ (መጠነኛ)",
+        "detail": "አጣዳፊ የአልሚ ምግብ እጥረት",
+        "action": "ተጨማሪ ምግብ መስጠት + ክትትል ማድረግ"
+      },
+      "severeWasting": {
+        "displayLabel": "በከፍተኛ ሁኔታ የመነመነ/የቀጨጨ",
+        "detail": "ከፍተኛ አጣዳፊ የአልሚ ምግብ እጥረት",
+        "action": "አስቸኳይ ህክምና (OTP/SC)"
+      },
+      "overweight": {
+        "displayLabel": "ከመጠን በላይ ክብደት (Overweight)",
+        "detail": "ለቁመቱ ካለው በላይ ትርፍ ክብደት",
+        "action": "ስለ አመጋገብ እና የአካል ብቃት እንቅስቃሴ ምክር መስጠት"
+      },
+      "obese": {
+        "displayLabel": "ውፍረት (Obese)",
+        "detail": "እጅግ በጣም ከፍተኛ ትርፍ ክብደት",
+        "action": "ተጨማሪ ግምገማ + የኑሮ ዘይቤ ለውጥ ጣልቃ ገብነት"
+      }
+    },
+    "heightForAge": {
+      "normal": {
+        "displayLabel": "መደበኛ",
+        "detail": "መደበኛ የቁመት እድገት",
+        "action": "መደበኛ ክትትል ማድረግ"
+      },
+      "moderateStunting": {
+        "displayLabel": "ማደግ የተሳነው/የቆረቆዘ (መጠነኛ)",
+        "detail": "የረጅም ጊዜ (ሥር የሰደደ) የምግብ እጥረት",
+        "action": "የአልሚ ምግብ + የረጅም ጊዜ ድጋፍ ማድረግ"
+      },
+      "severeStunting": {
+        "displayLabel": "በከፍተኛ ሁኔታ የቆረቆዘ/የቀጨጨ",
+        "detail": "ከፍተኛ ሥር የሰደደ የምግብ እጥረት",
+        "action": "ሁለንተናዊ ጣልቃ ገብነት (የአልሚ ምግብ + ጤና + ማህበራዊ ድጋፍ)"
+      }
+    },
+    "muac": {
+      "normal": {
+        "displayLabel": "መደበኛ",
+        "detail": "በቂ የአልሚ ምግብ ሁኔታ",
+        "action": "መደበኛ የእድገት ክትትል፣ የተለመደውን የአመጋገብ ልምድ መቀጠል"
+      },
+      "moderateAcuteMalnutrition": {
+        "displayLabel": "መጠነኛ አጣዳፊ የአልሚ ምግብ እጥረት (MAM)",
+        "detail": "ለአደጋ የተጋለጠ፣ አነስተኛ የጡንቻ/ስብ ክምችት",
+        "action": "ተጨማሪ ምግብ መስጠት፣ የአመጋገብ ምክር፣ የቅርብ ክትትል ማድረግ"
+      },
+      "severeAcuteMalnutrition": {
+        "displayLabel": "ከፍተኛ አጣዳፊ የአልሚ ምግብ እጥረት (SAM)",
+        "detail": "ለሞት የመጋለጥ እድሉ ከፍተኛ የሆነ",
+        "action": "አስቸኳይ የህክምና ጉብኝት፣ ወደ ህክምና ማዕከል (OTP/SC) መላክ"
+      }
+    },
+    "weightForAge": {
+      "normal": {
+        "displayLabel": "መደበኛ",
+        "detail": "ለእድሜው ተስማሚ የሆነ ክብደት",
+        "action": "መደበኛ እንክብካቤ"
+      },
+      "moderateUnderweight": {
+        "displayLabel": "ክብደት ማነስ (መጠነኛ)",
+        "detail": "አጣዳፊ ወይም ሥር የሰደደ ችግር ሊሆን ይችላል",
+        "action": "ተጨማሪ ግምገማ (WFH + HFA) እና የአልሚ ምግብ ድጋፍ"
+      },
+      "severeUnderweight": {
+        "displayLabel": "በከፍተኛ ሁኔታ ክብደት ያነሰው",
+        "detail": "ከፍተኛ የጤና አደጋ",
+        "action": "አስቸኳይ የህክምና ጉብኝት፣ አስቸኳይ ግምገማና ጣልቃ ገብነት"
+      }
+    },
+    "bmiForAge": {
+      "normal": {
+        "displayLabel": "መደበኛ",
+        "detail": "ጤናማ የክብደት ሁኔታ",
+        "action": "ጤናማ ልምዶችን መቀጠል"
+      },
+      "riskOfOverweight": {
+        "displayLabel": "ለትርፍ ክብደት የመጋለጥ ስጋት",
+        "detail": "ቀደምት የትርፍ ክብደት ምልክት",
+        "action": "የአመጋገብ እና የአካል ብቃት እንቅስቃሴ ምክር"
+      },
+      "overweight": {
+        "displayLabel": "ከመጠን በላይ ክብደት (Overweight)",
+        "detail": "ትርፍ ክብደት",
+        "action": "የኑሮ ዘይቤ ለውጥ ጣልቃ ገብነት"
+      },
+      "obese": {
+        "displayLabel": "ውፍረት (Obese)",
+        "detail": "ከፍተኛ የጤና አደጋ",
+        "action": "የህክምና ክሊኒካዊ ግምገማ"
+      },
+      "thinness": {
+        "displayLabel": "መቅጠን (Thinness)",
+        "detail": "ከክብደት በታች መሆን",
+        "action": "የአልሚ ምግብ ድጋፍ"
+      },
+      "severeThinness": {
+        "displayLabel": "በከፍተኛ ሁኔታ መቅጠን",
+        "detail": "ከፍተኛ የክብደት/የምግብ እጥረት",
+        "action": "አስቸኳይ የህክምና ጉብኝት፣ አስቸኳይ ጣልቃ ገብነት"
+      }
+    }
+  },
+  "assessmentInterpretation": {
+    "columns": {
+      "indicator": "አመልካች",
+      "zScoreRange": "የዚ-ስኮር ክልል",
+      "classification": "ምደባ",
+      "meaning": "ትርጉም",
+      "recommendedAction": "የሚመከር እርምጃ"
+    },
+    "tables": {
+      "a1": {
+        "title": "የትርጓሜ ማጣቀሻ ሰንጠረዥ",
+        "description": "ይህን ማጣቀሻ ክብደት ከቁመት (WFH) ውጤቶችን ለመተርጎም ይጠቀሙ።",
+        "rows": [
+          {
+            "indicator": "ክብደት ከቁመት (WFH)",
+            "zScoreRange": "≥ -2 እስከ ≤ +2",
+            "classification": "መደበኛ (Normal)",
+            "meaning": "ለቁመቱ ተስማሚ የሆነ ክብደት",
+            "recommendedAction": "መደበኛ እንክብካቤን መቀጠል"
+          },
+          {
+            "indicator": "ክብደት ከቁመት (WFH)",
+            "zScoreRange": "< -2 እስከ ≥ -3",
+            "classification": "መቅጫት/መቀጨጭ (መጠነኛ)",
+            "meaning": "አጣዳፊ የአልሚ ምግብ እጥረት",
+            "recommendedAction": "ተጨማሪ ምግብ መስጠት + ክትትል ማድረግ"
+          },
+          {
+            "indicator": "ክብደት ከቁመት (WFH)",
+            "zScoreRange": "< -3",
+            "classification": "በከፍተኛ ሁኔታ የመነመነ/የቀጨጨ",
+            "meaning": "ከፍተኛ አጣዳፊ የአልሚ ምግብ እጥረት",
+            "recommendedAction": "አስቸኳይ ህክምና (OTP/SC)"
+          },
+          {
+            "indicator": "ክብደት ከቁመት (WFH)",
+            "zScoreRange": "> +2",
+            "classification": "ከመጠን በላይ ክብደት (Overweight)",
+            "meaning": "ለቁመቱ ካለው በላይ ትርፍ ክብደት",
+            "recommendedAction": "ስለ አመጋገብ እና የአካል ብቃት እንቅስቃሴ ምክር መስጠት"
+          },
+          {
+            "indicator": "ክብደት ከቁመት (WFH)",
+            "zScoreRange": "> +3",
+            "classification": "ውፍረት (Obese)",
+            "meaning": "እጅግ በጣም ከፍተኛ ትርፍ ክብደት",
+            "recommendedAction": "ተጨማሪ ግምገማ + የኑሮ ዘይቤ ለውጥ ጣልቃ ገብነት"
+          }
+        ]
+      },
+      "a1-2": {
+        "title": "የትርጓሜ ማጣቀሻ ሰንጠረዥ",
+        "description": "ይህን ማጣቀሻ ቁመት ከእድሜ (HFA) ውጤቶችን ለመተርጎም ይጠቀሙ።",
+        "rows": [
+          {
+            "indicator": "ቁመት ከእድሜ (HFA)",
+            "zScoreRange": "≥ -2",
+            "classification": "መደበኛ (Normal)",
+            "meaning": "መደበኛ የቁመት እድገት",
+            "recommendedAction": "መደበኛ ክትትል ማድረግ"
+          },
+          {
+            "indicator": "ቁመት ከእድሜ (HFA)",
+            "zScoreRange": "< -2 እስከ ≥ -3",
+            "classification": "ማደግ የተሳነው/የቆረቆዘ (መጠነኛ)",
+            "meaning": "የረጅም ጊዜ (ሥር የሰደደ) የምግብ እጥረት",
+            "recommendedAction": "የአልሚ ምግብ + የረጅም ጊዜ ድጋፍ ማድረግ"
+          },
+          {
+            "indicator": "ቁመት ከእድሜ (HFA)",
+            "zScoreRange": "< -3",
+            "classification": "በከፍተኛ ሁኔታ የቆረቆዘ/የቀጨጨ",
+            "meaning": "ከፍተኛ ሥር የሰደደ የምግብ እጥረት",
+            "recommendedAction": "ሁለንተናዊ ጣልቃ ገብነት (የአልሚ ምግብ + ጤና + ማህበራዊ ድጋፍ)"
+          }
+        ]
+      },
+      "a1-3": {
+        "title": "የትርጓሜ ማጣቀሻ ሰንጠረዥ",
+        "description": "ይህን ማጣቀሻ የMUAC-ከእድሜ ውጤቶችን ለመተርጎም ይጠቀሙ።",
+        "rows": [
+          {
+            "indicator": "የክንድ ዙሪያ ልኬት (MUAC)",
+            "zScoreRange": "≥ -2",
+            "classification": "መደበኛ (Normal)",
+            "meaning": "በቂ የአልሚ ምግብ ሁኔታ",
+            "recommendedAction": "መደበኛ የእድገት ክትትል፣ የተለመደውን የአመጋገብ ልምድ መቀጠል"
+          },
+          {
+            "indicator": "የክንድ ዙሪያ ልኬት (MUAC)",
+            "zScoreRange": "< -2 እስከ ≥ -3",
+            "classification": "መጠነኛ አጣዳፊ የአልሚ ምግብ እጥረት (MAM)",
+            "meaning": "ለአደጋ የተጋለጠ፣ አነስተኛ የጡንቻ/ስብ ክምችት",
+            "recommendedAction": "ተጨማሪ ምግብ መስጠት፣ የአመጋገብ ምክር፣ የቅርብ ክትትል ማድረግ"
+          },
+          {
+            "indicator": "የክንድ ዙሪያ ልኬት (MUAC)",
+            "zScoreRange": "< -3",
+            "classification": "ከፍተኛ አጣዳፊ የአልሚ ምግብ እጥረት (SAM)",
+            "meaning": "ለሞት የመጋለጥ እድሉ ከፍተኛ የሆነ",
+            "recommendedAction": "አስቸኳይ የህክምና ጉብኝት፣ ወደ ህክምና ማዕከል (OTP/SC) መላክ"
+          }
+        ]
+      },
+      "a1-4": {
+        "title": "የትርጓሜ ማጣቀሻ ሰንጠረዥ",
+        "description": "ይህን ማጣቀሻ የBAZ / BMI-for-Age ውጤቶችን ለመተርጎም ይጠቀሙ።",
+        "rows": [
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "≥ -2 እስከ ≤ +1",
+            "classification": "መደበኛ (Normal)",
+            "meaning": "ጤናማ የክብደት ሁኔታ",
+            "recommendedAction": "ጤናማ ልምዶችን መቀጠል"
+          },
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "> +1 እስከ ≤ +2",
+            "classification": "ለትርፍ ክብደት የመጋለጥ ስጋት",
+            "meaning": "ቀደምት የትርፍ ክብደት ምልክት",
+            "recommendedAction": "የአመጋገብ እና የአካል ብቃት እንቅስቃሴ ምክር"
+          },
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "> +2 እስከ ≤ +3",
+            "classification": "ከመጠን በላይ ክብደት (Overweight)",
+            "meaning": "ትርፍ ክብደት",
+            "recommendedAction": "የኑሮ ዘይቤ ለውጥ ጣልቃ ገብነት"
+          },
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "> +3",
+            "classification": "ውፍረት (Obese)",
+            "meaning": "ከፍተኛ የጤና አደጋ",
+            "recommendedAction": "የህክምና ክሊኒካዊ ግምገማ"
+          },
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "< -2 እስከ ≥ -3",
+            "classification": "መቅጠን (Thinness)",
+            "meaning": "ከክብደት በታች መሆን",
+            "recommendedAction": "የአልሚ ምግብ ድጋፍ"
+          },
+          {
+            "indicator": "የሰውነት ስብጥር ከእድሜ (BAZ / BMI-for-Age)",
+            "zScoreRange": "< -3",
+            "classification": "በከፍተኛ ሁኔታ መቅጠን",
+            "meaning": "ከፍተኛ የክብደት/የምግብ እጥረት",
+            "recommendedAction": "አስቸኳይ የህክምና ጉብኝት፣ አስቸኳይ ጣልቃ ገብነት"
+          }
+        ]
+      },
+      "a1-5": {
+        "title": "የትርጓሜ ማጣቀሻ ሰንጠረዥ",
+        "description": "ይህን ማጣቀሻ ክብደት ከእድሜ (WFA) ውጤቶችን ለመተርጎም ይጠቀሙ።",
+        "rows": [
+          {
+            "indicator": "ክብደት ከእድሜ (WFA)",
+            "zScoreRange": "≥ -2",
+            "classification": "መደበኛ (Normal)",
+            "meaning": "ለእድሜው ተስማሚ የሆነ ክብደት",
+            "recommendedAction": "መደበኛ እንክብካቤ"
+          },
+          {
+            "indicator": "ክብደት ከእድሜ (WFA)",
+            "zScoreRange": "< -2 እስከ ≥ -3",
+            "classification": "ክብደት ማነስ (መጠነኛ)",
+            "meaning": "አጣዳፊ ወይም ሥር የሰደደ ችግር ሊሆን ይችላል",
+            "recommendedAction": "ተጨማሪ ግምገማ (WFH + HFA) እና የአልሚ ምግብ ድጋፍ"
+          },
+          {
+            "indicator": "ክብደት ከእድሜ (WFA)",
+            "zScoreRange": "< -3",
+            "classification": "በከፍተኛ ሁኔታ ክብደት ያነሰው",
+            "meaning": "ከፍተኛ የጤና አደጋ",
+            "recommendedAction": "አስቸኳይ የህክምና ጉብኝት፣ አስቸኳይ ግምገማና ጣልቃ ገብነት"
+          }
+        ]
+      }
+    }
+  }
 }

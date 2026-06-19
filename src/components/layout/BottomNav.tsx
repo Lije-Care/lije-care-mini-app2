@@ -27,7 +27,7 @@ const BottomNav: React.FC = () => {
     { id: 'assessment', label: t('Assess'), icon: <AssessmentIcon />, color: COLORS.mint, path: '/assessment' },
     { id: 'meals', label: t('Meals'), icon: <MealsIcon />, color: COLORS.yellow, path: '/meals' },
     { id: 'shop', label: t('Shop'), icon: <ShopIcon />, color: COLORS.coral, path: '/ecommerce' },
-    { id: 'help', label: t('Help'), icon: <CallCenterIcon />, color: COLORS.purple, path: '/consultation' },
+    { id: 'help', label: t('Experts'), icon: <CallCenterIcon />, color: COLORS.purple, path: '/consultation' },
   ];
 
   // Find active index based on current path

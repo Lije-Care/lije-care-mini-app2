@@ -3,6 +3,7 @@ import { calculateBMIZ } from '@/excelData/calculateBMIZ';
 import { calculateMUACZ } from '@/excelData/calculateMUACZ';
 import { calculateWAZ } from '@/excelData/calculateWAZ';
 import { calculateWHZ } from '@/excelData/calculateWHZ';
+import i18n from '@/i18n/i18n';
 import {
   getAnthropometricAgeContext,
   getAgeDetails,
@@ -33,6 +34,8 @@ export interface AnthropometricStatus {
   recommendedAction: string | null;
 }
 
+const tAssessment = (key: string) => i18n.t(`assessmentStatus.${key}`);
+
 const isPositiveNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0;
 
@@ -45,7 +48,7 @@ const unavailableResult = (isRecorded: boolean, detail: string): AnthropometricS
   isRecorded,
   hasResult: false,
   tone: 'neutral',
-  displayLabel: isRecorded ? 'Unavailable' : 'No Data',
+  displayLabel: isRecorded ? tAssessment('common.unavailable') : tAssessment('common.noData'),
   detail,
   whoClassification: null,
   zScore: null,
@@ -88,22 +91,62 @@ const mapWeightForHeight = (
   isRecorded: boolean
 ): AnthropometricStatus => {
   if (isInvalidClassification(classification)) {
-    return unavailableResult(isRecorded, 'Weight and height are recorded, but no WHO result is available yet.');
+    return unavailableResult(isRecorded, tAssessment('common.weightHeightUnavailable'));
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severely Wasted', 'Severe acute malnutrition', 'danger', 'Urgent treatment (OTP/SC)');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForHeight.severeWasting'),
+      tAssessment('weightForHeight.severeWasting.displayLabel'),
+      tAssessment('weightForHeight.severeWasting.detail'),
+      'danger',
+      tAssessment('weightForHeight.severeWasting.action')
+    );
   }
   if (zScore < -2) {
-    return buildResult(isRecorded, zScore, classification, 'Wasted (Moderate)', 'Acute malnutrition', 'warning', 'Supplementary feeding + follow-up');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForHeight.moderateWasting'),
+      tAssessment('weightForHeight.moderateWasting.displayLabel'),
+      tAssessment('weightForHeight.moderateWasting.detail'),
+      'warning',
+      tAssessment('weightForHeight.moderateWasting.action')
+    );
   }
   if (zScore > 3) {
-    return buildResult(isRecorded, zScore, classification, 'Obese', 'High excess weight', 'danger', 'Further assessment + lifestyle intervention');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForHeight.obese'),
+      tAssessment('weightForHeight.obese.displayLabel'),
+      tAssessment('weightForHeight.obese.detail'),
+      'danger',
+      tAssessment('weightForHeight.obese.action')
+    );
   }
   if (zScore > 2) {
-    return buildResult(isRecorded, zScore, classification, 'Overweight', 'Excess weight for height', 'warning', 'Counsel on diet and activity');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForHeight.overweight'),
+      tAssessment('weightForHeight.overweight.displayLabel'),
+      tAssessment('weightForHeight.overweight.detail'),
+      'warning',
+      tAssessment('weightForHeight.overweight.action')
+    );
   }
-  return buildResult(isRecorded, zScore, classification, 'Normal', 'Appropriate weight for height', 'success', 'Continue routine care');
+  return buildResult(
+    isRecorded,
+    zScore,
+    zScore > 1 ? tAssessment('who.weightForHeight.riskOfOverweight') : tAssessment('who.weightForHeight.normal'),
+    tAssessment('weightForHeight.normal.displayLabel'),
+    tAssessment('weightForHeight.normal.detail'),
+    'success',
+    tAssessment('weightForHeight.normal.action')
+  );
 };
 
 const mapHeightForAge = (
@@ -112,16 +155,44 @@ const mapHeightForAge = (
   isRecorded: boolean
 ): AnthropometricStatus => {
   if (isInvalidClassification(classification)) {
-    return unavailableResult(isRecorded, 'Height is recorded, but no WHO result is available yet.');
+    return unavailableResult(isRecorded, tAssessment('common.heightUnavailable'));
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severely Stunted', 'Severe chronic malnutrition', 'danger', 'Comprehensive intervention (nutrition + health + social)');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.heightForAge.severeStunting'),
+      tAssessment('heightForAge.severeStunting.displayLabel'),
+      tAssessment('heightForAge.severeStunting.detail'),
+      'danger',
+      tAssessment('heightForAge.severeStunting.action')
+    );
   }
   if (zScore < -2) {
-    return buildResult(isRecorded, zScore, classification, 'Stunted (Moderate)', 'Chronic malnutrition', 'warning', 'Nutrition + long-term support');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.heightForAge.moderateStunting'),
+      tAssessment('heightForAge.moderateStunting.displayLabel'),
+      tAssessment('heightForAge.moderateStunting.detail'),
+      'warning',
+      tAssessment('heightForAge.moderateStunting.action')
+    );
   }
-  return buildResult(isRecorded, zScore, classification, 'Normal', 'Normal linear growth', 'success', 'Routine monitoring');
+  return buildResult(
+    isRecorded,
+    zScore,
+    zScore > 3
+      ? tAssessment('who.heightForAge.veryTallForAge')
+      : zScore > 2
+        ? tAssessment('who.heightForAge.tallForAge')
+        : tAssessment('who.heightForAge.normal'),
+    tAssessment('heightForAge.normal.displayLabel'),
+    tAssessment('heightForAge.normal.detail'),
+    'success',
+    tAssessment('heightForAge.normal.action')
+  );
 };
 
 const mapMuac = (
@@ -130,19 +201,40 @@ const mapMuac = (
   isRecorded: boolean
 ): AnthropometricStatus => {
   if (isInvalidClassification(classification)) {
-    return unavailableResult(
-      isRecorded,
-      'MUAC is recorded, but this child is outside the supported MUAC-for-age reference range.'
-    );
+    return unavailableResult(isRecorded, tAssessment('common.muacUnavailable'));
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severe Acute Malnutrition (SAM)', 'High risk of mortality', 'danger', 'Urgent clinical visit, referral for therapeutic feeding (OTP/SC)');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.muac.severeAcuteMalnutrition'),
+      tAssessment('muac.severeAcuteMalnutrition.displayLabel'),
+      tAssessment('muac.severeAcuteMalnutrition.detail'),
+      'danger',
+      tAssessment('muac.severeAcuteMalnutrition.action')
+    );
   }
   if (zScore < -2) {
-    return buildResult(isRecorded, zScore, classification, 'Moderate Acute Malnutrition (MAM)', 'At risk, low muscle/fat', 'warning', 'Supplementary feeding, nutrition counseling, close follow-up');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.muac.moderateAcuteMalnutrition'),
+      tAssessment('muac.moderateAcuteMalnutrition.displayLabel'),
+      tAssessment('muac.moderateAcuteMalnutrition.detail'),
+      'warning',
+      tAssessment('muac.moderateAcuteMalnutrition.action')
+    );
   }
-  return buildResult(isRecorded, zScore, classification, 'Normal', 'Adequate nutritional status', 'success', 'Routine growth monitoring, continue feeding practices');
+  return buildResult(
+    isRecorded,
+    zScore,
+    tAssessment('who.muac.normal'),
+    tAssessment('muac.normal.displayLabel'),
+    tAssessment('muac.normal.detail'),
+    'success',
+    tAssessment('muac.normal.action')
+  );
 };
 
 const mapBmiForAge = (
@@ -151,28 +243,73 @@ const mapBmiForAge = (
   isRecorded: boolean
 ): AnthropometricStatus => {
   if (isInvalidClassification(classification)) {
-    return unavailableResult(
-      isRecorded,
-      'Weight and height are recorded, but no BMI-for-age result is available yet.'
-    );
+    return unavailableResult(isRecorded, tAssessment('common.bmiUnavailable'));
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severe Thinness', 'Severe undernutrition', 'danger', 'Urgent clinical visit, urgent intervention');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.bmiForAge.severeThinness'),
+      tAssessment('bmiForAge.severeThinness.displayLabel'),
+      tAssessment('bmiForAge.severeThinness.detail'),
+      'danger',
+      tAssessment('bmiForAge.severeThinness.action')
+    );
   }
   if (zScore < -2) {
-    return buildResult(isRecorded, zScore, classification, 'Thinness', 'Underweight', 'warning', 'Nutrition support');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.bmiForAge.thinness'),
+      tAssessment('bmiForAge.thinness.displayLabel'),
+      tAssessment('bmiForAge.thinness.detail'),
+      'warning',
+      tAssessment('bmiForAge.thinness.action')
+    );
   }
   if (zScore > 3) {
-    return buildResult(isRecorded, zScore, classification, 'Obese', 'High health risk', 'danger', 'Clinical assessment');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.bmiForAge.obese'),
+      tAssessment('bmiForAge.obese.displayLabel'),
+      tAssessment('bmiForAge.obese.detail'),
+      'danger',
+      tAssessment('bmiForAge.obese.action')
+    );
   }
   if (zScore > 2) {
-    return buildResult(isRecorded, zScore, classification, 'Overweight', 'Excess weight', 'warning', 'Lifestyle intervention');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.bmiForAge.overweight'),
+      tAssessment('bmiForAge.overweight.displayLabel'),
+      tAssessment('bmiForAge.overweight.detail'),
+      'warning',
+      tAssessment('bmiForAge.overweight.action')
+    );
   }
   if (zScore > 1) {
-    return buildResult(isRecorded, zScore, classification, 'Risk of Overweight', 'Early excess weight', 'warning', 'Diet & activity counseling');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.bmiForAge.riskOfOverweight'),
+      tAssessment('bmiForAge.riskOfOverweight.displayLabel'),
+      tAssessment('bmiForAge.riskOfOverweight.detail'),
+      'warning',
+      tAssessment('bmiForAge.riskOfOverweight.action')
+    );
   }
-  return buildResult(isRecorded, zScore, classification, 'Normal', 'Healthy weight status', 'success', 'Maintain healthy habits');
+  return buildResult(
+    isRecorded,
+    zScore,
+    tAssessment('who.bmiForAge.normal'),
+    tAssessment('bmiForAge.normal.displayLabel'),
+    tAssessment('bmiForAge.normal.detail'),
+    'success',
+    tAssessment('bmiForAge.normal.action')
+  );
 };
 
 const mapWeightForAge = (
@@ -181,19 +318,48 @@ const mapWeightForAge = (
   isRecorded: boolean
 ): AnthropometricStatus => {
   if (isInvalidClassification(classification)) {
-    return unavailableResult(
-      isRecorded,
-      'Weight is recorded, but no weight-for-age result is available yet.'
-    );
+    return unavailableResult(isRecorded, tAssessment('common.weightUnavailable'));
   }
 
   if (zScore < -3) {
-    return buildResult(isRecorded, zScore, classification, 'Severely Underweight', 'High risk', 'danger', 'Urgent clinical visit, urgent evaluation and intervention');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForAge.severeUnderweight'),
+      tAssessment('weightForAge.severeUnderweight.displayLabel'),
+      tAssessment('weightForAge.severeUnderweight.detail'),
+      'danger',
+      tAssessment('weightForAge.severeUnderweight.action')
+    );
   }
   if (zScore < -2) {
-    return buildResult(isRecorded, zScore, classification, 'Underweight (Moderate)', 'Could be acute or chronic issue', 'warning', 'Further assessment (WFH + HFA), nutrition support');
+    return buildResult(
+      isRecorded,
+      zScore,
+      tAssessment('who.weightForAge.moderateUnderweight'),
+      tAssessment('weightForAge.moderateUnderweight.displayLabel'),
+      tAssessment('weightForAge.moderateUnderweight.detail'),
+      'warning',
+      tAssessment('weightForAge.moderateUnderweight.action')
+    );
   }
-  return buildResult(isRecorded, zScore, classification, 'Normal', 'Appropriate weight for age', 'success', 'Routine care');
+  return buildResult(
+    isRecorded,
+    zScore,
+    zScore >= 3
+      ? tAssessment('who.weightForAge.obeseForAge')
+      : zScore >= 2
+        ? tAssessment('who.weightForAge.overweightForAge')
+        : zScore >= 1
+          ? tAssessment('who.weightForAge.aboveAverageWeight')
+          : zScore >= -1
+            ? tAssessment('who.weightForAge.normal')
+            : tAssessment('who.weightForAge.mildUnderweight'),
+    tAssessment('weightForAge.normal.displayLabel'),
+    tAssessment('weightForAge.normal.detail'),
+    'success',
+    tAssessment('weightForAge.normal.action')
+  );
 };
 
 export const getAnthropometricStatus = (
@@ -201,12 +367,12 @@ export const getAnthropometricStatus = (
   child?: AnthropometricInput | null
 ): AnthropometricStatus => {
   if (!child) {
-    return unavailableResult(false, 'Add measurements to calculate this growth status.');
+    return unavailableResult(false, tAssessment('common.addMeasurementsForGrowthStatus'));
   }
 
   const ageContext = getAnthropometricAgeContext(child.date_of_birth);
   if (!ageContext) {
-    return unavailableResult(false, 'Add a valid date of birth to calculate this growth status.');
+    return unavailableResult(false, tAssessment('common.addValidDobForGrowthStatus'));
   }
 
   const gender = normalizeGrowthGender(child.gender);
@@ -215,7 +381,7 @@ export const getAnthropometricStatus = (
   if (assessmentId === 'a1') {
     const isRecorded = isPositiveNumber(child.weight) && isPositiveNumber(child.height);
     if (!isRecorded) {
-      return unavailableResult(false, 'Add both weight and height to calculate weight for height.');
+      return unavailableResult(false, tAssessment('common.addWeightAndHeightForWeightForHeight'));
     }
 
     const weight = child.weight as number;
@@ -228,7 +394,7 @@ export const getAnthropometricStatus = (
   if (assessmentId === 'a1-2') {
     const isRecorded = isPositiveNumber(child.height);
     if (!isRecorded) {
-      return unavailableResult(false, 'Add height to calculate height for age.');
+      return unavailableResult(false, tAssessment('common.addHeightForHeightForAge'));
     }
 
     const height = child.height as number;
@@ -240,11 +406,11 @@ export const getAnthropometricStatus = (
   if (assessmentId === 'a1-4') {
     const isRecorded = isPositiveNumber(child.weight) && isPositiveNumber(child.height);
     if (!isRecorded) {
-      return unavailableResult(false, 'Add both weight and height to calculate BMI for age.');
+      return unavailableResult(false, tAssessment('common.addWeightAndHeightForBmiForAge'));
     }
 
     if (!ageDetails) {
-      return unavailableResult(true, 'Add a valid date of birth to calculate BMI for age.');
+      return unavailableResult(true, tAssessment('common.addValidDobForBmiForAge'));
     }
 
     const weight = child.weight as number;
@@ -265,11 +431,11 @@ export const getAnthropometricStatus = (
   if (assessmentId === 'a1-5') {
     const isRecorded = isPositiveNumber(child.weight);
     if (!isRecorded) {
-      return unavailableResult(false, 'Add weight to calculate weight for age.');
+      return unavailableResult(false, tAssessment('common.addWeightForWeightForAge'));
     }
 
     if (!ageDetails) {
-      return unavailableResult(true, 'Add a valid date of birth to calculate weight for age.');
+      return unavailableResult(true, tAssessment('common.addValidDobForWeightForAge'));
     }
 
     const weight = child.weight as number;
@@ -280,7 +446,7 @@ export const getAnthropometricStatus = (
 
   const isRecorded = isPositiveNumber(child.muac);
   if (!isRecorded) {
-    return unavailableResult(false, 'Add MUAC to calculate the arm-circumference status.');
+    return unavailableResult(false, tAssessment('common.addMuacForStatus'));
   }
 
   const muac = child.muac as number;

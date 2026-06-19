@@ -163,6 +163,10 @@
   "Name is required": "Name is required",
   "Date of Birth": "Date of Birth",
   "Date of birth is required": "Date of birth is required",
+  "Date of birth cannot be in the future": "Date of birth cannot be in the future",
+  "Enter a valid month between 01 and 12": "Enter a valid month between 01 and 12",
+  "Enter a valid day for the selected month": "Enter a valid day for the selected month",
+  "Enter a valid 4-digit year": "Enter a valid 4-digit year",
   "Gender": "Gender",
   "Gender is required": "Gender is required",
   "Male": "Male",
@@ -180,6 +184,9 @@
   "e.g., Vitamin D Supplements": "e.g., Vitamin D Supplements",
   "Cancel": "Cancel",
   "Add Child": "Add Child",
+  "Previous child": "Previous child",
+  "Next child": "Next child",
+  "Swipe to see more children": "Swipe to see more children",
   "Failed to add child": "Failed to add child",
   "📋 Your Meal Plans": "📋 Your Meal Plans",
   "No child profile found. Please add a child first.": "No child profile found. Please add a child first.",
@@ -452,6 +459,10 @@
   "Delivery Methods": "Delivery Methods",
   "Development Trace": "Development Trace",
   "Developmental": "Developmental",
+  "Social/Emotional Milestones": "Social and Emotional Development",
+  "Language/Communication Milestones": "Language and Communication Development",
+  "Cognitive Milestones": "Cognitive Development / Learning, Thinking, Problem-Solving",
+  "Movement/Physical Development Milestones": "Movement and Physical Development",
   "Doctor": "Doctor",
   "Done": "Done",
   "Due now": "Due now",
@@ -462,11 +473,13 @@
   "ETB 50 - Fast Delivery": "ETB 50 - Fast Delivery",
   "Emergency Audio Call": "Emergency Audio Call",
   "Enter at least one valid measurement value.": "Enter at least one valid measurement value.",
+  "Enter a valid date in MM/DD/YYYY format": "Enter a valid date in MM/DD/YYYY format",
   "Enter your name": "Enter your name",
   "Enter {{field}}": "Enter {{field}}",
   "Entry": "Entry",
   "Error": "Error",
   "Essential tools for growth.": "Essential tools for growth.",
+  "Experts": "Experts",
   "Everything is set up. You can always update your child's profile from the settings page.": "Everything is set up. You can always update your child's profile from the settings page.",
   "Expert Care": "Expert Care",
   "Expired Measurements": "Expired Measurements",
@@ -594,6 +607,8 @@
   "Screen shared by": "Screen shared by",
   "Search items...": "Search items...",
   "See All": "See All",
+  "Select month": "Select month",
+  "Select year": "Select year",
   "Select Date": "Select Date",
   "Select an active child before booking a consultation.": "Select an active child before booking a consultation.",
   "Select any allergens your child has. This helps us filter meal recommendations.": "Select any allergens your child has. This helps us filter meal recommendations.",
@@ -720,5 +735,355 @@
   "{{count}}M": "{{count}}M",
   "{{count}}W": "{{count}}W",
   "{{count}}Y": "{{count}}Y",
-  "← Back to Help": "← Back to Help"
+  "← Back to Help": "← Back to Help",
+  "assessmentStatus": {
+    "common": {
+      "unavailable": "Unavailable",
+      "noData": "No Data",
+      "addMeasurementsForGrowthStatus": "Add measurements to calculate this growth status.",
+      "addValidDobForGrowthStatus": "Add a valid date of birth to calculate this growth status.",
+      "weightHeightUnavailable": "Weight and height are recorded, but no WHO result is available yet.",
+      "heightUnavailable": "Height is recorded, but no WHO result is available yet.",
+      "muacUnavailable": "MUAC is recorded, but this child is outside the supported MUAC-for-age reference range.",
+      "bmiUnavailable": "Weight and height are recorded, but no BMI-for-age result is available yet.",
+      "weightUnavailable": "Weight is recorded, but no weight-for-age result is available yet.",
+      "addWeightAndHeightForWeightForHeight": "Add both weight and height to calculate weight for height.",
+      "addHeightForHeightForAge": "Add height to calculate height for age.",
+      "addWeightAndHeightForBmiForAge": "Add both weight and height to calculate BMI for age.",
+      "addValidDobForBmiForAge": "Add a valid date of birth to calculate BMI for age.",
+      "addWeightForWeightForAge": "Add weight to calculate weight for age.",
+      "addValidDobForWeightForAge": "Add a valid date of birth to calculate weight for age.",
+      "addMuacForStatus": "Add MUAC to calculate the arm-circumference status."
+    },
+    "who": {
+      "weightForHeight": {
+        "severeWasting": "Severe wasting",
+        "moderateWasting": "Moderate wasting",
+        "normal": "Normal",
+        "riskOfOverweight": "Risk of overweight",
+        "overweight": "Overweight",
+        "obese": "Obese"
+      },
+      "heightForAge": {
+        "severeStunting": "Severe stunting",
+        "moderateStunting": "Moderate stunting",
+        "normal": "Normal height for age",
+        "tallForAge": "Tall for age",
+        "veryTallForAge": "Very tall for age"
+      },
+      "muac": {
+        "normal": "Normal",
+        "moderateAcuteMalnutrition": "Moderate Acute Malnutrition (MAM)",
+        "severeAcuteMalnutrition": "Severe Acute Malnutrition (SAM)"
+      },
+      "weightForAge": {
+        "severeUnderweight": "Severe underweight",
+        "moderateUnderweight": "Moderate underweight",
+        "mildUnderweight": "Mild underweight",
+        "normal": "Normal weight for age",
+        "aboveAverageWeight": "Above average weight",
+        "overweightForAge": "Overweight for age",
+        "obeseForAge": "Obese for age"
+      },
+      "bmiForAge": {
+        "severeThinness": "Severe thinness",
+        "thinness": "Thinness",
+        "normal": "Normal",
+        "riskOfOverweight": "Risk of overweight",
+        "overweight": "Overweight",
+        "obese": "Obese"
+      }
+    },
+    "weightForHeight": {
+      "normal": {
+        "displayLabel": "Normal",
+        "detail": "Appropriate weight for height",
+        "action": "Continue routine care"
+      },
+      "moderateWasting": {
+        "displayLabel": "Wasted (Moderate)",
+        "detail": "Acute malnutrition",
+        "action": "Supplementary feeding + follow-up"
+      },
+      "severeWasting": {
+        "displayLabel": "Severely Wasted",
+        "detail": "Severe acute malnutrition",
+        "action": "Urgent treatment (OTP/SC)"
+      },
+      "overweight": {
+        "displayLabel": "Overweight",
+        "detail": "Excess weight for height",
+        "action": "Counsel on diet and activity"
+      },
+      "obese": {
+        "displayLabel": "Obese",
+        "detail": "High excess weight",
+        "action": "Further assessment + lifestyle intervention"
+      }
+    },
+    "heightForAge": {
+      "normal": {
+        "displayLabel": "Normal",
+        "detail": "Normal linear growth",
+        "action": "Routine monitoring"
+      },
+      "moderateStunting": {
+        "displayLabel": "Stunted (Moderate)",
+        "detail": "Chronic malnutrition",
+        "action": "Nutrition + long-term support"
+      },
+      "severeStunting": {
+        "displayLabel": "Severely Stunted",
+        "detail": "Severe chronic malnutrition",
+        "action": "Comprehensive intervention (nutrition + health + social)"
+      }
+    },
+    "muac": {
+      "normal": {
+        "displayLabel": "Normal",
+        "detail": "Adequate nutritional status",
+        "action": "Routine growth monitoring, continue feeding practices"
+      },
+      "moderateAcuteMalnutrition": {
+        "displayLabel": "Moderate Acute Malnutrition (MAM)",
+        "detail": "At risk, low muscle/fat",
+        "action": "Supplementary feeding, nutrition counseling, close follow-up"
+      },
+      "severeAcuteMalnutrition": {
+        "displayLabel": "Severe Acute Malnutrition (SAM)",
+        "detail": "High risk of mortality",
+        "action": "Urgent clinical visit, referral for therapeutic feeding (OTP/SC)"
+      }
+    },
+    "weightForAge": {
+      "normal": {
+        "displayLabel": "Normal",
+        "detail": "Appropriate weight for age",
+        "action": "Routine care"
+      },
+      "moderateUnderweight": {
+        "displayLabel": "Underweight (Moderate)",
+        "detail": "Could be acute or chronic issue",
+        "action": "Further assessment (WFH + HFA), nutrition support"
+      },
+      "severeUnderweight": {
+        "displayLabel": "Severely Underweight",
+        "detail": "High risk",
+        "action": "Urgent clinical visit, urgent evaluation and intervention"
+      }
+    },
+    "bmiForAge": {
+      "normal": {
+        "displayLabel": "Normal",
+        "detail": "Healthy weight status",
+        "action": "Maintain healthy habits"
+      },
+      "riskOfOverweight": {
+        "displayLabel": "Risk of Overweight",
+        "detail": "Early excess weight",
+        "action": "Diet & activity counseling"
+      },
+      "overweight": {
+        "displayLabel": "Overweight",
+        "detail": "Excess weight",
+        "action": "Lifestyle intervention"
+      },
+      "obese": {
+        "displayLabel": "Obese",
+        "detail": "High health risk",
+        "action": "Clinical assessment"
+      },
+      "thinness": {
+        "displayLabel": "Thinness",
+        "detail": "Underweight",
+        "action": "Nutrition support"
+      },
+      "severeThinness": {
+        "displayLabel": "Severe Thinness",
+        "detail": "Severe undernutrition",
+        "action": "Urgent clinical visit, urgent intervention"
+      }
+    }
+  },
+  "assessmentInterpretation": {
+    "columns": {
+      "indicator": "Indicator",
+      "zScoreRange": "Z-Score Range",
+      "classification": "Classification",
+      "meaning": "Meaning",
+      "recommendedAction": "Recommended Action"
+    },
+    "tables": {
+      "a1": {
+        "title": "Interpretation Reference Table",
+        "description": "Use this reference to interpret Weight for Height (WFH) results.",
+        "rows": [
+          {
+            "indicator": "Weight for Height (WFH)",
+            "zScoreRange": ">= -2 to <= +2",
+            "classification": "Normal",
+            "meaning": "Appropriate weight for height",
+            "recommendedAction": "Continue routine care"
+          },
+          {
+            "indicator": "Weight for Height (WFH)",
+            "zScoreRange": "< -2 to >= -3",
+            "classification": "Wasting (Moderate)",
+            "meaning": "Acute malnutrition",
+            "recommendedAction": "Supplementary feeding + follow-up"
+          },
+          {
+            "indicator": "Weight for Height (WFH)",
+            "zScoreRange": "< -3",
+            "classification": "Severely Wasted",
+            "meaning": "Severe acute malnutrition",
+            "recommendedAction": "Urgent treatment (OTP/SC)"
+          },
+          {
+            "indicator": "Weight for Height (WFH)",
+            "zScoreRange": "> +2",
+            "classification": "Overweight",
+            "meaning": "Excess weight for height",
+            "recommendedAction": "Counsel on diet and activity"
+          },
+          {
+            "indicator": "Weight for Height (WFH)",
+            "zScoreRange": "> +3",
+            "classification": "Obese",
+            "meaning": "Very high excess weight",
+            "recommendedAction": "Further assessment + lifestyle intervention"
+          }
+        ]
+      },
+      "a1-2": {
+        "title": "Interpretation Reference Table",
+        "description": "Use this reference to interpret Height for Age (HFA) results.",
+        "rows": [
+          {
+            "indicator": "Height for Age (HFA)",
+            "zScoreRange": ">= -2",
+            "classification": "Normal",
+            "meaning": "Normal linear growth",
+            "recommendedAction": "Routine monitoring"
+          },
+          {
+            "indicator": "Height for Age (HFA)",
+            "zScoreRange": "< -2 to >= -3",
+            "classification": "Stunted (Moderate)",
+            "meaning": "Chronic malnutrition",
+            "recommendedAction": "Nutrition + long-term support"
+          },
+          {
+            "indicator": "Height for Age (HFA)",
+            "zScoreRange": "< -3",
+            "classification": "Severely Stunted",
+            "meaning": "Severe chronic malnutrition",
+            "recommendedAction": "Comprehensive intervention (nutrition + health + social)"
+          }
+        ]
+      },
+      "a1-3": {
+        "title": "Interpretation Reference Table",
+        "description": "Use this reference to interpret MUAC-for-age results.",
+        "rows": [
+          {
+            "indicator": "MUAC",
+            "zScoreRange": ">= -2",
+            "classification": "Normal",
+            "meaning": "Adequate nutritional status",
+            "recommendedAction": "Routine growth monitoring, continue feeding practices"
+          },
+          {
+            "indicator": "MUAC",
+            "zScoreRange": "< -2 to >= -3",
+            "classification": "Moderate Acute Malnutrition (MAM)",
+            "meaning": "At risk, low muscle/fat stores",
+            "recommendedAction": "Supplementary feeding, nutrition counseling, close follow-up"
+          },
+          {
+            "indicator": "MUAC",
+            "zScoreRange": "< -3",
+            "classification": "Severe Acute Malnutrition (SAM)",
+            "meaning": "High risk of mortality",
+            "recommendedAction": "Urgent clinical visit, referral for therapeutic feeding (OTP/SC)"
+          }
+        ]
+      },
+      "a1-4": {
+        "title": "Interpretation Reference Table",
+        "description": "Use this reference to interpret BAZ / BMI-for-Age results.",
+        "rows": [
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": ">= -2 to <= +1",
+            "classification": "Normal",
+            "meaning": "Healthy weight status",
+            "recommendedAction": "Maintain healthy habits"
+          },
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": "> +1 to <= +2",
+            "classification": "Risk of Overweight",
+            "meaning": "Early excess weight",
+            "recommendedAction": "Diet & activity counseling"
+          },
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": "> +2 to <= +3",
+            "classification": "Overweight",
+            "meaning": "Excess weight",
+            "recommendedAction": "Lifestyle intervention"
+          },
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": "> +3",
+            "classification": "Obese",
+            "meaning": "High health risk",
+            "recommendedAction": "Clinical assessment"
+          },
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": "< -2 to >= -3",
+            "classification": "Thinness",
+            "meaning": "Underweight",
+            "recommendedAction": "Nutrition support"
+          },
+          {
+            "indicator": "BAZ / BMI-for-Age",
+            "zScoreRange": "< -3",
+            "classification": "Severe Thinness",
+            "meaning": "Severe undernutrition",
+            "recommendedAction": "Urgent clinical visit, urgent intervention"
+          }
+        ]
+      },
+      "a1-5": {
+        "title": "Interpretation Reference Table",
+        "description": "Use this reference to interpret Weight for Age (WFA) results.",
+        "rows": [
+          {
+            "indicator": "Weight for Age (WFA)",
+            "zScoreRange": ">= -2",
+            "classification": "Normal",
+            "meaning": "Appropriate weight for age",
+            "recommendedAction": "Routine care"
+          },
+          {
+            "indicator": "Weight for Age (WFA)",
+            "zScoreRange": "< -2 to >= -3",
+            "classification": "Underweight (Moderate)",
+            "meaning": "Could be acute or chronic issue",
+            "recommendedAction": "Further assessment (WFH + HFA), nutrition support"
+          },
+          {
+            "indicator": "Weight for Age (WFA)",
+            "zScoreRange": "< -3",
+            "classification": "Severely Underweight",
+            "meaning": "High risk",
+            "recommendedAction": "Urgent clinical visit, urgent evaluation and intervention"
+          }
+        ]
+      }
+    }
+  }
 }
