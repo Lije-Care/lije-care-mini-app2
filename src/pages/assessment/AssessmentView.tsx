@@ -15,7 +15,7 @@ import {
   getAgeInMonthsFromDob,
 } from '@/data/developmentalMilestones';
 import { BellIcon, InfoIcon, PlusIcon } from '@/design-system/icons';
-import type { DetailedAssessment } from '@/design-system/types';
+import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
 import { useDevelopmentalAssessments } from '@/hooks/useDevelopmentalAssessments';
 import { fetchChildrenByParentId, updateChild } from '@/redux/slices/childSlice';
 import type { AppDispatch, RootState } from '@/redux/store';
