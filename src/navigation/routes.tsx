@@ -15,6 +15,8 @@ const ChildrenListPage = lazy(() => import("@/pages/ChildrenListPage"));
 const ProductDetailPage = lazy(() => import("@/pages/ecommerce/products/ProductDetailPage"));
 const PromotionDetailPage = lazy(() => import("@/pages/promotions/PromotionDetailPage"));
 const CheckoutPage = lazy(() => import("@/pages/ecommerce/checkout/CheckoutPage"));
+const ShopPaymentStatusPage = lazy(() => import("@/pages/ecommerce/checkout/ShopPaymentStatusPage"));
+const MyOrdersPage = lazy(() => import("@/pages/ecommerce/orders/MyOrdersPage"));
 const HomeDashboard = lazy(() => import("@/pages/home/HomeDashboard"));
 const AssessmentView = lazy(() => import("@/pages/assessment/AssessmentView"));
 const MealsView = lazy(() => import("@/pages/meals/MealsView"));
@@ -63,6 +65,18 @@ export const routes: Route[] = [
     path: "/checkout/page",
     Component: CheckoutPage,
     title: "Checkout",
+    protected: true,
+  },
+  {
+    path: "/my-orders",
+    Component: MyOrdersPage,
+    title: "My Orders",
+    protected: true,
+  },
+  {
+    path: "/shop/payment-status",
+    Component: ShopPaymentStatusPage,
+    title: "Shop Payment Status",
     protected: true,
   },
 
