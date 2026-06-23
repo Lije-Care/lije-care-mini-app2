@@ -5,9 +5,9 @@ export interface Article {
   id: string;
   title: string;
   author: string;
-  rating: number;
+  rating?: number | null;
   tags: string[];
-  image: string;
+  image?: string | null;
   content: string;
   createdAt: string;
   updatedAt: string;

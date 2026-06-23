@@ -39,18 +39,28 @@ const ArticleDetail = () => {
           ← Back
         </button>
 
-        <img
-          src={article.image}
-          alt={article.title}
-          className="w-full h-60 object-cover rounded-xl"
-        />
+        {article.image ? (
+          <img
+            src={article.image}
+            alt={article.title}
+            className="w-full h-60 object-cover rounded-xl"
+          />
+        ) : (
+          <div className="flex h-60 w-full items-center justify-center rounded-xl bg-gray-700 text-sm text-gray-300">
+            No image
+          </div>
+        )}
 
         <div className="space-y-1">
           <h1 className="text-2xl font-bold leading-tight text-white">
             {article.title}
           </h1>
           <p className="text-sm text-gray-300">By {article.author}</p>
-          {article.rating !== undefined && renderStars(article.rating)}
+          {article.rating != null ? (
+            renderStars(article.rating)
+          ) : (
+            <p className="text-sm text-gray-400">No rating</p>
+          )}
         </div>
 
         {article.tags?.length > 0 && (

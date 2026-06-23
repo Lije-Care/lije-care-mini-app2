@@ -22,11 +22,17 @@ const ArticleCard = ({ article, showButton = true }: any) => {
   return (
     <div className="rounded-xl overflow-hidden shadow-sm hover:shadow-md transition duration-200 h-full flex flex-col w-full ">
       <div className="relative w-full h-40">
-        <img
-          src={article.image}
-          alt={article.title}
-          className="w-full h-full object-cover"
-        />
+        {article.image ? (
+          <img
+            src={article.image}
+            alt={article.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-slate-800 text-sm text-slate-300">
+            No image
+          </div>
+        )}
       </div>
 
       <div className="p-3 flex flex-col justify-between flex-1">
@@ -35,7 +41,11 @@ const ArticleCard = ({ article, showButton = true }: any) => {
             {article.title}
           </h3>
           <p className="text-xs text-gray-200 mt-1">by {article.author}</p>
-          {article.rating && renderStars(article.rating)}
+          {article.rating != null ? (
+            renderStars(article.rating)
+          ) : (
+            <p className="mt-1 text-xs text-gray-400">No rating</p>
+          )}
           <p className="text-sm text-gray-300 mt-2 line-clamp-3">
             {article.description}
           </p>
