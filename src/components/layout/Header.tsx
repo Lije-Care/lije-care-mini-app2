@@ -38,51 +38,51 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={openProfile}
-          className="relative rounded-full bg-gradient-to-br from-[#F9C846] to-[#76A13B] p-0.5 shadow-lg shadow-amber-100"
-        >
-          <div className="h-9 w-9 overflow-hidden rounded-full border-2 border-white bg-white">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={selectedChild?.name || t('Profile')}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-slate-100">
-                <span className="text-sm">👤</span>
-              </div>
-            )}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-[1.35rem] border border-[#DCCFAD] bg-[#F3E8C9] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+            <button
+              type="button"
+              onClick={() => changeLanguage('en')}
+              className={`min-w-[48px] rounded-[1rem] px-3 py-2 text-sm font-bold transition-all ${
+                activeLanguage === 'en'
+                  ? 'bg-[#FFFDF6] text-[#0B1A12] shadow-sm'
+                  : 'text-[#5E7C31]'
+              }`}
+              aria-pressed={activeLanguage === 'en'}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => changeLanguage('am')}
+              className={`min-w-[48px] rounded-[1rem] px-3 py-2 text-sm font-bold transition-all ${
+                activeLanguage === 'am'
+                  ? 'bg-[#FFFDF6] text-[#0B1A12] shadow-sm'
+                  : 'text-[#5E7C31]'
+              }`}
+              aria-pressed={activeLanguage === 'am'}
+            >
+              አማ
+            </button>
           </div>
-        </button>
-      </div>
 
-      <div className="mt-3 flex">
-        <div className="inline-flex rounded-[1.35rem] border border-[#DCCFAD] bg-[#F3E8C9] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
           <button
-            type="button"
-            onClick={() => changeLanguage('en')}
-            className={`min-w-[58px] rounded-[1rem] px-4 py-2 text-sm font-bold transition-all ${
-              activeLanguage === 'en'
-                ? 'bg-[#FFFDF6] text-[#0B1A12] shadow-sm'
-                : 'text-[#5E7C31]'
-            }`}
-            aria-pressed={activeLanguage === 'en'}
+            onClick={openProfile}
+            className="relative rounded-full bg-gradient-to-br from-[#F9C846] to-[#76A13B] p-0.5 shadow-lg shadow-amber-100"
           >
-            EN
-          </button>
-          <button
-            type="button"
-            onClick={() => changeLanguage('am')}
-            className={`min-w-[58px] rounded-[1rem] px-4 py-2 text-sm font-bold transition-all ${
-              activeLanguage === 'am'
-                ? 'bg-[#FFFDF6] text-[#0B1A12] shadow-sm'
-                : 'text-[#5E7C31]'
-            }`}
-            aria-pressed={activeLanguage === 'am'}
-          >
-            አማ
+            <div className="h-9 w-9 overflow-hidden rounded-full border-2 border-white bg-white">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={selectedChild?.name || t('Profile')}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                  <span className="text-sm">👤</span>
+                </div>
+              )}
+            </div>
           </button>
         </div>
       </div>
