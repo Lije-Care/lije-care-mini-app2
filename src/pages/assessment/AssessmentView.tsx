@@ -14,27 +14,30 @@ import {
   DEVELOPMENTAL_SUBCATEGORY_ORDER,
   getAgeInMonthsFromDob,
 } from '@/data/developmentalMilestones';
+import AnthropometricAssessmentSection, {
+  STATUS_STYLES,
+  StatusIcon,
+  toOutdatedText,
+} from '@/components/assessment/AnthropometricAssessmentSection';
 import { BellIcon, InfoIcon, PlusIcon } from '@/design-system/icons';
 import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
 import { useDevelopmentalAssessments } from '@/hooks/useDevelopmentalAssessments';
 import { fetchChildrenByParentId, updateChild } from '@/redux/slices/childSlice';
 import type { AppDispatch, RootState } from '@/redux/store';
 import {
-  getAnthropometricStatus,
   type AnthropometricAssessmentId,
-  type AnthropometricTone,
 } from '@/utils/anthropometric';
+import {
+  ANTHROPOMETRIC_ASSESSMENTS,
+  buildAnthropometricCards,
+  type AnthropometricCard,
+} from '@/utils/anthropometricCards';
 import i18n from '@/i18n/i18n';
 
 interface MeasurementField {
   label: string;
   key: string;
   help: string;
-}
-
-interface CardMetric {
-  label: string;
-  value: string;
 }
 
 interface GrowthHistoryPoint {
@@ -59,52 +62,6 @@ interface VaccineScheduleItem {
 interface VaccineCard extends Omit<VaccineScheduleItem, 'dueDate'> {
   dueDate: Date;
 }
-
-interface AnthropometricCard {
-  id: AnthropometricAssessmentId;
-  title: string;
-  category: 'Anthropometric';
-  type: 'measurement';
-  metrics: CardMetric[];
-  isRecorded: boolean;
-  isStale: boolean;
-  hasResult: boolean;
-  lastUpdatedText: string;
-  displayStatus: string;
-  detailText: string;
-  interpretation: string;
-  suggestedAction: string | null;
-  whoClassification: string | null;
-  zScore: number | null;
-  tone: AnthropometricTone;
-  growthHistory: GrowthHistoryPoint[];
-  growthUnit: string;
-}
-
-const STATUS_STYLES: Record<
-  AnthropometricTone,
-  {
-    icon: string;
-    pill: string;
-  }
-> = {
-  danger: {
-    icon: 'border-rose-100 bg-rose-50 text-rose-500',
-    pill: 'border-rose-200 bg-rose-50 text-rose-500',
-  },
-  success: {
-    icon: 'border-emerald-100 bg-emerald-50 text-emerald-500',
-    pill: 'border-emerald-200 bg-emerald-50 text-emerald-500',
-  },
-  warning: {
-    icon: 'border-amber-100 bg-amber-50 text-amber-600',
-    pill: 'border-amber-200 bg-amber-50 text-amber-600',
-  },
-  neutral: {
-    icon: 'border-slate-200 bg-slate-100 text-slate-400',
-    pill: 'border-slate-200 bg-slate-100 text-slate-500',
-  },
-};
 
 const MEASUREMENT_GUIDES: Record<string, { title: string; items: string[]; tip: string }> = {
   a1: {
@@ -215,59 +172,6 @@ const MEASUREMENT_FIELDS: Record<string, MeasurementField[]> = {
   ],
 };
 
-const ANTHROPOMETRIC_ASSESSMENTS: Array<{
-  id: AnthropometricAssessmentId;
-  title: string;
-  category: 'Anthropometric';
-  type: 'measurement';
-}> = [
-  { id: 'a1', title: 'Weight for Height', category: 'Anthropometric', type: 'measurement' },
-  { id: 'a1-2', title: 'Height for Age', category: 'Anthropometric', type: 'measurement' },
-  { id: 'a1-3', title: 'MUAC for Age', category: 'Anthropometric', type: 'measurement' },
-  { id: 'a1-4', title: 'BMI for Age', category: 'Anthropometric', type: 'measurement' },
-  { id: 'a1-5', title: 'Weight for Age', category: 'Anthropometric', type: 'measurement' },
-];
-
-const formatRelativeTime = (isoDate?: string) => {
-  if (!isoDate) return i18n.t('Never updated');
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return i18n.t('Unknown');
-
-  const diffMs = Date.now() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 0) return i18n.t('Updated today');
-  if (diffDays === 1) return i18n.t('Updated 1 day ago');
-  if (diffDays < 7) return i18n.t('Updated {{count}} days ago', { count: diffDays });
-
-  const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 5) {
-    return i18n.t(
-      diffWeeks > 1 ? 'Updated {{count}} weeks ago' : 'Updated {{count}} week ago',
-      { count: diffWeeks }
-    );
-  }
-
-  const diffMonths = Math.floor(diffDays / 30);
-  return i18n.t(
-    diffMonths > 1 ? 'Updated {{count}} months ago' : 'Updated {{count}} month ago',
-    { count: diffMonths }
-  );
-};
-
-const formatMetricValue = (value?: number | null, unit?: string) => {
-  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) return '--';
-  return unit ? `${value} ${unit}` : `${value}`;
-};
-
-const formatHistoryMonth = (isoDate?: string) => {
-  if (!isoDate) return '';
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', { month: 'short' });
-};
-
 const formatHistoryValue = (value: number) =>
   Number.isInteger(value) ? value.toString() : value.toFixed(1);
 
@@ -288,63 +192,6 @@ const formatVaccineDueAge = (daysFromBirth: number) => {
   return i18n.t('{{count}}D', { count: daysFromBirth });
 };
 
-const getGrowthHistoryMeta = (assessmentId: AnthropometricAssessmentId) => {
-  switch (assessmentId) {
-    case 'a1':
-      return { unit: 'kg', getValue: (item: any) => item.weight };
-    case 'a1-2':
-      return { unit: 'cm', getValue: (item: any) => item.height };
-    case 'a1-3':
-      return { unit: 'cm', getValue: (item: any) => item.muac };
-    case 'a1-4':
-      return { unit: 'BMI', getValue: (item: any) => item.bmi };
-    case 'a1-5':
-    default:
-      return { unit: 'kg', getValue: (item: any) => item.weight };
-  }
-};
-
-const buildGrowthHistory = (
-  assessmentId: AnthropometricAssessmentId,
-  growthMetrics?: Array<{
-    weight?: number | null;
-    height?: number | null;
-    muac?: number | null;
-    bmi?: number | null;
-    createdAt: string;
-  }>
-) => {
-  const meta = getGrowthHistoryMeta(assessmentId);
-  if (!growthMetrics?.length) return { unit: meta.unit, points: [] as GrowthHistoryPoint[] };
-
-  const points = growthMetrics
-    .map((entry) => {
-      const rawValue = meta.getValue(entry);
-      return {
-        label: formatHistoryMonth(entry.createdAt),
-        value: typeof rawValue === 'number' && Number.isFinite(rawValue) ? rawValue : null,
-      };
-    })
-    .filter((entry): entry is GrowthHistoryPoint => entry.value !== null && entry.label.length > 0)
-    .slice(-6);
-
-  return { unit: meta.unit, points };
-};
-
-const toOutdatedText = (lastUpdatedText: string, isRecorded: boolean) => {
-  if (!isRecorded) return i18n.t('Not recorded yet');
-  return i18n.t('Outdated status', {
-    value: lastUpdatedText.replace(/^Updated\s+/i, ''),
-  });
-};
-
-const getInterpretationText = (detailText: string, hasResult: boolean) => {
-  if (!hasResult) {
-    return i18n.t('No interpretation yet. Add measurements to calculate this assessment.');
-  }
-  return detailText;
-};
-
 const getAnswerColor = (answer?: DevAnswer) => {
   switch (answer) {
     case 'yes':
@@ -356,26 +203,6 @@ const getAnswerColor = (answer?: DevAnswer) => {
     default:
       return 'bg-white border-slate-200 text-slate-400';
   }
-};
-
-const StatusIcon: React.FC<{
-  tone: AnthropometricTone;
-  size?: 'sm' | 'md';
-}> = ({ tone, size = 'md' }) => {
-  const styles = STATUS_STYLES[tone];
-  const containerClass = size === 'sm' ? 'h-20 w-20 rounded-[1.5rem]' : 'h-16 w-16 rounded-2xl';
-  const iconClass = size === 'sm' ? 'text-4xl' : 'text-3xl';
-  const icon =
-    tone === 'success' ? '😊' : tone === 'neutral' ? '🙂' : tone === 'warning' ? '😐' : '😟';
-
-  return (
-    <div
-      className={`flex ${containerClass} items-center justify-center border shadow-inner ${styles.icon}`}
-      aria-hidden="true"
-    >
-      <span className={iconClass}>{icon}</span>
-    </div>
-  );
 };
 
 const GrowthProgressChart: React.FC<{
@@ -589,55 +416,8 @@ const AssessmentView: React.FC = () => {
   }, [isAddingData, location.pathname, location.state, navigate]);
 
   const anthropometricCards = useMemo<AnthropometricCard[]>(() => {
-    const childUpdatedAt = activeChild?.updatedAt;
-    const staleCutoffDays = 30;
-    const diffDays = childUpdatedAt
-      ? Math.floor((Date.now() - new Date(childUpdatedAt).getTime()) / (1000 * 60 * 60 * 24))
-      : Number.POSITIVE_INFINITY;
-    const isStale = !Number.isFinite(diffDays) || diffDays > staleCutoffDays;
-
-    return ANTHROPOMETRIC_ASSESSMENTS.map((assessment) => {
-      const status = getAnthropometricStatus(assessment.id, activeChild);
-      const growthHistory = buildGrowthHistory(assessment.id, activeChild?.growthMetrics);
-
-      const metrics: CardMetric[] =
-        assessment.id === 'a1' || assessment.id === 'a1-4'
-          ? [
-              { label: 'Weight', value: formatMetricValue(activeChild?.weight, 'kg') },
-              { label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') },
-            ]
-          : assessment.id === 'a1-2'
-            ? [{ label: 'Height', value: formatMetricValue(activeChild?.height, 'cm') }]
-            : assessment.id === 'a1-5'
-              ? [{ label: 'Weight', value: formatMetricValue(activeChild?.weight, 'kg') }]
-            : [{ label: 'MUAC', value: formatMetricValue(activeChild?.muac, 'cm') }];
-
-      return {
-        ...assessment,
-        metrics,
-        isRecorded: status.isRecorded,
-        isStale,
-        hasResult: status.hasResult,
-        lastUpdatedText: formatRelativeTime(childUpdatedAt),
-        displayStatus: status.displayLabel,
-        detailText: status.detail,
-        interpretation: getInterpretationText(status.detail, status.hasResult),
-        suggestedAction: status.recommendedAction,
-        whoClassification: status.whoClassification,
-        zScore: status.zScore,
-        tone: status.tone,
-        growthHistory: growthHistory.points,
-        growthUnit: growthHistory.unit,
-      };
-    });
-  }, [
-    activeChild,
-    activeChild?.growthMetrics,
-    activeChild?.height,
-    activeChild?.muac,
-    activeChild?.updatedAt,
-    activeChild?.weight,
-  ]);
+    return buildAnthropometricCards(activeChild);
+  }, [activeChild]);
 
   const expiredAnthro = anthropometricCards.filter((item) => !item.isRecorded || item.isStale);
   const vaccineCards = useMemo<VaccineCard[]>(() => {
@@ -761,106 +541,15 @@ const AssessmentView: React.FC = () => {
 
       <div className="space-y-12">
         <section ref={anthropoSectionRef}>
-          <div className="mb-4 flex items-center justify-between px-6">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">
-              {t('Anthropometric')}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setNotificationType('anthropometric')}
-              className="relative rounded-xl border border-slate-100 bg-white p-2 text-slate-400 shadow-sm transition-colors hover:text-sky-500"
-            >
-              <BellIcon className="h-5 w-5" />
-              {expiredAnthro.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-[8px] font-black text-white">
-                  {expiredAnthro.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="hide-scrollbar flex gap-5 overflow-x-auto px-6 snap-x snap-mandatory">
-            {anthropometricCards.map((item) => {
-              const styles = STATUS_STYLES[item.tone];
-
-              return (
-                <div
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedAssessmentId(item.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSelectedAssessmentId(item.id);
-                    }
-                  }}
-                  className="relative w-[19rem] flex-shrink-0 snap-center rounded-[2rem] border border-slate-100 bg-white p-6 text-left shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-transform active:scale-[0.98]"
-                >
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setHelpAssessment(item.id);
-                    }}
-                    className="absolute right-4 top-4 rounded-full bg-slate-50 p-1.5 text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-500"
-                      aria-label={t('Open help for {{title}}', { title: item.title })}
-                  >
-                    <InfoIcon size={16} />
-                  </button>
-
-                  <h4 className="max-w-[12rem] pr-6 text-[1.95rem] font-black leading-[1.02] tracking-tight text-slate-800">
-                    {t(item.title)}
-                  </h4>
-
-                  <div className="mt-8 flex items-center gap-5">
-                    <StatusIcon tone={item.tone} />
-
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className={`inline-flex rounded-full border px-4 py-2 text-sm font-black uppercase tracking-wide ${styles.pill}`}
-                      >
-                        {item.displayStatus}
-                      </span>
-                      <p className="mt-3 text-xs font-semibold leading-relaxed text-slate-500">
-                        {item.detailText}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    {item.metrics.map((metric) => (
-                      <div
-                        key={metric.label}
-                        className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"
-                      >
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                          {t(metric.label)}
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-slate-700">{metric.value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    {item.lastUpdatedText}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleOpenMeasurementEntry(item.id);
-                    }}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-[1.45rem] bg-slate-100 py-4 text-sm font-black uppercase tracking-wide text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    {item.isRecorded ? t('Update Data') : t('Add Data')}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <AnthropometricAssessmentSection
+            cards={anthropometricCards}
+            title={t('Anthropometric')}
+            alertCount={expiredAnthro.length}
+            onAlertClick={() => setNotificationType('anthropometric')}
+            onCardClick={(item) => setSelectedAssessmentId(item.id)}
+            onHelpClick={(item) => setHelpAssessment(item.id)}
+            onAddDataClick={(item) => handleOpenMeasurementEntry(item.id)}
+          />
         </section>
 
         <section ref={vaccineSectionRef}>
@@ -1182,7 +871,7 @@ const AssessmentView: React.FC = () => {
                       <div className="pr-4">
                         <h5 className="font-bold text-slate-800">{assessment.title}</h5>
                         <p className="text-[10px] font-black uppercase text-amber-600">
-                          {toOutdatedText(assessment.lastUpdatedText, assessment.isRecorded)}
+                          {toOutdatedText(assessment.lastUpdatedText, assessment.isRecorded, t)}
                         </p>
                       </div>
                       <button

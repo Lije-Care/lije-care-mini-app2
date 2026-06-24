@@ -38,6 +38,17 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const ShoppingBagIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 2l1.5 4"/>
+    <path d="M18 2l-1.5 4"/>
+    <path d="M3 7h18"/>
+    <path d="M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13"/>
+    <path d="M9 11v6"/>
+    <path d="M15 11v6"/>
+  </svg>
+);
+
 const ChevronRightIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m9 18 6-6-6-6"/>
@@ -237,6 +248,13 @@ export default function ProfileScreen() {
       color: "emerald",
     },
     {
+      icon: <ShoppingBagIcon />,
+      label: t("My Orders"),
+      description: t("Track shop payments and delivery progress"),
+      onClick: () => navigate("/my-orders"),
+      color: "amber",
+    },
+    {
       icon: <SettingsIcon />,
       label: t("Account Settings"),
       description: t("Password, logout, delete account"),
@@ -313,6 +331,7 @@ export default function ProfileScreen() {
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                 option.color === "sky" ? "bg-sky-100 text-sky-600" :
                 option.color === "emerald" ? "bg-emerald-100 text-emerald-600" :
+                option.color === "amber" ? "bg-amber-100 text-amber-600" :
                 "bg-purple-100 text-purple-600"
               }`}>
                 {option.icon}
