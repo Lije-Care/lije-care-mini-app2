@@ -31,6 +31,23 @@ const REVIEW_STATUS_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
 };
 
+const getDeliveryMethodLabel = (order: ShopOrder) => {
+  switch (order.deliveryMethod) {
+    case "ADDIS_ABABA_DELIVERY":
+    case "DELIVERY":
+      return "Delivery in Addis Ababa - 50 birr";
+    case "FREE_DELIVERY":
+    case "PICKUP":
+      return "Free Delivery";
+    case "PICKUP_LOCATION":
+      return order.pickupLocation
+        ? `Pick up at: ${order.pickupLocation}`
+        : "Pickup Location";
+    default:
+      return order.deliveryMethod;
+  }
+};
+
 export default function MyOrdersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -176,6 +193,22 @@ export default function MyOrdersPage() {
                         FULFILLMENT_STATUS_LABELS[order.fulfillmentStatus] ??
                           order.fulfillmentStatus,
                       )}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                      {t("Delivery method")}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-700">
+                      {getDeliveryMethodLabel(order)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                      {t("Delivery fee")}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-700">
+                      ETB {order.deliveryFee.toFixed(2)}
                     </p>
                   </div>
                 </div>

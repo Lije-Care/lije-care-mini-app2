@@ -8,6 +8,8 @@ interface Product {
   price: number;
   category: string;
   img: string;
+  isFreeDeliveryAvailable?: boolean;
+  pickupLocation?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -7,12 +7,14 @@ import { useDispatch } from "react-redux";
 import { addToCart } from "../../../redux/slices/cartSlice";
 
 interface Product {
-  id: number;
+  id: string;
   img: string;
   name: string;
   description: string;
   price: number;
   category: string;
+  isFreeDeliveryAvailable?: boolean;
+  pickupLocation?: string | null;
 }
 
 const ProductList = () => {

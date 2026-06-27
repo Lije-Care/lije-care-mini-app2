@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import api from "@/api/axios";
@@ -6,7 +6,6 @@ import { clearCart } from "@/redux/slices/cartSlice";
 import type { RootState } from "@/redux/store";
 import type { ShopOrder } from "@/types/order";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n/i18n";
 
 interface CartItem {
   id: string;
@@ -17,6 +16,16 @@ interface CartItem {
 }
 
 type PaymentMode = "CHAPA" | "MANUAL_PROOF" | "CASH";
+type DeliveryMethod =
+  | "ADDIS_ABABA_DELIVERY"
+  | "FREE_DELIVERY"
+  | "PICKUP_LOCATION";
+
+interface ProductDeliveryConfig {
+  id: string;
+  isFreeDeliveryAvailable?: boolean;
+  pickupLocation?: string | null;
+}
 
 const CheckoutPage = () => {
   const { t } = useTranslation();
@@ -33,11 +42,16 @@ const CheckoutPage = () => {
     customerPhone: "",
     customerEmail: "",
     city: "",
-    deliveryMethod: "PICKUP",
+    deliveryMethod: "ADDIS_ABABA_DELIVERY" as DeliveryMethod,
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDeliveryOptions, setIsLoadingDeliveryOptions] =
+    useState(false);
+  const [productDeliveryConfigs, setProductDeliveryConfigs] = useState<
+    ProductDeliveryConfig[]
+  >([]);
   const [manualOrder, setManualOrder] = useState<ShopOrder | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
@@ -48,12 +62,102 @@ const CheckoutPage = () => {
     0,
   );
   const tax = subtotal * 0.15;
-  const deliveryFee = formData.deliveryMethod === "DELIVERY" ? 50 : 0;
+  const normalizedPickupLocations = Array.from(
+    new Set(
+      productDeliveryConfigs
+        .map((product) => product.pickupLocation?.trim())
+        .filter((location): location is string => Boolean(location)),
+    ),
+  );
+  const allProductsLoaded =
+    cartItems.length === 0 ||
+    productDeliveryConfigs.length === new Set(cartItems.map((item) => item.id)).size;
+  const freeDeliveryAvailable =
+    allProductsLoaded &&
+    cartItems.length > 0 &&
+    productDeliveryConfigs.every(
+      (product) => product.isFreeDeliveryAvailable === true,
+    );
+  const pickupLocationAvailable =
+    allProductsLoaded &&
+    cartItems.length > 0 &&
+    productDeliveryConfigs.every((product) => Boolean(product.pickupLocation?.trim())) &&
+    normalizedPickupLocations.length === 1
+      ? normalizedPickupLocations[0]
+      : null;
+  const pickupDisabledMessage = !allProductsLoaded
+    ? t("Checking product delivery options...")
+    : normalizedPickupLocations.length > 1
+      ? t("Pickup is unavailable because the products in your cart have different pickup locations.")
+      : t("Pickup is not available for this product.");
+  const selectedPickupLocation =
+    formData.deliveryMethod === "PICKUP_LOCATION" ? pickupLocationAvailable : null;
+  const deliveryFee =
+    formData.deliveryMethod === "ADDIS_ABABA_DELIVERY" ? 50 : 0;
   const paymentFee = paymentMode === "CHAPA" ? 5 : 0;
   const total = subtotal + tax + deliveryFee + paymentFee;
 
-  const pickupDate = new Date();
-  pickupDate.setDate(pickupDate.getDate() + 3);
+  useEffect(() => {
+    const fetchProductDeliveryConfigs = async () => {
+      if (cartItems.length === 0) {
+        setProductDeliveryConfigs([]);
+        return;
+      }
+
+      setIsLoadingDeliveryOptions(true);
+      try {
+        const productIds = Array.from(new Set(cartItems.map((item) => item.id)));
+        const responses = await Promise.all(
+          productIds.map((id) => api.get(`/ecommerce/${id}`)),
+        );
+
+        setProductDeliveryConfigs(
+          responses.map((response) => ({
+            id: response.data.id,
+            isFreeDeliveryAvailable:
+              response.data.isFreeDeliveryAvailable ?? false,
+            pickupLocation: response.data.pickupLocation ?? null,
+          })),
+        );
+      } catch (err: any) {
+        setError(
+          err?.response?.data?.message ||
+            err?.message ||
+            t("Failed to load product delivery options."),
+        );
+      } finally {
+        setIsLoadingDeliveryOptions(false);
+      }
+    };
+
+    void fetchProductDeliveryConfigs();
+  }, [cartItems, t]);
+
+  useEffect(() => {
+    if (
+      formData.deliveryMethod === "FREE_DELIVERY" &&
+      !freeDeliveryAvailable
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        deliveryMethod: "ADDIS_ABABA_DELIVERY",
+      }));
+    }
+
+    if (
+      formData.deliveryMethod === "PICKUP_LOCATION" &&
+      !pickupLocationAvailable
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        deliveryMethod: "ADDIS_ABABA_DELIVERY",
+      }));
+    }
+  }, [
+    formData.deliveryMethod,
+    freeDeliveryAvailable,
+    pickupLocationAvailable,
+  ]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -64,6 +168,7 @@ const CheckoutPage = () => {
   const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError("");
   };
 
   const validateForm = () => {
@@ -80,6 +185,8 @@ const CheckoutPage = () => {
     customerEmail: formData.customerEmail || undefined,
     city: formData.city,
     deliveryMethod: formData.deliveryMethod,
+    deliveryFee,
+    pickupLocation: selectedPickupLocation || undefined,
     paymentMethod,
     items: cartItems.map((item) => ({
       productId: item.id,
@@ -537,64 +644,117 @@ const CheckoutPage = () => {
                     <h3 className="text-xl font-semibold text-slate-800">
                       {t("Delivery Methods")}
                     </h3>
+                    {isLoadingDeliveryOptions && (
+                      <p className="text-sm text-slate-500">
+                        {t("Checking product delivery options...")}
+                      </p>
+                    )}
                     <div className="grid grid-cols-1 gap-4">
                       <div className="rounded-lg border border-gray-300 bg-white p-4 ps-4">
                         <div className="flex items-start">
                           <div className="flex h-5 items-center">
                             <input
-                              id="DELIVERY"
+                              id="ADDIS_ABABA_DELIVERY"
                               type="radio"
                               name="deliveryMethod"
-                              value="DELIVERY"
-                              checked={formData.deliveryMethod === "DELIVERY"}
+                              value="ADDIS_ABABA_DELIVERY"
+                              checked={
+                                formData.deliveryMethod ===
+                                "ADDIS_ABABA_DELIVERY"
+                              }
                               onChange={handleRadioChange}
                               className="h-4 w-4 border-gray-300 bg-white"
                             />
                           </div>
                           <div className="ms-4 text-sm">
                             <label
-                              htmlFor="DELIVERY"
+                              htmlFor="ADDIS_ABABA_DELIVERY"
                               className="font-medium leading-none text-gray-900"
                             >
-                              {t("ETB 50 - Fast Delivery")}
+                              {t("Delivery in Addis Ababa - 50 birr")}
                             </label>
                             <p className="mt-1 text-xs font-normal text-gray-500">
-                              {t("Get it by Tomorrow")}
+                              {t("Adds ETB 50 to the order total.")}
                             </p>
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-lg border border-gray-300 bg-white p-4 ps-4">
+                      <div
+                        className={`rounded-lg border bg-white p-4 ps-4 ${
+                          freeDeliveryAvailable
+                            ? "border-gray-300"
+                            : "border-slate-200 opacity-70"
+                        }`}
+                      >
                         <div className="flex items-start">
                           <div className="flex h-5 items-center">
                             <input
-                              id="PICKUP"
+                              id="FREE_DELIVERY"
                               type="radio"
                               name="deliveryMethod"
-                              value="PICKUP"
-                              checked={formData.deliveryMethod === "PICKUP"}
+                              value="FREE_DELIVERY"
+                              checked={formData.deliveryMethod === "FREE_DELIVERY"}
                               onChange={handleRadioChange}
+                              disabled={!freeDeliveryAvailable}
                               className="h-4 w-4 border-gray-300 bg-white"
                             />
                           </div>
                           <div className="ms-4 text-sm">
                             <label
-                              htmlFor="PICKUP"
+                              htmlFor="FREE_DELIVERY"
                               className="font-medium leading-none text-gray-900"
                             >
                               {t("Free Delivery")}
                             </label>
                             <p className="mt-1 text-xs font-normal text-gray-500">
-                              {t("Get it by")}{" "}
-                              {pickupDate.toLocaleDateString(
-                                i18n.language === "am" ? "am-ET" : "en-US",
-                                {
-                                  weekday: "long",
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )}
+                              {freeDeliveryAvailable
+                                ? t("Available for all products in this cart.")
+                                : cartItems.length > 1
+                                  ? t(
+                                      "Free delivery is not available for all products in this cart.",
+                                    )
+                                  : t(
+                                      "Free delivery is not available for this product.",
+                                    )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        className={`rounded-lg border bg-white p-4 ps-4 ${
+                          pickupLocationAvailable
+                            ? "border-gray-300"
+                            : "border-slate-200 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-start">
+                          <div className="flex h-5 items-center">
+                            <input
+                              id="PICKUP_LOCATION"
+                              type="radio"
+                              name="deliveryMethod"
+                              value="PICKUP_LOCATION"
+                              checked={
+                                formData.deliveryMethod === "PICKUP_LOCATION"
+                              }
+                              onChange={handleRadioChange}
+                              disabled={!pickupLocationAvailable}
+                              className="h-4 w-4 border-gray-300 bg-white"
+                            />
+                          </div>
+                          <div className="ms-4 text-sm">
+                            <label
+                              htmlFor="PICKUP_LOCATION"
+                              className="font-medium leading-none text-gray-900"
+                            >
+                              {pickupLocationAvailable
+                                ? `${t("Pick up at")}: ${pickupLocationAvailable}`
+                                : t("Pickup Location")}
+                            </label>
+                            <p className="mt-1 text-xs font-normal text-gray-500">
+                              {pickupLocationAvailable
+                                ? t("Pickup does not add a delivery fee.")
+                                : pickupDisabledMessage}
                             </p>
                           </div>
                         </div>
@@ -630,6 +790,16 @@ const CheckoutPage = () => {
                           ETB {deliveryFee.toFixed(2)}
                         </dd>
                       </dl>
+                      {selectedPickupLocation && (
+                        <dl className="flex items-start justify-between gap-4 py-3">
+                          <dt className="text-base font-normal text-slate-600">
+                            {t("Pickup Location")}
+                          </dt>
+                          <dd className="text-right text-base font-medium text-slate-800">
+                            {selectedPickupLocation}
+                          </dd>
+                        </dl>
+                      )}
                       <dl className="flex items-center justify-between gap-4 py-3">
                         <dt className="text-base font-normal text-slate-600">
                           {t("Payment Fee")}

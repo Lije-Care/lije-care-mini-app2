@@ -33,6 +33,8 @@ export interface ShopOrder {
   city: string;
   paymentMethod: string;
   deliveryMethod: string;
+  deliveryFee: number;
+  pickupLocation?: string | null;
   paymentStatus: string;
   fulfillmentStatus: string;
   subtotal: number;
