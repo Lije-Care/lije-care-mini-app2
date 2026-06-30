@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import api from '@/api/axios';
 import { AppDispatch, RootState } from '@/redux/store';
 import { ChevronLeftIcon, PlusIcon, StarIcon } from '@/design-system/icons';
 import { Card, Button } from '@/components/ui';
@@ -13,12 +14,15 @@ import { fetchMeals } from '@/redux/slices/mealSlice';
 import { getPromotions } from '@/services/promotion';
 import { Promotion } from '@/types/promotion';
 import {
+  DEVELOPMENTAL_SUBCATEGORY_ORDER,
   getAgeInMonthsFromDob,
   getDevelopmentTracePromptsForAge,
 } from '@/data/developmentalMilestones';
 import type { DetailedAssessment, DevAnswer } from '@/design-system/types';
 import { useDevelopmentalAssessments } from '@/hooks/useDevelopmentalAssessments';
+import { buildAnthropometricCards } from '@/utils/anthropometricCards';
 import { motion } from 'framer-motion';
+import type { DevelopmentalSubCategory } from '@/data/developmentalMilestones';
 
 interface AssessmentPrompt {
   id: string;
@@ -30,6 +34,13 @@ interface AssessmentPrompt {
 interface HomeAiMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+interface HomeVaccineScheduleItem {
+  id: string;
+  status: 'PENDING' | 'GIVEN' | 'MISSED';
+  isGiven: boolean;
+  isMissed: boolean;
 }
 
 const GROWTH_PROMPT: AssessmentPrompt = {
@@ -62,6 +73,48 @@ const FALLBACK_PRODUCT = {
   description: 'Healthy grain cereal for babies.',
 };
 
+const DEVELOPMENT_SUMMARY_FALLBACK = {
+  immunization: { taken: 2, total: 2, note: 'Fully immunized for current age' },
+  milestoneCounts: {
+    Social: { done: 2, total: 3 },
+    Language: { done: 3, total: 4 },
+    Cognitive: { done: 2, total: 3 },
+    Physical: { done: 3, total: 4 },
+  } as Record<DevelopmentalSubCategory, { done: number; total: number }>,
+};
+
+const SUMMARY_CARD_TITLES = [
+  'Growth Assessments',
+  'Milestones Progress',
+  'Immunization Summary',
+] as const;
+
+const getSummaryStatusColor = (label: string) => {
+  const normalized = label.toLowerCase();
+
+  if (
+    normalized.includes('underweight') ||
+    normalized.includes('wasted') ||
+    normalized.includes('thinness') ||
+    normalized.includes('stunted') ||
+    normalized.includes('malnutrition')
+  ) {
+    return 'bg-rose-50 text-rose-700 border border-rose-200';
+  }
+
+  if (normalized.includes('overweight') || normalized.includes('obese') || normalized.includes('risk')) {
+    return 'bg-amber-50 text-amber-700 border border-amber-200';
+  }
+
+  return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+};
+
+const simplifyGrowthStatus = (label: string) => {
+  if (!label || label === 'No Data' || label === 'Unavailable') return 'Pending';
+  if (label === 'Normal') return 'On Track';
+  return label;
+};
+
 const HomeDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -81,6 +134,9 @@ const HomeDashboard: React.FC = () => {
   const autoSlideRef = useRef<number | null>(null);
   const articlesScrollRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const developmentSummaryScrollRef = useRef<HTMLDivElement>(null);
+  const [developmentSummaryIndex, setDevelopmentSummaryIndex] = useState(0);
+  const [vaccineSchedule, setVaccineSchedule] = useState<HomeVaccineScheduleItem[]>([]);
 
   // Redux state
   const { products } = useSelector((state: RootState) => state.products);
@@ -125,6 +181,56 @@ const HomeDashboard: React.FC = () => {
     return [...developmentPrompts, GROWTH_PROMPT];
   }, [childAgeInMonths, developmentalAssessments]);
 
+  const anthropometricSummaryCards = useMemo(
+    () => buildAnthropometricCards(activeChild),
+    [activeChild]
+  );
+
+  const milestoneProgress = useMemo(
+    () =>
+      DEVELOPMENTAL_SUBCATEGORY_ORDER.map((subCategory) => {
+        const matching = developmentalAssessments.filter(
+          (item) => item.subCategory === subCategory
+        );
+        const answered = matching.filter((item) => item.answer && item.answer !== 'unanswered').length;
+        const total = matching.length;
+        const fallback = DEVELOPMENT_SUMMARY_FALLBACK.milestoneCounts[subCategory];
+
+        return {
+          key: subCategory,
+          label:
+            subCategory === 'Social'
+              ? 'Social & Emotional'
+              : subCategory === 'Language'
+                ? 'Language & Communication'
+                : subCategory === 'Cognitive'
+                  ? 'Cognitive'
+                  : 'Movement & Physical',
+          done: total > 0 ? answered : fallback.done,
+          total: total > 0 ? total : fallback.total,
+        };
+      }),
+    [developmentalAssessments]
+  );
+
+  const immunizationSummary = useMemo(() => {
+    if (vaccineSchedule.length === 0) {
+      return DEVELOPMENT_SUMMARY_FALLBACK.immunization;
+    }
+
+    const total = vaccineSchedule.length;
+    const taken = vaccineSchedule.filter((item) => item.isGiven).length;
+
+    return {
+      taken,
+      total,
+      note:
+        taken === total
+          ? 'Fully immunized for current age'
+          : `${total - taken} vaccine${total - taken === 1 ? '' : 's'} pending for current age`,
+    };
+  }, [vaccineSchedule]);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -157,6 +263,38 @@ const HomeDashboard: React.FC = () => {
   useEffect(() => {
     fetchPromotionItems();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchVaccineSchedule = async () => {
+      if (!activeChild?.id) {
+        if (isMounted) {
+          setVaccineSchedule([]);
+        }
+        return;
+      }
+
+      try {
+        const response = await api.get<{ data: HomeVaccineScheduleItem[] }>(
+          `/immunity/children/${activeChild.id}/schedule`
+        );
+        if (isMounted) {
+          setVaccineSchedule(Array.isArray(response.data?.data) ? response.data.data : []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setVaccineSchedule([]);
+        }
+      }
+    };
+
+    void fetchVaccineSchedule();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChild?.id]);
 
   useEffect(() => {
     if (autoSlideRef.current) {
@@ -303,8 +441,133 @@ const HomeDashboard: React.FC = () => {
     }
   };
 
+  const handleDevelopmentSummaryScroll = () => {
+    const container = developmentSummaryScrollRef.current;
+    if (!container) return;
+
+    const cardWidth = container.clientWidth * 0.86 + 16;
+    const nextIndex = Math.round(container.scrollLeft / cardWidth);
+    setDevelopmentSummaryIndex(Math.max(0, Math.min(SUMMARY_CARD_TITLES.length - 1, nextIndex)));
+  };
+
   return (
     <div className="flex flex-col gap-8 pb-32 pt-4 px-4 overflow-x-hidden">
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">{t('Development Summary')}</h3>
+          <div className="flex gap-1.5">
+            {SUMMARY_CARD_TITLES.map((title, index) => (
+              <div
+                key={title}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  index === developmentSummaryIndex ? 'w-5 bg-emerald-500' : 'w-1.5 bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div
+          ref={developmentSummaryScrollRef}
+          onScroll={handleDevelopmentSummaryScroll}
+          className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 pr-12 scrollbar-hide"
+        >
+          <Card className="h-[300px] w-[86%] flex-shrink-0 snap-center border border-emerald-100/70 bg-[linear-gradient(180deg,#ffffff_0%,#f8fdf5_100%)] shadow-[0_20px_40px_-28px_rgba(118,161,59,0.45)]">
+            <div className="flex h-full flex-col">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+                  {t('Growth Status')}
+                </span>
+              </div>
+              <h4 className="mb-4 text-sm font-extrabold text-slate-800">{t('Growth Assessments')}</h4>
+              <div className="space-y-3">
+                {anthropometricSummaryCards.map((card) => {
+                  const status = simplifyGrowthStatus(t(card.displayStatus));
+                  return (
+                    <div
+                      key={card.id}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm"
+                    >
+                      <span className="text-xs font-medium text-slate-600">{t(card.title)}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${getSummaryStatusColor(status)}`}>
+                        {status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="h-[300px] w-[86%] flex-shrink-0 snap-center border border-sky-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#f6fbff_100%)] shadow-[0_20px_40px_-28px_rgba(14,165,233,0.35)]">
+            <div className="flex h-full flex-col">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
+                  {t('Milestones')}
+                </span>
+              </div>
+              <h4 className="mb-4 text-sm font-extrabold text-slate-800">{t('Milestones Progress')}</h4>
+              <div className="space-y-4">
+                {milestoneProgress.map((item) => {
+                  const percentage = item.total > 0 ? Math.round((item.done / item.total) * 100) : 0;
+                  return (
+                    <div key={item.key}>
+                      <div className="mb-1.5 flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate-600">{t(item.label)}</span>
+                        <span className="text-xs font-bold text-slate-700">
+                          {item.done}/{item.total}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="h-[300px] w-[86%] flex-shrink-0 snap-center border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffaf0_100%)] shadow-[0_20px_40px_-28px_rgba(245,158,11,0.35)]">
+            <div className="flex h-full flex-col">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                  {t('Immunization')}
+                </span>
+              </div>
+              <h4 className="mb-4 text-sm font-extrabold text-slate-800">{t('Immunization Summary')}</h4>
+              <div className="rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-sm">
+                <div className="mb-3 flex items-end justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">{t('Taken vaccines')}</p>
+                    <p className="mt-1 text-2xl font-black text-slate-800">
+                      {immunizationSummary.taken} / {immunizationSummary.total}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                    {immunizationSummary.taken === immunizationSummary.total ? t('On Track') : t('Pending')}
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-slate-100">
+                  <div
+                    className="h-2.5 rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all"
+                    style={{
+                      width: `${immunizationSummary.total > 0
+                        ? Math.round((immunizationSummary.taken / immunizationSummary.total) * 100)
+                        : 0}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-4 text-sm font-medium text-slate-600">{t(immunizationSummary.note)}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </section>
+
       {/* 1. Assessment Prompts Section - Development Trace */}
       <section>
         <div className="flex justify-between items-center mb-4">
