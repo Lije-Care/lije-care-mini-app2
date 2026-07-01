@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import api from '@/api/axios';
@@ -144,6 +144,7 @@ const getActionAvailability = (
 const CallCenterView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<'Doctor' | 'Nutritionist' | 'Support' | 'Sessions'>('Doctor');
   const [bookingStep, setBookingStep] = useState<'selection' | 'payment'>('selection');
@@ -169,6 +170,14 @@ const CallCenterView: React.FC = () => {
   useEffect(() => {
     dispatch(fetchSpecialists({ page: 1, limit: 10 }));
   }, [dispatch]);
+
+  useEffect(() => {
+    const requestedTab = (location.state as { activeTab?: 'Doctor' | 'Nutritionist' | 'Support' | 'Sessions' } | null)?.activeTab;
+    if (!requestedTab || requestedTab === activeTab) return;
+
+    setActiveTab(requestedTab);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [activeTab, location.pathname, location.state, navigate]);
 
   const fetchBookings = async () => {
     const telegramUser = JSON.parse(localStorage.getItem('user') || '{}');

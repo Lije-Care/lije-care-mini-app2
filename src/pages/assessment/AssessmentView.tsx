@@ -815,6 +815,16 @@ const AssessmentView: React.FC = () => {
             <div className="space-y-3">
               <button
                 type="button"
+                onClick={() => {
+                  setRecommendationModal(null);
+                  navigate('/consultation', { state: { activeTab: 'Doctor' } });
+                }}
+                className="w-full rounded-2xl bg-[#76A13B] py-4 font-black text-white shadow-lg shadow-emerald-100 transition-colors hover:bg-[#678d33]"
+              >
+                {t('Talk to a Doctor')}
+              </button>
+              <button
+                type="button"
                 onClick={() => setRecommendationModal(null)}
                 className="w-full rounded-2xl bg-slate-900 py-4 font-black text-white"
               >

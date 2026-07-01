@@ -480,21 +480,27 @@ const HomeDashboard: React.FC = () => {
                 </span>
               </div>
               <h4 className="mb-4 text-sm font-extrabold text-slate-800">{t('Growth Assessments')}</h4>
-              <div className="space-y-3">
-                {anthropometricSummaryCards.map((card) => {
-                  const status = simplifyGrowthStatus(t(card.displayStatus));
-                  return (
-                    <div
-                      key={card.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm"
-                    >
-                      <span className="text-xs font-medium text-slate-600">{t(card.title)}</span>
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${getSummaryStatusColor(status)}`}>
-                        {status}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="max-h-[190px] overflow-y-auto overflow-x-hidden pr-1 scrollbar-hide">
+                <div className="space-y-3">
+                  {anthropometricSummaryCards.map((card) => {
+                    const status = simplifyGrowthStatus(t(card.displayStatus));
+                    return (
+                      <div
+                        key={card.id}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm"
+                      >
+                        <span className="min-w-0 flex-1 text-xs font-medium text-slate-600">
+                          {t(card.title)}
+                        </span>
+                        <span
+                          className={`min-w-0 max-w-[52%] break-words whitespace-normal text-center rounded-full px-2.5 py-1 text-[10px] font-bold leading-4 ${getSummaryStatusColor(status)}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </Card>

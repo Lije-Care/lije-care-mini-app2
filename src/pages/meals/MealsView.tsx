@@ -4592,13 +4592,23 @@ const MealsView: React.FC = () => {
           <div className="bg-[#0B1A12] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-100">
             <div className="relative z-10">
               <h3 className="text-2xl font-black mb-2 leading-tight">{t('Smart Child')}<br/>{t('Meal Planning')}</h3>
-              <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">{t("Design balanced nutrition tailored to your little one's growth.")}</p>
-              <button
-                onClick={openNewPlanBuilder}
-                className="bg-[#F9C846] text-[#0B1A12] px-8 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
-              >
-              {t('Create New Plan')}
-              </button>
+              <p className="text-sky-100 text-xs font-medium mb-8 leading-relaxed">
+                {t('Create a balanced meal plan yourself, or request a personalized plan from a certified child nutritionist. Request a consultation and professional meal recommendations from a certified child nutritionist.')}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={openNewPlanBuilder}
+                  className="w-full rounded-2xl bg-[#F9C846] px-6 py-4 text-sm font-black text-[#0B1A12] shadow-xl transition-transform active:scale-95 sm:w-auto"
+                >
+                  {t('Create Plan Yourself')}
+                </button>
+                <button
+                  onClick={() => navigate('/consultation', { state: { activeTab: 'Nutritionist' } })}
+                  className="w-full rounded-2xl border border-white/20 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur-sm transition-colors hover:bg-white/15 sm:w-auto"
+                >
+                  {t('Request Nutritionist Plan')}
+                </button>
+              </div>
             </div>
             <div className="absolute bottom-0 right-0 w-40 h-40 bg-sky-400 rounded-full -mb-20 -mr-20"></div>
           </div>
