@@ -89,6 +89,9 @@ const SUMMARY_CARD_TITLES = [
   'Immunization Summary',
 ] as const;
 
+const getActiveLanguage = (language?: string) =>
+  language?.toLowerCase().startsWith('am') ? 'am' : 'en';
+
 const getSummaryStatusColor = (label: string) => {
   const normalized = label.toLowerCase();
 
@@ -109,9 +112,12 @@ const getSummaryStatusColor = (label: string) => {
   return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
 };
 
-const simplifyGrowthStatus = (label: string) => {
-  if (!label || label === 'No Data' || label === 'Unavailable') return 'Pending';
-  if (label === 'Normal') return 'On Track';
+const simplifyGrowthStatus = (
+  label: string,
+  options: { hasResult: boolean; tone: 'danger' | 'success' | 'warning' | 'neutral' }
+) => {
+  if (!options.hasResult || options.tone === 'neutral') return 'Pending';
+  if (options.tone === 'success') return 'On Track';
   return label;
 };
 
@@ -227,9 +233,9 @@ const HomeDashboard: React.FC = () => {
       note:
         taken === total
           ? 'Fully immunized for current age'
-          : `${total - taken} vaccine${total - taken === 1 ? '' : 's'} pending for current age`,
+          : t('{{count}} vaccines pending for current age', { count: total - taken }),
     };
-  }, [vaccineSchedule]);
+  }, [t, vaccineSchedule]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -401,7 +407,7 @@ const HomeDashboard: React.FC = () => {
     setChatInput('');
 
     try {
-      const languageLabel = i18n.language === 'am' ? 'Amharic' : 'English';
+      const languageLabel = getActiveLanguage(i18n.language) === 'am' ? 'Amharic' : 'English';
       const res = await fetch(`${backendUrl}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -483,7 +489,10 @@ const HomeDashboard: React.FC = () => {
               <div className="max-h-[190px] overflow-y-auto overflow-x-hidden pr-1 scrollbar-hide">
                 <div className="space-y-3">
                   {anthropometricSummaryCards.map((card) => {
-                    const status = simplifyGrowthStatus(t(card.displayStatus));
+                    const status = simplifyGrowthStatus(t(card.displayStatus), {
+                      hasResult: card.hasResult,
+                      tone: card.tone,
+                    });
                     return (
                       <div
                         key={card.id}
@@ -495,7 +504,7 @@ const HomeDashboard: React.FC = () => {
                         <span
                           className={`min-w-0 max-w-[52%] break-words whitespace-normal text-center rounded-full px-2.5 py-1 text-[10px] font-bold leading-4 ${getSummaryStatusColor(status)}`}
                         >
-                          {status}
+                          {t(status)}
                         </span>
                       </div>
                     );

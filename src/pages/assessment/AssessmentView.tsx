@@ -176,7 +176,7 @@ const formatHistoryValue = (value: number) =>
   Number.isInteger(value) ? value.toString() : value.toFixed(1);
 
 const formatDueDate = (date: Date) =>
-  date.toLocaleDateString(i18n.language === 'am' ? 'am-ET' : 'en-US', {
+  date.toLocaleDateString(i18n.language?.toLowerCase().startsWith('am') ? 'am-ET' : 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
