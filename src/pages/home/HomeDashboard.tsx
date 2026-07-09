@@ -92,32 +92,20 @@ const SUMMARY_CARD_TITLES = [
 const getActiveLanguage = (language?: string) =>
   language?.toLowerCase().startsWith('am') ? 'am' : 'en';
 
-const getSummaryStatusColor = (label: string) => {
-  const normalized = label.toLowerCase();
-
-  if (
-    normalized.includes('underweight') ||
-    normalized.includes('wasted') ||
-    normalized.includes('thinness') ||
-    normalized.includes('stunted') ||
-    normalized.includes('malnutrition')
-  ) {
-    return 'bg-rose-50 text-rose-700 border border-rose-200';
-  }
-
-  if (normalized.includes('overweight') || normalized.includes('obese') || normalized.includes('risk')) {
-    return 'bg-amber-50 text-amber-700 border border-amber-200';
-  }
-
+const getSummaryStatusColor = (tone: 'danger' | 'success' | 'warning' | 'neutral') => {
+  if (tone === 'danger') return 'bg-rose-50 text-rose-700 border border-rose-200';
+  if (tone === 'warning') return 'bg-amber-50 text-amber-700 border border-amber-200';
+  if (tone === 'neutral') return 'bg-slate-100 text-slate-500 border border-slate-200';
   return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
 };
 
 const simplifyGrowthStatus = (
   label: string,
-  options: { hasResult: boolean; tone: 'danger' | 'success' | 'warning' | 'neutral' }
+  options: { hasResult: boolean; tone: 'danger' | 'success' | 'warning' | 'neutral' },
+  t: (key: string) => string
 ) => {
-  if (!options.hasResult || options.tone === 'neutral') return 'Pending';
-  if (options.tone === 'success') return 'On Track';
+  if (!options.hasResult || options.tone === 'neutral') return t('Pending');
+  if (options.tone === 'success') return t('On Track');
   return label;
 };
 
@@ -189,7 +177,7 @@ const HomeDashboard: React.FC = () => {
 
   const anthropometricSummaryCards = useMemo(
     () => buildAnthropometricCards(activeChild),
-    [activeChild]
+    [activeChild, i18n.language]
   );
 
   const milestoneProgress = useMemo(
@@ -492,7 +480,7 @@ const HomeDashboard: React.FC = () => {
                     const status = simplifyGrowthStatus(t(card.displayStatus), {
                       hasResult: card.hasResult,
                       tone: card.tone,
-                    });
+                    }, t);
                     return (
                       <div
                         key={card.id}
@@ -502,7 +490,7 @@ const HomeDashboard: React.FC = () => {
                           {t(card.title)}
                         </span>
                         <span
-                          className={`min-w-0 max-w-[52%] break-words whitespace-normal text-center rounded-full px-2.5 py-1 text-[10px] font-bold leading-4 ${getSummaryStatusColor(status)}`}
+                          className={`min-w-0 max-w-[52%] break-words whitespace-normal text-center rounded-full px-2.5 py-1 text-[10px] font-bold leading-4 ${getSummaryStatusColor(card.tone)}`}
                         >
                           {t(status)}
                         </span>

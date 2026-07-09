@@ -417,7 +417,7 @@ const AssessmentView: React.FC = () => {
 
   const anthropometricCards = useMemo<AnthropometricCard[]>(() => {
     return buildAnthropometricCards(activeChild);
-  }, [activeChild]);
+  }, [activeChild, i18n.language]);
 
   const expiredAnthro = anthropometricCards.filter((item) => !item.isRecorded || item.isStale);
   const vaccineCards = useMemo<VaccineCard[]>(() => {
