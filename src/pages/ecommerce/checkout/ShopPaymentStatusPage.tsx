@@ -8,6 +8,17 @@ import { useTranslation } from "react-i18next";
 
 type VerificationState = "loading" | "success" | "failed";
 
+const getShopPaymentTxRef = () => {
+  const currentUrl = new URL(window.location.href);
+  const hashValue = currentUrl.hash.startsWith("#")
+    ? currentUrl.hash.slice(1)
+    : currentUrl.hash;
+  const [, hashSearch = ""] = hashValue.split("?");
+  const hashParams = new URLSearchParams(hashSearch);
+
+  return hashParams.get("tx_ref") ?? currentUrl.searchParams.get("tx_ref");
+};
+
 const ShopPaymentStatusPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -19,9 +30,7 @@ const ShopPaymentStatusPage = () => {
   useEffect(() => {
     const verifyPayment = async () => {
       try {
-        const query = window.location.hash.split("?")[1] ?? "";
-        const params = new URLSearchParams(query);
-        const txRef = params.get("tx_ref");
+        const txRef = getShopPaymentTxRef();
 
         if (!txRef) {
           setState("failed");
