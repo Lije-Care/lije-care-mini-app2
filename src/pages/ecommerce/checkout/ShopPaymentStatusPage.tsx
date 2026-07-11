@@ -5,21 +5,17 @@ import { clearCart } from "@/redux/slices/cartSlice";
 import api from "@/api/axios";
 import { Page } from "@/components/Page";
 import { useTranslation } from "react-i18next";
+import { getShopPaymentTxRef } from "./chapaReturn";
 
-type VerificationState = "loading" | "success" | "failed";
+type VerificationState = "loading" | "success" | "pending" | "failed";
 
-const getShopPaymentTxRef = () => {
-  const currentUrl = new URL(window.location.href);
-  const hashValue = currentUrl.hash.startsWith("#")
-    ? currentUrl.hash.slice(1)
-    : currentUrl.hash;
-  const [, hashSearch = ""] = hashValue.split("?");
-  const hashParams = new URLSearchParams(hashSearch);
+interface ShopPaymentStatusPageProps {
+  allowProtectedNavigation?: boolean;
+}
 
-  return hashParams.get("tx_ref") ?? currentUrl.searchParams.get("tx_ref");
-};
-
-const ShopPaymentStatusPage = () => {
+const ShopPaymentStatusPage = ({
+  allowProtectedNavigation = true,
+}: ShopPaymentStatusPageProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -49,12 +45,15 @@ const ShopPaymentStatusPage = () => {
           return;
         }
 
+        if (paymentStatus === "PENDING") {
+          setState("pending");
+          setPaymentInfo(response.data.data);
+          setMessage(t("Your payment is still pending confirmation."));
+          return;
+        }
+
         setState("failed");
-        setMessage(
-          paymentStatus === "PENDING"
-            ? t("Your payment is still pending confirmation.")
-            : t("Your payment was not completed."),
-        );
+        setMessage(t("Your payment was not completed."));
       } catch (error: any) {
         setState("failed");
         setMessage(
@@ -93,22 +92,99 @@ const ShopPaymentStatusPage = () => {
                 {message || t("Please complete the payment and try again.")}
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/checkout/page")}
-                className="rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
-              >
-                {t("Back to Checkout")}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/my-orders")}
-                className="rounded-[2rem] border border-slate-200 px-6 py-4 text-sm font-black text-slate-700"
-              >
-                {t("View My Orders")}
-              </button>
+            {allowProtectedNavigation ? (
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/checkout/page")}
+                  className="rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+                >
+                  {t("Back to Checkout")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/my-orders")}
+                  className="rounded-[2rem] border border-slate-200 px-6 py-4 text-sm font-black text-slate-700"
+                >
+                  {t("View My Orders")}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  {t("You can close this page and return to Telegram to continue using Lije Care.")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="w-full rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+                >
+                  {t("Check Again")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (state === "pending") {
+    return (
+      <Page back>
+        <div className="min-h-screen bg-slate-50 px-4 py-10">
+          <div className="space-y-6 rounded-[2rem] border border-amber-200 bg-white p-8 text-center">
+            <div>
+              <h1 className="text-2xl font-black text-amber-700">
+                {t("Payment pending")}
+              </h1>
+              <p className="mt-2 text-sm text-slate-600">
+                {message || t("Your payment is still pending confirmation.")}
+              </p>
             </div>
+
+            {paymentInfo && (
+              <div className="rounded-[1.5rem] bg-slate-50 p-4 text-sm text-slate-700">
+                <p>
+                  {t("Reference")}: {paymentInfo.tx_ref}
+                </p>
+                <p>
+                  {t("Amount")}: {paymentInfo.amount} {paymentInfo.currency}
+                </p>
+              </div>
+            )}
+
+            {allowProtectedNavigation ? (
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/my-orders")}
+                  className="rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+                >
+                  {t("View My Orders")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/checkout/page")}
+                  className="rounded-[2rem] border border-slate-200 px-6 py-4 text-sm font-black text-slate-700"
+                >
+                  {t("Back to Checkout")}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  {t("You can close this page and return to Telegram to continue using Lije Care.")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="w-full rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+                >
+                  {t("Check Again")}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </Page>
@@ -139,22 +215,37 @@ const ShopPaymentStatusPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/my-orders")}
-              className="rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
-            >
-              {t("View My Orders")}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/ecommerce")}
-              className="rounded-[2rem] border border-slate-200 px-6 py-4 text-sm font-black text-slate-700"
-            >
-              {t("Continue Shopping")}
-            </button>
-          </div>
+          {allowProtectedNavigation ? (
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => navigate("/my-orders")}
+                className="rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+              >
+                {t("View My Orders")}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/ecommerce")}
+                className="rounded-[2rem] border border-slate-200 px-6 py-4 text-sm font-black text-slate-700"
+              >
+                {t("Continue Shopping")}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                {t("You can close this page and return to Telegram to continue using Lije Care.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="w-full rounded-[2rem] bg-[#0B1A12] px-6 py-4 text-sm font-black text-white"
+              >
+                {t("Check Again")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Page>
