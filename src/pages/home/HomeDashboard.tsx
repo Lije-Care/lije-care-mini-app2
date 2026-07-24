@@ -4,13 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import api from '@/api/axios';
 import { AppDispatch, RootState } from '@/redux/store';
-import { ChevronLeftIcon, PlusIcon, StarIcon } from '@/design-system/icons';
+import { ChevronLeftIcon, PlusIcon } from '@/design-system/icons';
 import { Card, Button } from '@/components/ui';
 import { fetchArticles } from '@/redux/slices/articlesSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
 import { fetchParent } from '@/redux/slices/itemSlice';
 import { fetchProducts } from '@/redux/slices/productSlice';
-import { fetchMeals } from '@/redux/slices/mealSlice';
 import { getPromotions } from '@/services/promotion';
 import { Promotion } from '@/types/promotion';
 import {
@@ -49,29 +48,18 @@ const GROWTH_PROMPT: AssessmentPrompt = {
   category: 'growth',
 };
 
-// Fallback data in case backend data is not available
-const FALLBACK_MEAL = {
-  id: 'm-today',
-  name: 'Shiro Wot',
-  type: 'Lunch',
-  nutrients: ['Protein', 'Fiber', 'Iron'],
-  image: 'https://picsum.photos/seed/shiro/400/300',
-  description: 'Traditional chickpea stew.',
-  prepTime: '25 min',
-  ageGroup: '12m+',
-  calories: 320,
-  volume: '250ml'
-};
-
-const FALLBACK_PRODUCT = {
-  id: 'p1',
-  name: 'Organic Teff Cereal',
-  price: 450,
-  rating: 4.8,
-  image: 'https://picsum.photos/seed/teff/400/400',
-  category: 'Food',
-  description: 'Healthy grain cereal for babies.',
-};
+interface HomeMealPlan {
+  id: string;
+  meal_date?: string;
+  createdAt?: string;
+  mealTimes?: Record<string, string[]>;
+  meals?: Array<{
+    id: string;
+    name?: string;
+    imageUrl?: string | null;
+    totalNutrients?: Array<{ id?: string; name?: string }>;
+  }>;
+}
 
 const DEVELOPMENT_SUMMARY_FALLBACK = {
   immunization: { taken: 2, total: 2, note: 'Fully immunized for current age' },
@@ -131,10 +119,13 @@ const HomeDashboard: React.FC = () => {
   const developmentSummaryScrollRef = useRef<HTMLDivElement>(null);
   const [developmentSummaryIndex, setDevelopmentSummaryIndex] = useState(0);
   const [vaccineSchedule, setVaccineSchedule] = useState<HomeVaccineScheduleItem[]>([]);
+  const [mealPlans, setMealPlans] = useState<HomeMealPlan[]>([]);
+  const [mealPlansLoading, setMealPlansLoading] = useState(false);
 
   // Redux state
-  const { products } = useSelector((state: RootState) => state.products);
-  const { meals } = useSelector((state: RootState) => state.meals);
+  const { products, loading: productsLoading } = useSelector(
+    (state: RootState) => state.products
+  );
   const { data: children } = useSelector((state: RootState) => state.children);
   const { articles } = useSelector((state: RootState) => state.articles);
 
@@ -233,9 +224,8 @@ const HomeDashboard: React.FC = () => {
       dispatch(fetchParent(val?.id));
       dispatch(fetchChildrenByParentId(val?.id));
     }
-    // Fetch products and meals for dashboard
+    // Fetch products for the dashboard.
     dispatch(fetchProducts());
-    dispatch(fetchMeals());
   }, [dispatch]);
 
   const fetchPromotionItems = async () => {
@@ -291,6 +281,37 @@ const HomeDashboard: React.FC = () => {
   }, [activeChild?.id]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchMealPlans = async () => {
+      if (!activeChild?.id) {
+        setMealPlans([]);
+        return;
+      }
+
+      setMealPlansLoading(true);
+      try {
+        const response = await api.get<{ data: HomeMealPlan[] }>(
+          `/meal-plans/by-child/${activeChild.id}`,
+          { params: { lang: i18n.language } }
+        );
+        if (isMounted) {
+          setMealPlans(Array.isArray(response.data?.data) ? response.data.data : []);
+        }
+      } catch {
+        if (isMounted) setMealPlans([]);
+      } finally {
+        if (isMounted) setMealPlansLoading(false);
+      }
+    };
+
+    void fetchMealPlans();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChild?.id, i18n.language]);
+
+  useEffect(() => {
     if (autoSlideRef.current) {
       window.clearInterval(autoSlideRef.current);
     }
@@ -324,36 +345,41 @@ const HomeDashboard: React.FC = () => {
     setPromoIndex((prev) => (prev + 1) % promotions.length);
   };
 
-  // Get featured product from backend or use fallback
-  const FEATURED_PRODUCT = products.length > 0 ? {
+  // Show only a real product returned by the shop API.
+  const featuredProduct = products.length > 0 ? {
     id: products[0].id,
     name: products[0].name,
     price: products[0].price,
-    rating: 4.8,
-    image: products[0].img || `https://picsum.photos/seed/${products[0].id}/400/400`,
+    image: products[0].img,
     category: products[0].category,
     description: products[0].description,
-  } : FALLBACK_PRODUCT;
+  } : null;
 
-  // Get meal of the day from backend or use fallback
-  const MEAL_OF_THE_DAY = meals.length > 0 ? {
-    id: meals[0].id,
-    name: meals[0].name,
-    type: meals[0].mealTimes?.[0] || 'Meal',
-    nutrients: ['Protein', 'Fiber', 'Iron'], // Default nutrients
-    image: meals[0].imageUrl || `https://picsum.photos/seed/${meals[0].id}/400/300`,
-    description: meals[0].description || '',
-    prepTime: meals[0].prepTime || 'N/A',
-    ageGroup: meals[0].ageGroup,
-    calories: Math.round(meals[0].totalVolume * 1.3) || 200,
-    volume: `${meals[0].totalVolume}ml`,
-  } : FALLBACK_MEAL;
+  const mealOfTheDay = useMemo(() => {
+    const plansWithMeals = mealPlans.filter((plan) => plan.meals?.length);
+    if (!plansWithMeals.length) return null;
 
-  const nutrientLabels = MEAL_OF_THE_DAY.nutrients.map((nutrient) => t(nutrient));
-  const mealTypeLabel =
-    meals.length > 0 ? MEAL_OF_THE_DAY.type : t(MEAL_OF_THE_DAY.type);
-  const featuredProductName =
-    products.length > 0 ? FEATURED_PRODUCT.name : t(FEATURED_PRODUCT.name);
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const plan =
+      plansWithMeals.find((item) => item.meal_date?.slice(0, 10) === todayKey) ||
+      [...plansWithMeals].sort((a, b) =>
+        (b.meal_date || b.createdAt || '').localeCompare(a.meal_date || a.createdAt || '')
+      )[0];
+    const meal = plan.meals![0];
+
+    return {
+      ...meal,
+      type: plan.mealTimes?.[meal.id]?.[0] || 'Meal',
+      nutrients: (meal.totalNutrients || [])
+        .map((nutrient) => nutrient.name)
+        .filter((name): name is string => Boolean(name))
+        .slice(0, 3),
+    };
+  }, [mealPlans]);
+
+  const nutrientLabels = (mealOfTheDay?.nutrients || []).map((nutrient) => t(nutrient));
+  const mealTypeLabel = mealOfTheDay ? t(mealOfTheDay.type) : '';
   const initialAssistantMessage = t(
     "Hi! I am Lije Care AI, your personalized parenting companion. I am fully aware of {{childName}}'s growth details, developmental assessments and vaccine records. Ask me anything about diet, purees, milestone support, or simple recipes!",
     { childName: activeChildName }
@@ -807,41 +833,61 @@ const HomeDashboard: React.FC = () => {
       {/* 3. Today's Meal Section - Healthy Bites */}
       <section>
         <h3 className="font-bold text-slate-800 text-lg mb-4">{t('Healthy Bites')}</h3>
-        <div
-          className="relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 group cursor-pointer"
-          onClick={() => navigate('/meals')}
-        >
-          <div className="absolute top-4 left-4 z-10">
-            <div className="bg-amber-400 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-              {t('Next:')} {mealTypeLabel}
+        {mealPlansLoading ? (
+          <div className="h-72 rounded-[2rem] bg-white border border-slate-100 animate-pulse" />
+        ) : mealOfTheDay ? (
+          <div
+            className="relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 group cursor-pointer"
+            onClick={() => navigate('/meals')}
+          >
+            <div className="absolute top-4 left-4 z-10">
+              <div className="bg-amber-400 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                {t('Next:')} {mealTypeLabel}
+              </div>
+            </div>
+            <div className="h-48 overflow-hidden bg-amber-50">
+              {mealOfTheDay.imageUrl ? (
+                <img
+                  src={mealOfTheDay.imageUrl}
+                  alt={mealOfTheDay.name || t('Meal')}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-5xl" aria-hidden="true">🍲</div>
+              )}
+            </div>
+            <div className="p-5">
+              <h4 className="text-xl font-bold text-slate-800 mb-2">
+                {mealOfTheDay.name || t('Meal')}
+              </h4>
+              {nutrientLabels.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {nutrientLabels.map((n) => (
+                    <span
+                      key={n}
+                      className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100"
+                    >
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <Button color="slate" fullWidth>
+                {t('View Full Plan')}
+              </Button>
             </div>
           </div>
-          <div className="h-48 overflow-hidden">
-            <img
-              src={MEAL_OF_THE_DAY.image}
-              alt={t('Meal')}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            />
-          </div>
-          <div className="p-5">
-            <h4 className="text-xl font-bold text-slate-800 mb-2">
-              {MEAL_OF_THE_DAY.name}
-            </h4>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {nutrientLabels.map((n) => (
-                <span
-                  key={n}
-                  className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100"
-                >
-                  {n}
-                </span>
-              ))}
-            </div>
-            <Button color="slate" fullWidth>
-              {t('View Full Plan')}
-            </Button>
-          </div>
-        </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigate('/meals')}
+            className="w-full rounded-[2rem] bg-white border border-slate-100 p-8 text-center shadow-sm"
+          >
+            <div className="text-4xl mb-3" aria-hidden="true">🍲</div>
+            <p className="font-bold text-slate-700">{t('No meal plan available')}</p>
+            <p className="mt-1 text-sm text-slate-400">{t('View meals to create a plan')}</p>
+          </button>
+        )}
       </section>
 
       {/* 4. Featured Product Section - Shop Essentials */}
@@ -855,38 +901,67 @@ const HomeDashboard: React.FC = () => {
             {t('See All')}
           </button>
         </div>
-        <Card className="flex gap-5" padding="md">
-          <div className="w-24 h-24 bg-rose-50 rounded-2xl overflow-hidden flex-shrink-0">
-            <img
-              src={FEATURED_PRODUCT.image}
-              alt={t('Product')}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="flex-1 flex flex-col justify-between py-1">
-            <div>
-              <h4 className="font-bold text-slate-800">{featuredProductName}</h4>
-              <div className="flex items-center gap-1 mt-1 text-amber-400">
-                <StarIcon />
-                <span className="text-xs font-bold text-slate-400">
-                  {FEATURED_PRODUCT.rating}
+        {productsLoading ? (
+          <div className="h-32 rounded-[2rem] bg-white border border-slate-100 animate-pulse" />
+        ) : featuredProduct ? (
+          <Card className="flex gap-5" padding="md">
+            <button
+              type="button"
+              onClick={() => navigate(`/product-detail/${featuredProduct.id}`)}
+              className="w-24 h-24 bg-rose-50 rounded-2xl overflow-hidden flex-shrink-0"
+              aria-label={featuredProduct.name}
+            >
+              {featuredProduct.image ? (
+                <img
+                  src={featuredProduct.image}
+                  alt={featuredProduct.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center text-4xl" aria-hidden="true">🛍️</span>
+              )}
+            </button>
+            <div className="flex-1 flex flex-col justify-between py-1">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/product-detail/${featuredProduct.id}`)}
+                  className="font-bold text-slate-800 text-left"
+                >
+                  {featuredProduct.name}
+                </button>
+                {featuredProduct.category && (
+                  <p className="text-xs font-bold text-slate-400 mt-1">
+                    {featuredProduct.category}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-lg font-black text-slate-900">
+                  {featuredProduct.price}{' '}
+                  <span className="text-xs font-bold text-slate-400">ETB</span>
                 </span>
+                <button
+                  onClick={() => navigate(`/product-detail/${featuredProduct.id}`)}
+                  className="p-2 bg-rose-500 text-white rounded-xl shadow-lg shadow-rose-200 active:scale-90 transition-transform"
+                  aria-label={t('View product')}
+                >
+                  <PlusIcon />
+                </button>
               </div>
             </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-lg font-black text-slate-900">
-                {FEATURED_PRODUCT.price}{' '}
-                <span className="text-xs font-bold text-slate-400">ETB</span>
-              </span>
-              <button
-                onClick={() => navigate('/ecommerce')}
-                className="p-2 bg-rose-500 text-white rounded-xl shadow-lg shadow-rose-200 active:scale-90 transition-transform"
-              >
-                <PlusIcon />
-              </button>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigate('/ecommerce')}
+            className="w-full rounded-[2rem] bg-white border border-slate-100 p-8 text-center shadow-sm"
+          >
+            <div className="text-4xl mb-3" aria-hidden="true">🛍️</div>
+            <p className="font-bold text-slate-700">{t('No products available')}</p>
+            <p className="mt-1 text-sm text-slate-400">{t('Visit the shop to check again')}</p>
+          </button>
+        )}
       </section>
 
       {/* 5. Featured Articles Section */}

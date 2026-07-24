@@ -58,8 +58,6 @@ const getOrderStatusLabel = (status: string): string => {
   return labels[status] ?? status;
 };
 
-// Support contact — mirrors the VITE_SHOP_ORDER_PHONE pattern used in ShopView.
-const SUPPORT_PHONE: string = (import.meta.env.VITE_SUPPORT_PHONE as string | undefined) ?? '';
 const SUPPORT_AGENT_ID: string = (import.meta.env.VITE_SUPPORT_AGENT_ID as string | undefined) ?? '';
 
 const parseCalendarDate = (isoDate: string) => {
@@ -558,19 +556,6 @@ const CallCenterView: React.FC = () => {
                 {t('Instant Live Chat')}
               </Button>
 
-              {/* Emergency Audio Call — opens native phone dialer, same pattern as ShopView */}
-              {SUPPORT_PHONE ? (
-                <a
-                  href={`tel:${SUPPORT_PHONE}`}
-                  className="w-full py-4 text-lg bg-[#0B1A12] hover:bg-[#1B3B2B] text-white font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-slate-300"
-                >
-                  {t('Emergency Audio Call')}
-                </a>
-              ) : (
-                <p className="text-center text-sm text-slate-400">
-                  {t('Call support — contact not configured (set VITE_SUPPORT_PHONE)')}
-                </p>
-              )}
             </div>
           </div>
         </div>
