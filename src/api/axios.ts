@@ -61,6 +61,7 @@ axiosInstance.interceptors.response.use(
     if (
       typeof window !== "undefined" &&
       status === 401 &&
+      !String(error?.config?.url ?? "").includes("/auth/telegram/session") &&
       !sessionStorage.getItem(AUTH_RECOVERY_FLAG)
     ) {
       sessionStorage.setItem(AUTH_RECOVERY_FLAG, "true");

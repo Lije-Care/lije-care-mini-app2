@@ -13,7 +13,7 @@ type RegistrationStep = 'welcome' | 'registering' | 'done';
 const AuthGate = ({ children }: { children: React.ReactNode }) => {
   const { t } = useTranslation();
   const { refreshAuth } = useAuth();
-  const { status, telegramUser } = useTelegramAuth(refreshAuth);
+  const { status, telegramUser, telegramInitData } = useTelegramAuth(refreshAuth);
   const [regStep, setRegStep] = useState<RegistrationStep>('welcome');
   const [regError, setRegError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -37,13 +37,18 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
       setRegStep('registering');
 
       const { data } = await api.post('/auth/telegram-register', {
-        telegramId: telegramUser!.id.toString(),
+        ...(telegramInitData
+          ? { initData: telegramInitData }
+          : { telegramId: telegramUser!.id.toString() }),
         phone: normalizedPhone,
-        username: telegramUser?.username || '',
       });
 
       localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      } else {
+        localStorage.removeItem('refresh_token');
+      }
       localStorage.setItem('user', JSON.stringify(data.data));
       localStorage.setItem('has_children', String(data.hasChildren));
       refreshAuth();

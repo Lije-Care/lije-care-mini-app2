@@ -20,81 +20,16 @@ interface TelegramUser {
 interface UseTelegramAuthResult {
   status: AuthStatus;
   telegramUser: TelegramUser | null;
+  telegramInitData: string | null;
 }
-
-const BROWSER_AUTH_PARAM_KEYS = [
-  "browserAuthToken",
-  "browserRefreshToken",
-  "browserUser",
-  "browserHasChildren",
-  "browserOnboardingCompleted",
-] as const;
-
-const consumeBrowserSessionFromUrl = () => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const currentUrl = new URL(window.location.href);
-  const hashValue = currentUrl.hash.startsWith("#")
-    ? currentUrl.hash.slice(1)
-    : currentUrl.hash;
-
-  if (!hashValue) {
-    return;
-  }
-
-  const [hashPath, hashSearch = ""] = hashValue.split("?");
-  const hashParams = new URLSearchParams(hashSearch);
-  const browserAuthToken = hashParams.get("browserAuthToken");
-
-  if (!browserAuthToken) {
-    return;
-  }
-
-  localStorage.setItem("access_token", browserAuthToken);
-
-  const browserRefreshToken = hashParams.get("browserRefreshToken");
-  if (browserRefreshToken) {
-    localStorage.setItem("refresh_token", browserRefreshToken);
-  }
-
-  const browserUser = hashParams.get("browserUser");
-  if (browserUser) {
-    localStorage.setItem("user", decodeURIComponent(browserUser));
-  }
-
-  const browserHasChildren = hashParams.get("browserHasChildren");
-  if (browserHasChildren) {
-    localStorage.setItem("has_children", browserHasChildren);
-  }
-
-  const browserOnboardingCompleted = hashParams.get(
-    "browserOnboardingCompleted",
-  );
-  if (browserOnboardingCompleted) {
-    localStorage.setItem(
-      "onboarding_completed",
-      browserOnboardingCompleted,
-    );
-  }
-
-  BROWSER_AUTH_PARAM_KEYS.forEach((key) => hashParams.delete(key));
-  const cleanedHashSearch = hashParams.toString();
-  currentUrl.hash = cleanedHashSearch
-    ? `#${hashPath}?${cleanedHashSearch}`
-    : `#${hashPath}`;
-  window.history.replaceState(null, "", currentUrl.toString());
-};
 
 const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
+  const [telegramInitData, setTelegramInitData] = useState<string | null>(null);
 
   useEffect(() => {
     const authenticate = async () => {
-      consumeBrowserSessionFromUrl();
-
       // If already have a token, check if user has children for routing
       const existingToken = localStorage.getItem("access_token");
       if (existingToken) {
@@ -130,7 +65,11 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
           });
 
           localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("refresh_token", data.refresh_token);
+          if (data.refresh_token) {
+            localStorage.setItem("refresh_token", data.refresh_token);
+          } else {
+            localStorage.removeItem("refresh_token");
+          }
           localStorage.setItem("user", JSON.stringify(data.data));
           localStorage.setItem("has_children", String(data.hasChildren));
 
@@ -159,8 +98,11 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
 
       // Get Telegram user from launch params (proven to work, unlike initData signal)
       let tgUser: TelegramUser | null = null;
+      let rawInitData: string | undefined;
       try {
         const launchParams = retrieveLaunchParams();
+        rawInitData = launchParams.initDataRaw;
+        setTelegramInitData(rawInitData ?? null);
         const user = launchParams.initData?.user;
         if (user) {
           tgUser = {
@@ -175,7 +117,7 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
         return;
       }
 
-      if (!tgUser?.id) {
+      if (!tgUser?.id || !rawInitData) {
         setStatus("error");
         return;
       }
@@ -183,12 +125,16 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
       setTelegramUser(tgUser);
 
       try {
-        const { data } = await api.post("/auth/telegram-signin", {
-          telegramId: tgUser.id.toString(),
+        const { data } = await api.post("/auth/telegram/session", {
+          initData: rawInitData,
         });
 
         localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
+        if (data.refresh_token) {
+          localStorage.setItem("refresh_token", data.refresh_token);
+        } else {
+          localStorage.removeItem("refresh_token");
+        }
         localStorage.setItem("user", JSON.stringify(data.data));
         localStorage.setItem("has_children", String(data.hasChildren));
 
@@ -217,7 +163,7 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
     authenticate();
   }, []);
 
-  return { status, telegramUser };
+  return { status, telegramUser, telegramInitData };
 };
 
 export default useTelegramAuth;

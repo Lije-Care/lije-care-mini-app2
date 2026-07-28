@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -161,6 +161,15 @@ const CallCenterView: React.FC = () => {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [uploadingOrder, setUploadingOrder] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const launchLockRef = useRef(false);
+  const [preparedLaunch, setPreparedLaunch] = useState<{
+    bookingId: string;
+    launchUrl: string;
+    expiresAt: string;
+  } | null>(null);
+  const [launchStatus, setLaunchStatus] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [failedLaunchBookingId, setFailedLaunchBookingId] = useState<string | null>(null);
 
   // Get specialists from Redux
   const { specialists, loading } = useSelector((state: RootState) => state.specialists);
@@ -192,8 +201,8 @@ const CallCenterView: React.FC = () => {
 
       // Fetch bookings and consultation orders in parallel so one failing doesn't block the other
       const [bookingsRes, ordersRes] = await Promise.allSettled([
-        api.get(`/booking/my-booking/parent/${telegramUser.id}`),
-        api.get(`/consultation-order/my-orders/${telegramUser.id}`),
+        api.get('/booking/my-booking/me'),
+        api.get('/consultation-order/my-orders/me'),
       ]);
 
       setBookings(
@@ -219,6 +228,66 @@ const CallCenterView: React.FC = () => {
   useEffect(() => {
     void fetchBookings();
   }, []);
+
+  useEffect(() => {
+    const refreshOnReturn = () => {
+      if (document.visibilityState === 'visible') void fetchBookings();
+    };
+    document.addEventListener('visibilitychange', refreshOnReturn);
+    return () => document.removeEventListener('visibilitychange', refreshOnReturn);
+  }, []);
+
+  const openPreparedConsultation = (launchUrl: string) => {
+    const openLink = (window as Window & {
+      Telegram?: { WebApp?: { openLink?: (href: string) => void } };
+    }).Telegram?.WebApp?.openLink;
+    if (!openLink) {
+      setLaunchError(t('Open the secure link below in your browser.'));
+      return false;
+    }
+    try {
+      openLink(launchUrl);
+      setLaunchStatus(t('Consultation opened in browser'));
+      setLaunchError(null);
+      return true;
+    } catch {
+      setLaunchError(t('Could not open the browser. Use the secure link below.'));
+      return false;
+    }
+  };
+
+  const prepareExternalConsultation = async (bookingId: string) => {
+    if (launchLockRef.current) return;
+    launchLockRef.current = true;
+    setLaunchError(null);
+    setFailedLaunchBookingId(null);
+    setPreparedLaunch(null);
+    setLaunchStatus(t('Preparing secure consultation link'));
+    try {
+      if (import.meta.env.VITE_ENABLE_EXTERNAL_CONSULTATION_HANDOFF !== 'true') {
+        throw new Error(t('External consultations are not enabled yet.'));
+      }
+      const response = await api.post('/consultation-handoffs', { bookingId });
+      const prepared = {
+        bookingId,
+        launchUrl: response.data.launchUrl as string,
+        expiresAt: response.data.expiresAt as string,
+      };
+      setPreparedLaunch(prepared);
+      setLaunchStatus(t('Opening consultation in browser'));
+      openPreparedConsultation(prepared.launchUrl);
+    } catch (error: any) {
+      setLaunchStatus(null);
+      setFailedLaunchBookingId(bookingId);
+      setLaunchError(
+        error?.response?.data?.message ||
+          error?.message ||
+          t('Could not prepare the consultation link. Please retry.'),
+      );
+    } finally {
+      launchLockRef.current = false;
+    }
+  };
 
   // Transform backend specialists to match UI format
   const professionals: Professional[] = specialists.map(s => {
@@ -408,6 +477,52 @@ const CallCenterView: React.FC = () => {
           >
             {t('← Back to Help')}
           </button>
+          {(launchStatus || launchError) && (
+            <div className={`rounded-2xl p-4 text-sm font-bold ${
+              launchError ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'
+            }`}>
+              <p>{launchError || launchStatus}</p>
+              {preparedLaunch && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openPreparedConsultation(preparedLaunch.launchUrl)}
+                    className="rounded-xl bg-[#0B1A12] px-4 py-2 text-white"
+                  >
+                    {t('Open consultation')}
+                  </button>
+                  <a
+                    href={preparedLaunch.launchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-xl border border-amber-300 px-4 py-2"
+                  >
+                    {t('Open directly')}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(preparedLaunch.launchUrl)}
+                    className="rounded-xl border border-amber-300 px-4 py-2"
+                  >
+                    {t('Copy short-lived link')}
+                  </button>
+                  <span className="w-full text-[10px] font-medium">
+                    {t('This secure link expires quickly and can be used only once.')}
+                  </span>
+                </div>
+              )}
+              {launchError && !preparedLaunch && (
+                <button
+                  type="button"
+                  onClick={() => failedLaunchBookingId && void prepareExternalConsultation(failedLaunchBookingId)}
+                  disabled={!failedLaunchBookingId}
+                  className="mt-3 rounded-xl bg-[#0B1A12] px-4 py-2 text-white"
+                >
+                  {t('Retry')}
+                </button>
+              )}
+            </div>
+          )}
           {loadingSessions ? (
             <div className="bg-slate-50 rounded-[3rem] p-12 text-center border border-slate-100">
               <p className="text-slate-400 font-medium">{t('Loading sessions...')}</p>
@@ -500,7 +615,7 @@ const CallCenterView: React.FC = () => {
                     </button>
                     <button
                       disabled={!audioAction.enabled}
-                      onClick={() => navigate(`/session-call/${booking.expert.id}?bookingId=${booking.id}&actionType=AUDIO`)}
+                      onClick={() => void prepareExternalConsultation(booking.id)}
                       title={audioAction.reason ? t(audioAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
                         audioAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'
@@ -510,7 +625,7 @@ const CallCenterView: React.FC = () => {
                     </button>
                     <button
                       disabled={!videoAction.enabled}
-                      onClick={() => navigate(`/session-call/${booking.expert.id}?bookingId=${booking.id}&actionType=VIDEO`)}
+                      onClick={() => void prepareExternalConsultation(booking.id)}
                       title={videoAction.reason ? t(videoAction.reason) : undefined}
                       className={`py-4 rounded-2xl flex items-center justify-center transition-all ${
                         videoAction.enabled ? 'bg-[#0B1A12] text-white shadow-lg' : 'bg-slate-50 text-slate-200'

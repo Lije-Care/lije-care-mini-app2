@@ -3,6 +3,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import react from "@vitejs/plugin-react-swc";
 import mkcert from "vite-plugin-mkcert";
 import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
 // https://vitejs.dev/config/
 export default defineConfig({
   base: "/",
@@ -21,6 +22,14 @@ export default defineConfig({
     process.env.HTTPS && mkcert(),
   ],
   publicDir: "./public",
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        consultation: resolve(__dirname, "consultation.html"),
+      },
+    },
+  },
   server: {
     // Exposes your dev server and makes it accessible for the devices in the same network.
     host: true,

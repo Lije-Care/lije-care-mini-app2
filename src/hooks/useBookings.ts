@@ -19,7 +19,7 @@ export const useBookings = () => {
 
     const fetchBookings = async () => {
       try {
-        const { data } = await api.get(`/booking/my-booking/parent/${user.id}`);
+        const { data } = await api.get('/booking/my-booking/me');
         const userBookings = data?.data?.filter((booking: Booking) => booking.parentId === user.id);
         setBookings(userBookings);
       } catch (err) {

@@ -1,0 +1,55 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #132018;
+  background: #f2f6ef;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(118, 161, 59, .18), transparent 38%),
+    #f2f6ef;
+}
+
+.consultation-card {
+  width: min(100%, 520px);
+  padding: clamp(28px, 7vw, 52px);
+  border-radius: 32px;
+  background: white;
+  box-shadow: 0 24px 70px rgba(11, 26, 18, .12);
+}
+
+.consultation-mark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: white;
+  background: #0b1a12;
+  font-weight: 900;
+}
+
+h1 { margin: 28px 0 12px; font-size: clamp(28px, 6vw, 40px); line-height: 1.08; }
+p { color: #627068; line-height: 1.6; }
+.consultation-kicker { color: #76a13b; text-transform: uppercase; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+dl { display: flex; gap: 32px; margin: 32px 0 0; }
+dt { color: #87928b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+dd { margin: 5px 0 0; font-weight: 800; text-transform: capitalize; }
+.consultation-error .consultation-mark { background: #b42318; }
+button { border: 0; border-radius: 999px; padding: 13px 20px; background: #0b1a12; color: white; font: inherit; font-weight: 800; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+.call-card { width: min(100%, 900px); }
+.peer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+.peer-tile { position: relative; min-height: 220px; overflow: hidden; border-radius: 20px; background: #132018; color: white; }
+.peer-tile video { display: block; width: 100%; height: 100%; min-height: 220px; object-fit: cover; }
+.peer-avatar { min-height: 220px; display: grid; place-items: center; font-size: 64px; font-weight: 900; }
+.peer-tile span { position: absolute; left: 12px; bottom: 12px; padding: 6px 10px; border-radius: 99px; background: rgba(0,0,0,.6); }
+.call-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; }
+.call-controls .danger { background: #b42318; }
