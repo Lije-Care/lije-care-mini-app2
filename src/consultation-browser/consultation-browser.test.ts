@@ -64,6 +64,18 @@ describe("external consultation entry", () => {
     expect(telegramRoot).not.toContain("HMSRoomProvider");
   });
 
+  it("keeps audio consultations camera-free", () => {
+    const page = readFileSync(resolve(testDirectory, "ConsultationPage.tsx"), "utf8");
+    const lifecycle = readFileSync(
+      resolve(testDirectory, "useConsultationLifecycle.ts"),
+      "utf8",
+    );
+    expect(page).toContain('allowVideo={session.consultationType === "VIDEO"}');
+    expect(page).toContain('session.consultationType === "VIDEO" &&');
+    expect(lifecycle).toContain('session?.consultationType === "AUDIO" && videoEnabled');
+    expect(lifecycle).toContain('session?.consultationType === "VIDEO"');
+  });
+
   it("locks Join synchronously and refreshes bookings when Telegram returns", () => {
     const source = readFileSync(
       resolve(testDirectory, "../pages/Consultation/CallCenterView.tsx"),

@@ -200,6 +200,12 @@ export const useConsultationLifecycle = () => {
   }, [connected, dispatch]);
 
   useEffect(() => {
+    if (session?.consultationType === "AUDIO" && videoEnabled) {
+      void hmsActions.setLocalVideoEnabled(false);
+    }
+  }, [hmsActions, session?.consultationType, videoEnabled]);
+
+  useEffect(() => {
     if (!session) return;
     const remaining = new Date(session.endsAt).getTime() - Date.now();
     if (remaining <= 0) {
@@ -279,6 +285,9 @@ export const useConsultationLifecycle = () => {
     leave,
     retry,
     toggleAudio: () => hmsActions.setLocalAudioEnabled(!audioEnabled),
-    toggleVideo: () => hmsActions.setLocalVideoEnabled(!videoEnabled),
+    toggleVideo: () =>
+      session?.consultationType === "VIDEO"
+        ? hmsActions.setLocalVideoEnabled(!videoEnabled)
+        : Promise.resolve(),
   };
 };

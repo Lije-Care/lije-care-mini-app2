@@ -1,4 +1,5 @@
 import { useVideo } from "@100mslive/react-sdk";
+import type { HMSPeer } from "@100mslive/react-sdk";
 import { ConsultationError } from "./ConsultationError";
 import { ConsultationStatus } from "./ConsultationStatus";
 import { useConsultationLifecycle } from "./useConsultationLifecycle";
@@ -7,11 +8,11 @@ export const isBrowserCompatible = () =>
   typeof window.RTCPeerConnection !== "undefined" &&
   typeof navigator.mediaDevices !== "undefined";
 
-const PeerTile = ({ peer }: { peer: any }) => {
+const PeerTile = ({ peer, allowVideo }: { peer: HMSPeer; allowVideo: boolean }) => {
   const { videoRef } = useVideo({ trackId: peer.videoTrack });
   return (
     <article className="peer-tile">
-      {peer.videoTrack ? (
+      {allowVideo && peer.videoTrack ? (
         <video ref={videoRef} autoPlay playsInline muted={peer.isLocal} />
       ) : (
         <div className="peer-avatar">{peer.name?.slice(0, 1)?.toUpperCase() || "?"}</div>
@@ -73,7 +74,13 @@ export const ConsultationPage = () => {
       {inCall && (
         <>
           <section className="peer-grid" aria-label="Consultation participants">
-            {call.peers.map((peer) => <PeerTile key={peer.id} peer={peer} />)}
+            {call.peers.map((peer) => (
+              <PeerTile
+                key={peer.id}
+                peer={peer}
+                allowVideo={session.consultationType === "VIDEO"}
+              />
+            ))}
           </section>
           <div className="call-controls">
             <button onClick={() => void call.toggleAudio()}>
