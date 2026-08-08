@@ -191,6 +191,7 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
       setTelegramUser(user);
 
       try {
+        console.log("telegram_initdata_frontend", rawInitData);
         const { data } = await api.post("/auth/telegram/session", {
           initData: rawInitData,
         });
