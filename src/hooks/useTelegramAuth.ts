@@ -23,6 +23,91 @@ interface UseTelegramAuthResult {
   telegramInitData: string | null;
 }
 
+type TelegramAuthErrorPayload = {
+  message?: string;
+  code?: string;
+};
+
+type TelegramLaunchContext = {
+  rawInitData: string | null;
+  user: TelegramUser | null;
+};
+
+type TelegramSdkUser = {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+};
+
+type TelegramWebAppUser = {
+  id?: number | string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+};
+
+const mapSdkUser = (user?: TelegramSdkUser | null): TelegramUser | null => {
+  if (!user?.id) return null;
+
+  return {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  };
+};
+
+const mapWebAppUser = (user?: TelegramWebAppUser | null): TelegramUser | null => {
+  if (typeof user?.id !== "number" && typeof user?.id !== "string") {
+    return null;
+  }
+
+  const normalizedId = Number(user.id);
+  if (!Number.isFinite(normalizedId)) {
+    return null;
+  }
+
+  return {
+    id: normalizedId,
+    firstName: user.first_name || "",
+    lastName: user.last_name,
+    username: user.username,
+  };
+};
+
+const readTelegramLaunchContext = (): TelegramLaunchContext => {
+  let rawInitData: string | null = null;
+  let user: TelegramUser | null = null;
+
+  try {
+    const launchParams = retrieveLaunchParams();
+    rawInitData = launchParams.initDataRaw ?? null;
+    user = mapSdkUser(launchParams.initData?.user);
+  } catch {
+    // Fall back to Telegram WebApp globals below.
+  }
+
+  const webApp = (window as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
+  if (!rawInitData && typeof webApp?.initData === "string") {
+    const trimmedInitData = webApp.initData.trim();
+    rawInitData = trimmedInitData ? trimmedInitData : null;
+  }
+
+  if (!user) {
+    user = mapWebAppUser(webApp?.initDataUnsafe?.user);
+  }
+
+  return { rawInitData, user };
+};
+
+const isNotRegisteredError = (
+  error: AxiosError<TelegramAuthErrorPayload>
+): boolean =>
+  error?.response?.status === 404 ||
+  error?.response?.data?.message === "User not found" ||
+  error?.response?.data?.code === "TELEGRAM_USER_NOT_REGISTERED";
+
 const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
@@ -83,11 +168,8 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
             setStatus("authenticated");
           }
         } catch (error) {
-          const err = error as AxiosError<{ message: string }>;
-          if (
-            err?.response?.status === 404 ||
-            err?.response?.data?.message === "User not found"
-          ) {
+          const err = error as AxiosError<TelegramAuthErrorPayload>;
+          if (isNotRegisteredError(err)) {
             setStatus("not_registered");
           } else {
             setStatus("error");
@@ -96,33 +178,15 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
         return;
       }
 
-      // Get Telegram user from launch params (proven to work, unlike initData signal)
-      let tgUser: TelegramUser | null = null;
-      let rawInitData: string | undefined;
-      try {
-        const launchParams = retrieveLaunchParams();
-        rawInitData = launchParams.initDataRaw;
-        setTelegramInitData(rawInitData ?? null);
-        const user = launchParams.initData?.user;
-        if (user) {
-          tgUser = {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            username: user.username,
-          };
-        }
-      } catch {
+      const { rawInitData, user } = readTelegramLaunchContext();
+      setTelegramInitData(rawInitData);
+
+      if (!user?.id || !rawInitData) {
         setStatus("error");
         return;
       }
 
-      if (!tgUser?.id || !rawInitData) {
-        setStatus("error");
-        return;
-      }
-
-      setTelegramUser(tgUser);
+      setTelegramUser(user);
 
       try {
         const { data } = await api.post("/auth/telegram/session", {
@@ -148,11 +212,8 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
           setStatus("authenticated");
         }
       } catch (error) {
-        const err = error as AxiosError<{ message: string }>;
-        if (
-          err?.response?.status === 404 ||
-          err?.response?.data?.message === "User not found"
-        ) {
+        const err = error as AxiosError<TelegramAuthErrorPayload>;
+        if (isNotRegisteredError(err)) {
           setStatus("not_registered");
         } else {
           setStatus("error");
