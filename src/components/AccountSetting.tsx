@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button, Input } from "@/components/ui";
 import { BottomSheet } from "@/components/ui";
 import toast from "react-hot-toast";
@@ -61,6 +61,11 @@ const AccountSettings = (_props: AccountSettingsProps) => {
     setUserId(localUser?.id ?? "");
   }, []);
 
+  const resetAppSession = useCallback(() => {
+    navigate("/", { replace: true });
+    window.location.reload();
+  }, [navigate]);
+
   const handleChangePasswordChange = (field: string, value: string) => {
     setChangeData((prev) => ({ ...prev, [field]: value }));
     setChangeError(null);
@@ -110,7 +115,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
   };
 
   const handleLogout = () => {
-    signOutAndCloseApp(() => navigate("/"));
+    signOutAndCloseApp(resetAppSession);
   };
 
   const handleDeleteAccount = async () => {
@@ -124,8 +129,7 @@ const AccountSettings = (_props: AccountSettingsProps) => {
 
       if (res.status === 200) {
         toast.success(t("Account deleted successfully."));
-        setIsDeleting(false);
-        signOutAndCloseApp(() => navigate("/"));
+        signOutAndCloseApp(resetAppSession);
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || t("Failed to delete account."));

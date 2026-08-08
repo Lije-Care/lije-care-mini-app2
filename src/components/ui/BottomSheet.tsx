@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { registerBackHandler } from '@/navigation/backStore';
 
 interface BottomSheetProps {
@@ -16,6 +16,15 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   title,
   showHandle = true,
 }) => {
+  const onCloseRef = useRef(onClose);
+  const handlerIdRef = useRef(
+    `bottom-sheet-${Math.random().toString(36).slice(2)}`
+  );
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   // Prevent body scroll when sheet is open
   useEffect(() => {
     if (isOpen) {
@@ -33,15 +42,15 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     return registerBackHandler({
-      id: 'bottom-sheet',
+      id: handlerIdRef.current,
       priority: 50,
-      canHandle: () => isOpen,
+      canHandle: () => true,
       onBack: () => {
-        onClose();
+        onCloseRef.current();
         return true;
       },
     });
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

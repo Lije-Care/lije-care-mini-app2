@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
 import { fetchMeals, fetchIngredients } from '@/redux/slices/mealSlice';
 import { fetchChildrenByParentId } from '@/redux/slices/childSlice';
-import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon, AssessmentIcon, TrashIcon } from '@/design-system/icons';
+import { PlusIcon, SearchIcon, FilterIcon, ChevronDownIcon, AssessmentIcon, TrashIcon, CloseIcon } from '@/design-system/icons';
 import type { Meal } from '@/design-system/types';
 import api, { getPreferredLanguage } from '@/api/axios';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -4874,13 +4874,13 @@ const MealsView: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex gap-4">
-                  <div className="relative flex-1">
-                    <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <div className="group relative flex-1">
+                    <SearchIcon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 group-focus-within:text-[#76A13B]" />
                     <input
                       ref={plannerSearchInputRef}
                       type="text"
                       placeholder={`Search ${activeSlot.toLowerCase()} meals...`}
-                      className="w-full rounded-2xl border border-slate-100 bg-white py-4 pl-12 pr-4 text-sm font-medium text-slate-800 outline-none focus:border-sky-300 placeholder:text-slate-300 caret-slate-700"
+                      className="w-full rounded-2xl border border-slate-200 bg-[#FFFDF7] py-4 pl-12 pr-12 text-sm font-medium text-slate-800 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 outline-none placeholder:text-slate-300 caret-slate-700 focus:border-[#76A13B] focus:bg-white focus:ring-4 focus:ring-[#76A13B]/12"
                       value={plannerSearchQuery}
                       onChange={(e) => setPlannerSearchQuery(e.target.value)}
                       onPaste={(event) => handleSearchPaste(event, setPlannerSearchQuery)}
@@ -4889,7 +4889,18 @@ const MealsView: React.FC = () => {
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
+                      aria-label={`Search ${activeSlot.toLowerCase()} meals`}
                     />
+                    {plannerSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setPlannerSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#76A13B]/35"
+                        aria-label={`Clear ${activeSlot.toLowerCase()} meal search`}
+                      >
+                        <CloseIcon className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </div>
                   <button
                     onClick={() => {
@@ -5120,13 +5131,13 @@ const MealsView: React.FC = () => {
       </div>
 
       <div className="flex gap-4">
-        <div className="flex-1 relative">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+        <div className="group relative flex-1">
+          <SearchIcon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 group-focus-within:text-[#76A13B]" />
           <input
             ref={librarySearchInputRef}
             type="text"
             placeholder={t('Search by name, allergy...')}
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:border-sky-300 text-sm font-medium text-slate-800 placeholder:text-slate-300 caret-slate-700"
+            className="w-full rounded-2xl border border-slate-200 bg-[#FFFDF7] py-4 pl-12 pr-12 text-sm font-medium text-slate-800 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 outline-none placeholder:text-slate-300 caret-slate-700 focus:border-[#76A13B] focus:bg-white focus:ring-4 focus:ring-[#76A13B]/12"
             value={librarySearchQuery}
             onChange={e => setLibrarySearchQuery(e.target.value)}
             onPaste={(event) => handleSearchPaste(event, setLibrarySearchQuery)}
@@ -5135,7 +5146,18 @@ const MealsView: React.FC = () => {
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
+            aria-label={t('Search by name, allergy...')}
           />
+          {librarySearchQuery ? (
+            <button
+              type="button"
+              onClick={() => setLibrarySearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#76A13B]/35"
+              aria-label={t('Clear search')}
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
         <button
           onClick={() => setShowFilters(true)}
