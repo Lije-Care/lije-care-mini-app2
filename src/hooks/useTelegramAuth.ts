@@ -30,6 +30,8 @@ type TelegramAuthErrorPayload = {
 
 type TelegramLaunchContext = {
   rawInitData: string | null;
+  webAppInitData: string | null;
+  sdkInitDataRaw: string | null;
   user: TelegramUser | null;
 };
 
@@ -78,18 +80,22 @@ const mapWebAppUser = (user?: TelegramWebAppUser | null): TelegramUser | null =>
 
 const readTelegramLaunchContext = (): TelegramLaunchContext => {
   let rawInitData: string | null = null;
+  let webAppInitData: string | null = null;
+  let sdkInitDataRaw: string | null = null;
   let user: TelegramUser | null = null;
   const webApp = (window as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
 
   if (typeof webApp?.initData === "string") {
     const trimmedInitData = webApp.initData.trim();
-    rawInitData = trimmedInitData ? trimmedInitData : null;
+    webAppInitData = trimmedInitData ? trimmedInitData : null;
+    rawInitData = webAppInitData;
   }
 
   try {
     const launchParams = retrieveLaunchParams();
+    sdkInitDataRaw = launchParams.initDataRaw ?? null;
     if (!rawInitData) {
-      rawInitData = launchParams.initDataRaw ?? null;
+      rawInitData = sdkInitDataRaw;
     }
     user = mapSdkUser(launchParams.initData?.user);
   } catch {
@@ -100,7 +106,7 @@ const readTelegramLaunchContext = (): TelegramLaunchContext => {
     user = mapWebAppUser(webApp?.initDataUnsafe?.user);
   }
 
-  return { rawInitData, user };
+  return { rawInitData, webAppInitData, sdkInitDataRaw, user };
 };
 
 const isNotRegisteredError = (
@@ -180,7 +186,8 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
         return;
       }
 
-      const { rawInitData, user } = readTelegramLaunchContext();
+      const { rawInitData, webAppInitData, sdkInitDataRaw, user } =
+        readTelegramLaunchContext();
       setTelegramInitData(rawInitData);
 
       if (!user?.id || !rawInitData) {
@@ -191,9 +198,10 @@ const useTelegramAuth = (onAuthChange?: () => void): UseTelegramAuthResult => {
       setTelegramUser(user);
 
       try {
-        console.log("telegram_initdata_frontend", rawInitData);
         const { data } = await api.post("/auth/telegram/session", {
           initData: rawInitData,
+          webAppInitData,
+          sdkInitDataRaw,
         });
 
         localStorage.setItem("access_token", data.access_token);
