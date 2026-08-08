@@ -79,19 +79,21 @@ const mapWebAppUser = (user?: TelegramWebAppUser | null): TelegramUser | null =>
 const readTelegramLaunchContext = (): TelegramLaunchContext => {
   let rawInitData: string | null = null;
   let user: TelegramUser | null = null;
+  const webApp = (window as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
+
+  if (typeof webApp?.initData === "string") {
+    const trimmedInitData = webApp.initData.trim();
+    rawInitData = trimmedInitData ? trimmedInitData : null;
+  }
 
   try {
     const launchParams = retrieveLaunchParams();
-    rawInitData = launchParams.initDataRaw ?? null;
+    if (!rawInitData) {
+      rawInitData = launchParams.initDataRaw ?? null;
+    }
     user = mapSdkUser(launchParams.initData?.user);
   } catch {
     // Fall back to Telegram WebApp globals below.
-  }
-
-  const webApp = (window as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
-  if (!rawInitData && typeof webApp?.initData === "string") {
-    const trimmedInitData = webApp.initData.trim();
-    rawInitData = trimmedInitData ? trimmedInitData : null;
   }
 
   if (!user) {
