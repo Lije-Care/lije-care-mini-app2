@@ -18,8 +18,7 @@ import './index.css';
 // Mock the environment in case we are outside Telegram.
 import './mockEnv.ts';
 
-// Import service worker
-import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
+import { unregisterStaleServiceWorkers } from "./serviceWorkerRegistration";
 
 const getLaunchParamsSafely = () => {
   try {
@@ -36,7 +35,7 @@ normalizeChapaPaymentReturnLocation();
 const launchParams = getLaunchParamsSafely();
 if (!launchParams && isChapaPaymentStatusRoute()) {
   root.render(<ExternalShopPaymentStatusRoot />);
-  serviceWorkerRegistration.register();
+  unregisterStaleServiceWorkers();
 } else {
   try {
     if (!launchParams) {
@@ -52,8 +51,7 @@ if (!launchParams && isChapaPaymentStatusRoute()) {
       // </StrictMode>
     );
 
-    // Register the Service Worker for PWA
-    serviceWorkerRegistration.register();
+    unregisterStaleServiceWorkers();
 
   } catch (e) {
     root.render(<EnvUnsupported />);
